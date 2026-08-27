@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --surface: #f6f9ff;
+  --surface-low: #edf4fe;
+  --surface-lowest: #ffffff;
+  --surface-high: #e1e9f2;
+  --on-surface: #151c23;
+  --on-surface-var: #4a5a6a;
+  --primary: #2563eb;
+}
+
+body {
+  background: var(--surface);
+  color: var(--on-surface);
+}
