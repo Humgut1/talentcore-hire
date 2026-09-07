@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadence — 면접관 화면</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/css/jetbrains-mono.css">
+<link rel="stylesheet" href="app.css?v=4">
+<link rel="stylesheet" href="iv.css?v=1">
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 24 24"><path d="M5 15V9M12 19V5M19 15V9"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></symbol>
+  <symbol id="i-check-sq" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 12.5l2.5 2.5L16 9.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="12" height="12" rx="2"/><path d="M15 10.5l6-3.5v10l-6-3.5z"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5 20a7 7 0 0 1 14 0"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 5.5a3.2 3.2 0 0 1 0 6"/><path d="M18 14.5a6 6 0 0 1 3 5.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4.5L21 19.5H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 4l2.4 5 5.6.8-4 3.9 1 5.5-5-2.6-5 2.6 1-5.5-4-3.9 5.6-.8z"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 3L5 13.5h6L11 21l8-10.5h-6z"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7L11.5 6.3"/><path d="M14 10.5a4 4 0 0 0-5.7 0l-2.8 2.8a4 4 0 0 0 5.7 5.7l1.3-1.3"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/></symbol>
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M20 14.5a2.5 2.5 0 0 1-2.5 2.5H9l-5 4V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5l7 2.5v5.5c0 4.3-2.9 7.6-7 9-4.1-1.4-7-4.7-7-9V6z"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M4 4l16 16"/><path d="M9.9 5.3A9 9 0 0 1 21 12a13 13 0 0 1-2.7 3.4M6.2 7.2A13 13 0 0 0 3 12a9 9 0 0 0 12.4 5.1"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4h-4"/></symbol>
+  <symbol id="i-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"/><path d="M3 12h18"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+</svg>
+
+<div class="pg">
+
+  <!-- ============ 페이지 헤더 ============ -->
+  <header class="pg-h">
+    <span class="brand-mark" style="width:30px;height:30px;border-radius:9px">
+      <svg viewBox="0 0 24 24" style="width:16px;height:16px"><use href="#i-mark"/></svg>
+    </span>
+    <div>
+      <h1>면접관 화면</h1>
+      <p>면접관은 ATS에 로그인하지 않습니다. ①③은 링크 한 장, ④만 로그인합니다.</p>
+    </div>
+    <div class="right">
+      <a class="btn" href="app.html#/p/p1/board">리크루터 화면 보기</a>
+    </div>
+  </header>
+
+  <!-- ============ 화면 전환 ============ -->
+  <nav class="stabs" id="stabs">
+    <button class="stab on" data-p="1"><span class="k">01</span><b>슬롯 선택 카드</b><u>Slack · 확정이 일어나는 곳</u></button>
+    <button class="stab"    data-p="2"><span class="k">02</span><b>면접 브리핑</b><u>토큰 링크 · 로그인 없음</u></button>
+    <button class="stab"    data-p="3"><span class="k">03</span><b>평가 제출</b><u>토큰 링크 · 좌 이력 / 우 평가</u></button>
+    <button class="stab"    data-p="4"><span class="k">04</span><b>내 면접 · 가용시간</b><u>유일한 로그인 화면</u></button>
+  </nav>
+
+  <!-- =====================================================
+       ① 슬롯 선택 카드
+       ===================================================== -->
+  <section class="pane on" id="p1">
+    <div class="two">
+      <div>
+        <div class="slack">
+          <div class="slack-h">
+            <span class="aic"><svg viewBox="0 0 24 24"><use href="#i-mark"/></svg></span>
+            <b>Cadence</b><span>앱</span>
+            <span class="to">서민재 · 서버팀 테크리드</span>
+          </div>
+
+          <div class="slack-b">
+
+            <div class="msg">
+              <span class="av">C</span>
+              <div class="bd">
+                <div class="hd"><b>Cadence</b><span class="bot">앱</span><span class="t">오전 9:12</span></div>
+                <div class="tx">서민재님, 1차 인터뷰 일정 하나만 골라주세요.</div>
+
+                <!-- 카드: 선택 전 -->
+                <div class="sc" id="sc">
+                  <div class="sc-top"></div>
+                  <div class="sc-in" id="scIn">
+                    <div class="sc-lb"><svg class="ic"><use href="#i-video"/></svg>1차 인터뷰 · 60분 · 화상</div>
+                    <h3>임채원 님 면접 시간을 골라주세요</h3>
+                    <div class="sub">백엔드 엔지니어 (시니어) · 6년차 · 배민</div>
+
+                    <div class="slots">
+                      <button class="slot" data-t="8/18 (화) 11:00–12:00" data-d="최영수님도 가능">
+                        <span><span class="tm">8/18 (화) 11:00–12:00</span><span class="dy">최영수님도 가능</span></span>
+                        <span class="go">선택<svg class="ic"><use href="#i-chevron"/></svg></span>
+                      </button>
+                      <button class="slot" data-t="8/19 (수) 14:00–15:00" data-d="최영수님도 가능">
+                        <span><span class="tm">8/19 (수) 14:00–15:00</span><span class="dy">최영수님도 가능</span></span>
+                        <span class="go">선택<svg class="ic"><use href="#i-chevron"/></svg></span>
+                      </button>
+                      <button class="slot" data-t="8/20 (목) 10:00–11:00" data-d="최영수님 조정 필요">
+                        <span><span class="tm">8/20 (목) 10:00–11:00</span><span class="dy">최영수님 조정 필요</span></span>
+                        <span class="go">선택<svg class="ic"><use href="#i-chevron"/></svg></span>
+                      </button>
+                    </div>
+
+                    <div class="sc-f">
+                      <button class="btn" id="scNo">세 개 다 어렵습니다</button>
+                      <button class="btn quiet" data-toast="이력서를 새 창에서 열었습니다">이력서 보기</button>
+                    </div>
+
+                    <div class="sc-note">
+                      <svg class="ic"><use href="#i-info"/></svg>
+                      <span><b>Cadence는 시간을 자동으로 확정하지 않습니다.</b> 위에서 고르셔야 확정됩니다.
+                      오늘 오후 9:12까지 응답이 없으면 리마인드가 갑니다.</span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <div id="scSys"></div>
+
+          </div>
+        </div>
+
+        <p class="disclaimer">※ 화면은 기능 설명을 위한 예시 데이터입니다. 실제 지표가 아닙니다.</p>
+      </div>
+
+      <!-- 해설 -->
+      <div>
+        <div class="exp">
+          <h4><svg class="ic"><use href="#i-zap"/></svg>AI가 여기까지 한 일</h4>
+          <ul>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>최영수·서민재 캘린더에서 <b>60분 연속 빈 블록</b>을 영업일 10일 범위로 탐색</li>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>면접 사이 <b>15분 버퍼</b> 확보, 10:00–18:00 밖은 제외</li>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>겹치는 시간 3개를 추려 <b>Slack DM</b>으로 발송</li>
+          </ul>
+          <div class="hr"></div>
+          <h4 class="warn"><svg class="ic"><use href="#i-alert"/></svg>AI가 하지 않는 일</h4>
+          <p><b>확정.</b> 캘린더가 비어 있다고 가능한 시간은 아닙니다. 이동·준비 시간, 비공개 일정, 그날의 사정은 캘린더에 없습니다.</p>
+          <p>멋대로 잡았다가 한 번이라도 어긋나면 후보자에게 재조율을 통보해야 하고, 면접관은 캘린더 연동을 꺼버립니다. 그러면 자동화 전체가 죽습니다.</p>
+          <p>그래서 <b>제안까지는 AI, 확정은 사람</b>입니다. 대신 확정에 드는 마찰을 클릭 한 번으로 줄입니다.</p>
+        </div>
+
+        <div class="exp">
+          <h4><svg class="ic ic-sm"><use href="#i-shield"/></svg>이 카드가 안 나가는 경우</h4>
+          <p>2차 인터뷰 면접관인 <b>한도경 본부장·윤태경 CTO</b>는 EA(비서) 조율 대상입니다.
+          이 경우 카드를 보내지 않고 <b>즉시 코디네이터 배수진님에게</b> 넘깁니다.</p>
+          <p>비서를 거치는 일정은 캘린더가 실제 가용성을 반영하지 않기 때문에, 자동화를 시도하는 것 자체가 손해입니다.
+          직급으로 자동 판단하지 않고 HR이 사람 단위로 켭니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       ② 면접 브리핑
+       ===================================================== -->
+  <section class="pane" id="p2">
+    <div class="two">
+      <div class="brw">
+        <div class="brw-bar">
+          <span class="brw-dots"><i></i><i></i><i></i></span>
+          <span class="brw-url"><svg class="ic"><use href="#i-lock"/></svg><span class="u">cadence.app/b/9f2a7c41</span></span>
+          <span class="pill">로그인 없이 열림</span>
+        </div>
+
+        <div class="brf">
+          <div class="brf-h">
+            <div class="when">
+              <b>8/18 (화) 11:00–12:00</b>
+              <span>1차 인터뷰 · 60분 · 화상 · 최영수님과 함께</span>
+            </div>
+            <div class="right">
+              <button class="btn br lg" data-toast="화상 회의실을 열었습니다"><svg class="ic ic-sm"><use href="#i-video"/></svg>화상 참여</button>
+              <span class="pill warn"><svg class="ic ic-sm"><use href="#i-clock"/></svg>D-5</span>
+            </div>
+          </div>
+
+          <div class="who-row">
+            <span class="avatar lg">임</span>
+            <div>
+              <div class="nm">임채원</div>
+              <div class="rl">6년차 · 백엔드 · 배민 · 리멤버 유입</div>
+            </div>
+            <div style="margin-left:auto">
+              <button class="btn" data-toast="이력서 원본을 열었습니다"><svg class="ic ic-sm"><use href="#i-file"/></svg>이력서 원본</button>
+            </div>
+          </div>
+
+          <div class="blk">
+            <h4>이 면접에서 확인할 것</h4>
+            <div class="chk"><span class="n">1</span><div><b>기술 깊이</b>
+              <p>대용량 이벤트 파이프라인에서 순서 보장을 어떻게 다뤘는지. 직접 설계했는지 인계받았는지.</p></div></div>
+            <div class="chk"><span class="n">2</span><div><b>설계 역량</b>
+              <p>분산 트랜잭션 실패 시 복구 전략. 트레이드오프를 스스로 설명할 수 있는지.</p></div></div>
+            <div class="chk"><span class="n">3</span><div><b>협업</b>
+              <p>장애 대응 회고를 어떻게 진행했는지. 다른 팀과 부딪힌 사례 하나.</p></div></div>
+            <div class="chk"><span class="n">4</span><div><b>성장 가능성</b>
+              <p>최근 1년에 새로 익힌 것. 배우는 방식이 조직에 남는 형태인지.</p></div></div>
+          </div>
+
+          <div class="blk">
+            <h4>후보자 요약</h4>
+            <ul class="bul">
+              <li><i></i>배민 주문 도메인 4년 — 일 4천만 건 이벤트 파이프라인 운영</li>
+              <li><i></i>이전 회사에서 모놀리식 → 서비스 분리 프로젝트 리드</li>
+              <li><i></i>Kotlin / Kafka / gRPC · 사내 기술 블로그 6편</li>
+            </ul>
+            <div class="tagz">
+              <span class="pill br">분산 트랜잭션</span>
+              <span class="pill br">이벤트 소싱</span>
+              <span class="pill">Kafka</span>
+              <span class="pill">Kotlin</span>
+              <span class="pill">온콜 경험</span>
+            </div>
+          </div>
+
+          <div class="blk">
+            <h4>앞 단계 기록</h4>
+            <div class="quote">
+              <div class="q">"이력서상 분산 트랜잭션 경험이 우리 결제 정합성 문제와 겹칩니다.
+              다만 직접 설계한 범위가 어디까지인지는 확인이 필요합니다."</div>
+              <div class="by"><svg class="ic ic-sm"><use href="#i-user"/></svg>최영수 · 서류 검토 · 7/29</div>
+            </div>
+          </div>
+
+          <div class="blk">
+            <h4>첨부</h4>
+            <div class="att">
+              <a href="#" data-toast="이력서를 열었습니다"><svg class="ic"><use href="#i-file"/></svg>이력서.pdf <span>2.1MB</span></a>
+              <a href="#" data-toast="포트폴리오를 열었습니다"><svg class="ic"><use href="#i-link"/></svg>기술 블로그</a>
+              <a href="#" data-toast="스코어카드 미리보기를 열었습니다"><svg class="ic"><use href="#i-check-sq"/></svg>평가지 미리보기</a>
+            </div>
+          </div>
+
+          <div class="brf-foot">
+            <p>면접이 끝나면 이 링크로 평가지가 열립니다.<br>링크는 평가 제출 후 7일이 지나면 만료됩니다.</p>
+            <div style="margin-left:auto;display:flex;gap:7px;flex:none">
+              <button class="btn" data-toast="코디네이터에게 재조율 요청을 보냈습니다">참석이 어렵습니다</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="exp">
+          <h4><svg class="ic ic-sm"><use href="#i-info"/></svg>여기만 밀도를 올리는 이유</h4>
+          <p>①③은 <b>응답률</b>이 목표라 정보를 깎습니다. 반대로 브리핑은 <b>면접 품질</b>이 목표라 밀도가 높아야 합니다.</p>
+          <p>면접관이 회의 5분 전에 이 한 장만 보고 들어가도 질문이 나오게 만드는 게 기준입니다.
+          이력서로 링크만 던지면 아무도 안 봅니다.</p>
+          <div class="hr"></div>
+          <h4><svg class="ic ic-sm"><use href="#i-lock"/></svg>로그인이 없는 대신</h4>
+          <ul>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>본인에게만 발송된 <b>1회용 토큰 링크</b></li>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>평가 제출 후 <b>7일 만료</b>, 개인정보 보유 기간과 연동</li>
+            <li><svg class="ic"><use href="#i-check-circle"/></svg>열람 기록은 <b>감사 로그</b>에 남음</li>
+          </ul>
+        </div>
+        <div class="exp">
+          <h4 class="warn"><svg class="ic ic-sm"><use href="#i-alert"/></svg>탈출구를 항상 둔다</h4>
+          <p>하단 <b>"참석이 어렵습니다"</b>는 확정 후에도 살아 있습니다. 누르면 코디네이터에게 즉시 가고,
+          후보자에게는 아직 아무 것도 나가지 않습니다.</p>
+          <p>취소를 어렵게 만들면 면접관은 그냥 <b>노쇼</b>합니다. 노쇼가 재조율보다 훨씬 비쌉니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       ③ 평가 제출
+       ===================================================== -->
+  <section class="pane" id="p3">
+    <div class="brw">
+      <div class="brw-bar">
+        <span class="brw-dots"><i></i><i></i><i></i></span>
+        <span class="brw-url"><svg class="ic"><use href="#i-lock"/></svg><span class="u">cadence.app/e/9f2a7c41</span></span>
+        <span class="pill warn"><svg class="ic ic-sm"><use href="#i-clock"/></svg>제출 기한 8/20</span>
+      </div>
+
+      <div class="ev">
+        <!-- 좌: 이력 -->
+        <div class="ev-l">
+          <div class="ev-hd">
+            <span class="avatar lg">임</span>
+            <div>
+              <h3>임채원</h3>
+              <div style="font-size:11.5px;color:var(--t3)">1차 인터뷰 · 8/18 11:00 종료 · 60분</div>
+            </div>
+            <div class="right"><button class="btn" data-toast="이력서 원본을 열었습니다">원본</button></div>
+          </div>
+
+          <div class="rsm">
+            <h5>경력</h5>
+            <div class="exp-row"><span class="yr">2022 – 현재</span><div><b>배달의민족 · 백엔드</b>
+              <p>주문 도메인. 일 4천만 건 이벤트 파이프라인 설계·운영, 온콜 로테이션 참여.</p></div></div>
+            <div class="exp-row"><span class="yr">2020 – 2022</span><div><b>스타트업 · 서버 개발</b>
+              <p>모놀리식 → 서비스 분리 프로젝트 리드. 결제 정합성 이슈 대응.</p></div></div>
+          </div>
+
+          <div class="rsm">
+            <h5>이 면접에서 확인하기로 한 것</h5>
+            <ul class="bul">
+              <li><i></i>순서 보장 설계를 직접 했는지, 인계받았는지</li>
+              <li><i></i>분산 트랜잭션 실패 복구 전략과 트레이드오프</li>
+              <li><i></i>장애 회고 진행 방식 · 타 팀과 부딪힌 사례</li>
+            </ul>
+          </div>
+
+          <div class="rsm">
+            <h5>서류 검토 코멘트</h5>
+            <div class="quote" style="background:var(--sunken)">
+              <div class="q">"분산 트랜잭션 경험이 우리 결제 정합성 문제와 겹칩니다. 직접 설계한 범위 확인 필요."</div>
+              <div class="by"><svg class="ic ic-sm"><use href="#i-user"/></svg>최영수 · 7/29</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 우: 스코어카드 -->
+        <div class="ev-r" id="evR">
+          <div class="ev-hd">
+            <h3>스코어카드</h3>
+            <div class="right"><span class="pill">서민재</span></div>
+          </div>
+
+          <div id="crits">
+            <div class="crit" data-c="기술 깊이">
+              <div class="lb"><b>기술 깊이</b><span>1 미흡 – 5 탁월</span></div>
+              <div class="scale"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div>
+            </div>
+            <div class="crit" data-c="설계 역량">
+              <div class="lb"><b>설계 역량</b><span>1 미흡 – 5 탁월</span></div>
+              <div class="scale"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div>
+            </div>
+            <div class="crit" data-c="협업">
+              <div class="lb"><b>협업</b><span>1 미흡 – 5 탁월</span></div>
+              <div class="scale"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div>
+            </div>
+            <div class="crit" data-c="성장 가능성">
+              <div class="lb"><b>성장 가능성</b><span>1 미흡 – 5 탁월</span></div>
+              <div class="scale"><button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button></div>
+            </div>
+          </div>
+
+          <div class="avgrow">
+            <span class="v dim" id="avgV">—</span>
+            <span class="l" id="avgL">4개 항목 중 0개 입력</span>
+          </div>
+
+          <div class="field" style="margin-top:10px">
+            <label>근거 한 줄 <span style="color:var(--t4);font-weight:500">— 점수보다 이게 디브리프에서 쓰입니다</span></label>
+            <textarea class="ta" id="memo" placeholder="예: 순서 보장은 직접 설계했고 트레이드오프를 스스로 설명함. 다만 결제 정합성은 인계받은 범위."></textarea>
+          </div>
+
+          <div class="field" style="margin-bottom:0">
+            <label>결과</label>
+            <div class="res" id="res">
+              <button class="p" data-r="Pass">Pass</button>
+              <button class="h" data-r="Hold">Hold</button>
+              <button class="f" data-r="Fail">Fail</button>
+            </div>
+          </div>
+
+          <div class="lockbox">
+            <svg class="ic"><use href="#i-eye-off"/></svg>
+            <span><b>최영수님의 평가는 아직 보이지 않습니다.</b> 두 분 다 제출하면 그때 서로 공개됩니다.
+            먼저 본 점수에 맞추는 일을 막기 위해서입니다.</span>
+          </div>
+
+          <div class="ev-sub">
+            <button class="btn br lg" id="evSub" disabled>제출하기</button>
+            <p style="font-size:11px;color:var(--t4);margin-top:8px;line-height:1.6">
+              제출하면 다음 단계가 자동으로 트리거됩니다. Pass → 2차 인터뷰 슬롯 탐색 시작.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:16px">
+      <div class="exp">
+        <h4><svg class="ic ic-sm"><use href="#i-zap"/></svg>제출 클릭이 곧 단계 이동</h4>
+        <p>리크루터가 칸반에서 카드를 끄는 것과 <b>같은 이벤트</b>입니다. Pass를 누르면 2차 인터뷰로 넘어가고,
+        그 즉시 2시간 연속 블록 탐색이 시작됩니다. 리크루터가 다시 손댈 일이 없습니다.</p>
+        <p>여기가 병목이면 파이프라인 전체가 멈추기 때문에, 미제출 48시간이면 에스컬레이션 규칙 <b>R4</b>가 돕니다.</p>
+      </div>
+      <div class="exp">
+        <h4><svg class="ic ic-sm"><use href="#i-eye-off"/></svg>다른 면접관 점수를 가리는 이유</h4>
+        <p>먼저 제출된 4.5를 보고 나면 3점을 주기 어려워집니다. 점수가 서로를 향해 수렴하면
+        디브리프에서 <b>이견이 사라지고</b>, 이견이 없는 디브리프는 회의를 할 이유가 없습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- =====================================================
+       ④ 내 면접 · 가용시간
+       ===================================================== -->
+  <section class="pane" id="p4">
+    <div class="brw">
+      <div class="brw-bar">
+        <span class="brw-dots"><i></i><i></i><i></i></span>
+        <span class="brw-url"><svg class="ic"><use href="#i-lock"/></svg><span class="u">cadence.app/me</span></span>
+        <span class="pill br">로그인 필요</span>
+      </div>
+
+      <div class="my">
+        <div class="my-h">
+          <span class="avatar lg">서</span>
+          <div>
+            <div class="nm">서민재</div>
+            <div class="rl">서버팀 테크리드 · 인터뷰어</div>
+          </div>
+          <div class="right">
+            <span class="pill">이번 주 면접 <b style="margin-left:3px">2건</b></span>
+            <span class="pill ok">평균 응답 6.8h</span>
+          </div>
+        </div>
+
+        <div class="my-cols">
+          <div>
+            <div class="sec-h"><h3>다가오는 면접</h3><span class="hint">3건</span></div>
+
+            <div class="up">
+              <div class="dt"><b>8/18</b><span>화</span></div>
+              <span class="vr"></span>
+              <div class="bd"><b>임채원 · 1차 인터뷰</b>
+                <div class="mt">
+                  <i><svg class="ic"><use href="#i-clock"/></svg>11:00–12:00</i>
+                  <i><svg class="ic"><use href="#i-video"/></svg>화상</i>
+                  <i><svg class="ic"><use href="#i-users"/></svg>최영수</i>
+                </div>
+              </div>
+              <div class="right"><span class="pill ok">확정</span><button class="btn" data-go="2">브리핑</button></div>
+            </div>
+
+            <div class="up">
+              <div class="dt"><b>8/19</b><span>수</span></div>
+              <span class="vr"></span>
+              <div class="bd"><b>문태오 · 1차 인터뷰</b>
+                <div class="mt">
+                  <i><svg class="ic"><use href="#i-clock"/></svg>15:00–16:00</i>
+                  <i><svg class="ic"><use href="#i-video"/></svg>화상</i>
+                  <i><svg class="ic"><use href="#i-users"/></svg>최영수</i>
+                </div>
+              </div>
+              <div class="right"><span class="pill warn">후보자 확인 대기</span><button class="btn quiet" data-toast="아직 브리핑이 열리지 않았습니다">브리핑</button></div>
+            </div>
+
+            <div class="up">
+              <div class="dt"><b>8/14</b><span>금</span></div>
+              <span class="vr"></span>
+              <div class="bd"><b>오시현 · 1차 인터뷰</b>
+                <div class="mt">
+                  <i><svg class="ic"><use href="#i-check-circle"/></svg>면접 완료</i>
+                  <i><svg class="ic"><use href="#i-users"/></svg>최영수</i>
+                </div>
+              </div>
+              <div class="right"><span class="pill bad">평가 미제출 · 42h</span><button class="btn br" data-go="3">평가 쓰기</button></div>
+            </div>
+
+            <div class="avh">
+              <h4>가용 시간</h4>
+              <div class="right">
+                <span class="lgd"><i class="ok"></i>가능</span>
+                <span class="lgd"><i class="off"></i>불가</span>
+                <span class="lgd"><i class="bz"></i>캘린더 일정</span>
+              </div>
+            </div>
+
+            <div class="avg">
+              <div class="avg-t" id="avgT"></div>
+              <p style="font-size:11px;color:var(--t4);margin-top:11px;line-height:1.6">
+                칸을 눌러 켜고 끕니다. 빗금은 캘린더에 이미 일정이 있는 시간이라 조정할 수 없습니다.<br>
+                <b style="color:var(--t2);font-weight:650">여기서 끈 시간에는 슬롯 제안이 아예 가지 않습니다.</b>
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div class="setc">
+              <h4>알림</h4>
+              <div class="srow"><div class="tx"><b>Slack DM</b><span>슬롯 요청 · 확정 · 리마인드</span></div>
+                <div class="ct"><span class="sw on" data-sw></span></div></div>
+              <div class="srow"><div class="tx"><b>이메일</b><span>Slack 미응답 12시간 후 병행 발송</span></div>
+                <div class="ct"><span class="sw on" data-sw></span></div></div>
+              <div class="srow"><div class="tx"><b>면접 전 리마인드</b><span>12시간 전 · 4시간 전</span></div>
+                <div class="ct"><span class="sw on" data-sw></span></div></div>
+            </div>
+
+            <div class="setc" style="margin-top:12px">
+              <h4>부하 관리</h4>
+              <div class="srow"><div class="tx"><b>주당 최대 면접</b><span>초과하면 슬롯 제안 제외</span></div>
+                <div class="ct"><select class="sel sm w-sm"><option>3건</option><option selected>4건</option><option>6건</option><option>제한 없음</option></select></div></div>
+              <div class="srow"><div class="tx"><b>하루 최대 면접</b><span>연속 배치 방지</span></div>
+                <div class="ct"><select class="sel sm w-sm"><option selected>2건</option><option>1건</option><option>3건</option></select></div></div>
+              <div class="srow"><div class="tx"><b>면접 사이 버퍼</b><span>공고 설정보다 우선</span></div>
+                <div class="ct"><select class="sel sm w-sm"><option>15분</option><option selected>30분</option><option>60분</option></select></div></div>
+            </div>
+
+            <div class="setc" style="margin-top:12px">
+              <h4>조율 방식</h4>
+              <div class="srow"><div class="tx"><b>비서(EA) 조율</b><span>켜면 자동화에서 제외됩니다</span></div>
+                <div class="ct"><span class="pill">꺼짐</span></div></div>
+              <div class="srow" style="align-items:flex-start">
+                <svg class="ic" style="color:var(--t4);margin-top:1px"><use href="#i-info"/></svg>
+                <div class="tx"><span style="line-height:1.6;display:block">본인이 켤 수 없습니다. HR이 사람 단위로 설정합니다.
+                직급으로 자동 판단하지 않습니다.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two" style="margin-top:16px">
+      <div class="exp">
+        <h4><svg class="ic ic-sm"><use href="#i-sliders"/></svg>가용시간이 진짜 기능인 이유</h4>
+        <p>슬롯 카드의 응답률은 <b>제안이 얼마나 맞는가</b>에 달려 있습니다. 캘린더 빈칸만 보면 계속 빗나가고,
+        빗나간 제안이 반복되면 카드를 안 열게 됩니다.</p>
+        <p>주당·일당 상한을 면접관 본인이 쥐게 두는 것도 같은 이유입니다. 면접 과부하는 조용히 응답률로 나타납니다.</p>
+      </div>
+      <div class="exp">
+        <h4><svg class="ic ic-sm"><use href="#i-user"/></svg>이 화면만 로그인인 이유</h4>
+        <p>①②③은 <b>건별</b>이라 링크로 충분합니다. ④는 <b>설정</b>이라 본인 확인이 필요합니다.</p>
+        <p>대신 로그인해야 할 일이 1년에 몇 번 없도록, 최초 1회 설정 후에는 건드릴 일이 없게 둡니다.</p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="iv.js?v=1"></script>
+</body>
+</html>

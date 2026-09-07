@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TalentCore ATS — 면접 일정, 조율 없이 잡힙니다</title>
+<meta name="description" content="슬롯 탐색·알림·리마인더·기록은 AI가 처리하고, 협상이 필요한 순간만 사람에게 올립니다. HR Coordinator·Recruiter·Hiring Manager가 같은 화면을 봅니다.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="logo" href="#top">
+      <span class="mark">T</span>TalentCore<span class="badge">ATS</span>
+    </a>
+    <nav>
+      <a href="#why">왜 안 끝나는가</a>
+      <a href="#principle">분담 원칙</a>
+      <a href="#how">작동 방식</a>
+      <a href="#roles">역할별 화면</a>
+      <a href="#data">데이터</a>
+      <a href="#integration">TalentCore 연동</a>
+    </nav>
+    <a class="btn btn-primary btn-sm" href="#cta">도입 상담</a>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="hero-tag">인터뷰 스케줄링 자동화 · <em>TalentCore ATS</em></span>
+      <h1 class="display-xl">면접관은 버튼 하나,<br>코디네이터는 예외만.</h1>
+      <p class="lede">
+        슬롯 탐색, 알림 발송, 리마인더, 상태 기록은 AI가 끝냅니다.
+        협상과 판단이 필요한 순간만 사람에게 올라옵니다.
+        조율 메일함을 다시 열 일이 없습니다.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#cta">도입 상담 요청</a>
+        <a class="btn btn-ghost" href="#how">작동 방식 보기</a>
+      </div>
+      <p class="hero-note">Google Calendar · Slack · 사내 메일과 그대로 연결됩니다. 면접관은 새 툴을 배우지 않습니다.</p>
+    </div>
+
+    <div class="demo-phone" id="demo">
+      <div class="slack-head">
+        <span class="bot">TC</span>
+        <span class="who">TalentCore ATS</span>
+        <span class="when" id="demoTime">오후 2:14</span>
+      </div>
+      <div class="slack-body">
+        <div class="q">김민준 님 1차 인터뷰, 언제가 편하세요?</div>
+        <div class="meta">백엔드 엔지니어 · 서류 통과 · 60분 · 화상</div>
+        <div class="slots" id="demoSlots">
+          <button class="slot" data-i="0"><span class="d">1월 14일 (화)</span><span class="t">14:00–15:00</span></button>
+          <button class="slot" data-i="1"><span class="d">1월 15일 (수)</span><span class="t">10:00–11:00</span></button>
+          <button class="slot" data-i="2"><span class="d">1월 16일 (목)</span><span class="t">16:00–17:00</span></button>
+        </div>
+        <div class="slot-no">전부 어려움 → 코디네이터 연결</div>
+      </div>
+      <div class="demo-confirm" id="demoConfirm">
+        <span class="ck">✓</span>
+        <span class="txt">일정이 확정됐습니다.
+          <span>캘린더 등록 · Meet 링크 생성 · 후보자 안내 메일 발송 · 전날 리마인더 예약까지 끝났습니다.</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 신뢰 바 -->
+  <div class="wrap trustbar rv">
+    <div class="inner">
+      <div class="cell"><div class="k">면접관이 하는 일</div><div class="v">알림에서 버튼 1회</div></div>
+      <div class="cell"><div class="k">후보자가 하는 일</div><div class="v">링크 열고 시간 선택</div></div>
+      <div class="cell"><div class="k">코디네이터가 하는 일</div><div class="v">예외 건만 처리</div></div>
+      <div class="cell"><div class="k">기록되는 것</div><div class="v">모든 단계, 자동으로</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 문제 ===================== -->
+<section class="problems" id="why">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">왜 조율이 안 끝나는가</span>
+      <h2 class="display">일정은 캘린더에<br>있는 게 아닙니다.</h2>
+      <p class="lede">
+        면접 조율이 오래 걸리는 이유는 담당자가 게을러서가 아닙니다.
+        캘린더가 알려주지 않는 것들 때문입니다. 자동화는 이 세 가지를 알아야 시작됩니다.
+      </p>
+    </div>
+
+    <div class="prob-grid">
+      <article class="prob rv">
+        <div class="n">CASE 01</div>
+        <h3>캘린더가 비어 있어도<br>가능한 게 아닙니다</h3>
+        <p>이동 시간, 준비 시간, 연달아 잡힌 회의. 빈칸처럼 보이는 슬롯의 상당수는 실제로는 못 쓰는 시간입니다. 그래서 "언제 되세요?"를 다시 묻게 됩니다.</p>
+        <div class="vis">
+          <div class="cal-mini">
+            <span class="busy"></span><span></span><span class="ghost"></span><span class="busy"></span><span></span>
+            <span></span><span class="busy"></span><span class="busy"></span><span class="ghost"></span><span></span>
+          </div>
+          <div class="cal-legend"><b>실제 일정</b><b class="g">비어 보이지만 못 쓰는 시간</b></div>
+        </div>
+      </article>
+
+      <article class="prob rv">
+        <div class="n">CASE 02</div>
+        <h3>2차 면접은 두 사람의<br>2시간이 겹쳐야 합니다</h3>
+        <p>한 명의 한 시간을 찾는 것과, 두 명의 연속 두 시간을 찾는 것은 난이도가 다릅니다. 사람이 눈으로 대조하면 왕복 메일이 늘어날 뿐입니다.</p>
+        <div class="vis">
+          <div class="overlap">
+            <div class="lane"><span class="nm">면접관 A</span><span class="bar"><em style="left:8%;width:22%"></em><em style="left:40%;width:14%"></em><em style="left:82%;width:12%"></em></span></div>
+            <div class="lane"><span class="nm">면접관 B</span><span class="bar"><em style="left:0;width:16%"></em><em style="left:34%;width:20%"></em><em style="left:80%;width:16%"></em></span></div>
+            <div class="lane"><span class="nm">교집합</span><span class="hit"><em></em></span></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="prob rv">
+        <div class="n">CASE 03</div>
+        <h3>임원 일정은 알림이<br>본인에게 닿지 않습니다</h3>
+        <p>비서가 캘린더를 관리하는 임원에게 자동 알림을 보내면 그냥 사라집니다. 이런 케이스는 자동화 대상에서 빼고 처음부터 사람에게 넘겨야 합니다.</p>
+        <div class="vis">
+          <div class="ea-flow">
+            <span class="node">자동 알림</span>
+            <span class="arw x">✕</span>
+            <span class="node block">EA 필터</span>
+            <span class="arw">→</span>
+            <span class="node">임원</span>
+          </div>
+          <p class="small" style="margin-top:12px">TalentCore ATS는 <b style="color:var(--st-esc)">EA 조율 플래그</b>가 켜진 면접관을 자동화에서 제외하고 즉시 코디네이터에게 넘깁니다.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 분담 원칙 ===================== -->
+<section class="split" id="principle">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">제품 원칙</span>
+      <h2 class="display">전부 자동화하지<br>않습니다.</h2>
+      <p class="lede">
+        패턴이 있는 일은 AI가 끝까지 합니다. 예외는 사람에게 맥락과 함께 넘깁니다.
+        이 경계선을 흐리는 순간, 자동화는 오히려 일을 늘립니다.
+      </p>
+    </div>
+
+    <div class="split-grid">
+      <div class="split-card ai rv">
+        <div class="hd"><span class="dot"></span><span class="lb">AI가 끝냅니다</span></div>
+        <h3>반복되고,<br>패턴이 있는 일</h3>
+        <ul>
+          <li>면접관 캘린더 교집합 탐색 — 연속 블록 조건까지 포함</li>
+          <li>슬롯 제안 알림 발송 (Slack / 메일)</li>
+          <li>후보자 슬롯 선택 링크 생성 및 안내</li>
+          <li>캘린더 등록 · 화상 링크 생성 · 초대 발송</li>
+          <li>무응답 리마인더 자동 재발송</li>
+          <li>전형 상태 업데이트와 소요 시간 기록</li>
+          <li>합격 시 다음 단계 미팅 자동 생성</li>
+        </ul>
+      </div>
+
+      <div class="split-card human rv">
+        <div class="hd"><span class="dot"></span><span class="lb">사람이 결정합니다</span></div>
+        <h3>협상하고,<br>판단해야 하는 일</h3>
+        <ul>
+          <li>면접관 전원이 슬롯을 거절했을 때의 재조율</li>
+          <li>후보자가 제시 시간대를 전부 거절한 경우</li>
+          <li>임원 · EA 조율이 필요한 일정</li>
+          <li>다른 면접과 시간이 충돌할 때의 우선순위 판단</li>
+          <li>노쇼 이후 진행 여부 결정</li>
+          <li>후보자와의 관계 관리, 온도 조절</li>
+          <li>최종 합격 · 오퍼 판단</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="split-quote rv">
+      AI가 모든 것을 대신하는 제품이 아닙니다.
+      <b>HR Coordinator가 덜 소모적으로 일하게 만드는 제품</b>입니다.
+      그래서 성공 지표도 자동화율이 아니라, <b>조율에 쓴 시간</b>과 <b>사람이 손댄 비율</b>입니다.
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 작동 방식 ===================== -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">작동 방식</span>
+      <h2 class="display">서류 통과를 누르면,<br>거기서부터는 알아서.</h2>
+      <p class="lede">코디네이터가 하는 조작은 첫 클릭 하나입니다. 나머지 단계는 순서대로 스스로 진행되고, 막히는 순간에만 사람을 부릅니다.</p>
+    </div>
+
+    <div class="how-shell">
+      <div class="steps" id="steps">
+        <button class="step on" data-s="0">
+          <span class="idx">1</span>
+          <span>
+            <span class="lb">서류 전형 통과 처리</span>
+            <span class="by hm">코디네이터 · 1회 클릭</span>
+            <span class="desc">이 클릭 하나가 전체 파이프라인의 유일한 수동 시작점입니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="1">
+          <span class="idx">2</span>
+          <span>
+            <span class="lb">면접관 캘린더 교집합 탐색</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">근무시간·이동시간·연속 블록 조건을 반영해 실제로 쓸 수 있는 슬롯만 추립니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="2">
+          <span class="idx">3</span>
+          <span>
+            <span class="lb">면접관에게 슬롯 3개 제안</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">Slack 또는 메일로 발송. 면접관은 버튼 한 번만 누르면 됩니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="3">
+          <span class="idx">4</span>
+          <span>
+            <span class="lb">후보자에게 선택 링크 발송</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">로그인 없이 열리는 서명 링크. 후보자는 회원가입을 하지 않습니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="4">
+          <span class="idx">5</span>
+          <span>
+            <span class="lb">캘린더 등록 · 화상 링크 · 초대</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">양쪽 캘린더에 동시 등록되고 회의 링크가 함께 생성됩니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="5">
+          <span class="idx">6</span>
+          <span>
+            <span class="lb">전날 리마인더 자동 발송</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">후보자·면접관 양쪽에. 무응답이면 한 번 더 보냅니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="6">
+          <span class="idx">7</span>
+          <span>
+            <span class="lb">상태 · 소요 시간 자동 기록</span>
+            <span class="by ai">AI 자동</span>
+            <span class="desc">따로 입력하지 않아도 리포트에 필요한 데이터가 쌓입니다.</span>
+          </span>
+        </button>
+        <button class="step" data-s="7">
+          <span class="idx">!</span>
+          <span>
+            <span class="lb">막히면 코디네이터 호출</span>
+            <span class="by" style="color:var(--st-esc)">사람에게 에스컬레이션</span>
+            <span class="desc">지금까지의 시도 내역과 거절 사유를 카드에 담아 넘깁니다.</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="how-stage">
+        <!-- 1 -->
+        <div class="stage-panel on" data-p="0">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">백엔드 엔지니어 · 서류 심사</span><span class="pill accent">3명 선택됨</span></div>
+            <div class="mini-in">
+              <div class="cand-row"><span class="avt">김</span><span><span class="nm">김민준</span><span class="sb">경력 5년 · 서버</span></span><span class="rt"><span class="pill done"><i></i>통과 처리</span></span></div>
+              <div class="cand-row"><span class="avt v2">이</span><span><span class="nm">이서연</span><span class="sb">경력 3년 · 플랫폼</span></span><span class="rt"><span class="pill done"><i></i>통과 처리</span></span></div>
+              <div class="cand-row"><span class="avt v3">박</span><span><span class="nm">박지훈</span><span class="sb">경력 7년 · 인프라</span></span><span class="rt"><span class="pill done"><i></i>통과 처리</span></span></div>
+            </div>
+          </div>
+          <p class="stage-cap">여기까지가 사람이 하는 전부입니다.</p>
+        </div>
+
+        <!-- 2 -->
+        <div class="stage-panel" data-p="1">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">캘린더 교집합 탐색</span><span class="pill ai"><i></i>AI 진행 중</span></div>
+            <div class="mini-in">
+              <div class="xgrid">
+                <span></span><span class="dh">월</span><span class="dh">화</span><span class="dh">수</span><span class="dh">목</span><span class="dh">금</span>
+                <span class="hh">10:00</span><span class="cl a"></span><span class="cl free"></span><span class="cl b"></span><span class="cl a"></span><span class="cl free"></span>
+                <span class="hh">11:00</span><span class="cl free"></span><span class="cl b"></span><span class="cl free"></span><span class="cl free"></span><span class="cl a"></span>
+                <span class="hh">14:00</span><span class="cl b"></span><span class="cl pick">✓</span><span class="cl a"></span><span class="cl free"></span><span class="cl b"></span>
+                <span class="hh">15:00</span><span class="cl a"></span><span class="cl free"></span><span class="cl free"></span><span class="cl b"></span><span class="cl free"></span>
+                <span class="hh">16:00</span><span class="cl free"></span><span class="cl a"></span><span class="cl b"></span><span class="cl pick">✓</span><span class="cl a"></span>
+              </div>
+              <div class="xleg"><b>면접관 일정</b><b class="f">빈 시간</b><b class="p">제안 후보 슬롯</b></div>
+            </div>
+          </div>
+          <p class="stage-cap">2차 인터뷰는 두 면접관의 연속 2시간 블록만 후보로 잡습니다.</p>
+        </div>
+
+        <!-- 3 -->
+        <div class="stage-panel" data-p="2">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">Slack · 면접관 알림</span><span class="pill ai"><i></i>응답 대기</span></div>
+            <div class="mini-in">
+              <div class="slack-body" style="padding:14px">
+                <div class="q">김민준 님 1차 인터뷰, 언제가 편하세요?</div>
+                <div class="meta">백엔드 엔지니어 · 60분 · 화상 · 마감 D-2</div>
+                <div class="slots" style="margin-top:12px">
+                  <span class="slot" style="animation:none;opacity:1;transform:none"><span class="d">1월 14일 (화)</span><span class="t">14:00–15:00</span></span>
+                  <span class="slot" style="animation:none;opacity:1;transform:none"><span class="d">1월 15일 (수)</span><span class="t">10:00–11:00</span></span>
+                  <span class="slot" style="animation:none;opacity:1;transform:none"><span class="d">1월 16일 (목)</span><span class="t">16:00–17:00</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="stage-cap">면접관은 TalentCore에 로그인하지 않습니다. 쓰던 Slack 그대로입니다.</p>
+        </div>
+
+        <!-- 4 -->
+        <div class="stage-panel" data-p="3">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">후보자 안내 메일</span><span class="pill done"><i></i>발송 완료</span></div>
+            <div class="mini-in mailview">
+              <div class="row"><span class="k">받는이</span><span class="v">김민준 님</span></div>
+              <div class="row"><span class="k">제목</span><span class="v">[OO] 1차 인터뷰 일정 선택 안내</span></div>
+              <div class="bd">
+                안녕하세요, 김민준 님.<br>
+                <b>백엔드 엔지니어</b> 1차 인터뷰 일정을 선택해 주세요.<br>
+                아래 링크는 <b>로그인 없이</b> 바로 열립니다.
+                <span class="attach">🔗 일정 선택하기 · 유효기간 48시간</span>
+              </div>
+            </div>
+          </div>
+          <p class="stage-cap">후보자에게 계정을 만들라고 요구하지 않습니다.</p>
+        </div>
+
+        <!-- 5 -->
+        <div class="stage-panel" data-p="4">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">일정 확정</span><span class="pill done"><i></i>완료</span></div>
+            <div class="mini-in">
+              <div class="logline"><span class="ts">14:22:08</span><span class="fd">calendar.insert</span><span class="vl">면접관 · 후보자 캘린더 등록</span></div>
+              <div class="logline"><span class="ts">14:22:09</span><span class="fd">meet.create</span><span class="vl">화상 회의 링크 생성</span></div>
+              <div class="logline"><span class="ts">14:22:09</span><span class="fd">invite.send</span><span class="vl">참석자 전원 초대 발송</span></div>
+              <div class="logline"><span class="ts">14:22:10</span><span class="fd">ics.attach</span><span class="vl">.ics 파일 첨부</span></div>
+              <div class="logline"><span class="ts">14:22:10</span><span class="fd">reminder.set</span><span class="vl">전날 오전 10시 예약</span></div>
+            </div>
+          </div>
+          <p class="stage-cap">한 번의 확정으로 다섯 가지가 동시에 처리됩니다.</p>
+        </div>
+
+        <!-- 6 -->
+        <div class="stage-panel" data-p="5">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">리마인더</span><span class="pill ai"><i></i>예약됨</span></div>
+            <div class="mini-in">
+              <div class="cand-row"><span class="avt">📩</span><span><span class="nm">후보자 리마인더</span><span class="sb">면접 전날 오전 10:00 · 화상 링크 재안내</span></span><span class="rt"><span class="pill ai"><i></i>예약</span></span></div>
+              <div class="cand-row"><span class="avt v2">💬</span><span><span class="nm">면접관 리마인더</span><span class="sb">면접 1시간 전 · Slack DM</span></span><span class="rt"><span class="pill ai"><i></i>예약</span></span></div>
+              <div class="cand-row"><span class="avt v3">🔁</span><span><span class="nm">무응답 재발송</span><span class="sb">24시간 내 미확인 시 1회 재발송</span></span><span class="rt"><span class="pill ai"><i></i>대기</span></span></div>
+            </div>
+          </div>
+          <p class="stage-cap">"확인하셨나요?"를 사람이 물어볼 일이 없습니다.</p>
+        </div>
+
+        <!-- 7 -->
+        <div class="stage-panel" data-p="6">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">자동 기록된 데이터</span><span class="pill done"><i></i>입력 0회</span></div>
+            <div class="mini-in">
+              <div class="logline"><span class="ts">전형 단계</span><span class="fd">stage</span><span class="vl">1차 인터뷰 완료</span></div>
+              <div class="logline"><span class="ts">조율 소요</span><span class="fd">lead_time</span><span class="vl">4시간 18분</span></div>
+              <div class="logline"><span class="ts">면접관 응답</span><span class="fd">respond_in</span><span class="vl">27분</span></div>
+              <div class="logline"><span class="ts">사람 개입</span><span class="fd">manual</span><span class="vl">없음</span></div>
+              <div class="logline"><span class="ts">재조율 횟수</span><span class="fd">retry</span><span class="vl">0회</span></div>
+            </div>
+          </div>
+          <p class="stage-cap">리포트를 위해 따로 정리하는 시트가 필요 없습니다.</p>
+        </div>
+
+        <!-- 8 -->
+        <div class="stage-panel" data-p="7">
+          <div class="mini">
+            <div class="mini-bar"><span class="t">코디네이터 처리함</span><span class="pill esc"><i></i>사람 대기 1건</span></div>
+            <div class="mini-in">
+              <div class="esc-card hot">
+                <div class="top"><span class="pill esc"><i></i>재조율 필요</span><span class="ctx">2차 인터뷰 · 이서연</span></div>
+                <div class="h">면접관 2명 모두 제안 슬롯을 거절했습니다</div>
+                <div class="p">최영수 — "다음 주는 전부 어렵습니다" (14:31)<br>정하늘 — 무응답 48시간 · 리마인더 2회 발송됨</div>
+                <div class="btm">
+                  <span class="btn btn-primary btn-sm">다음 주 슬롯 다시 탐색</span>
+                  <span class="btn btn-ghost btn-sm">직접 조율</span>
+                  <span class="who">esc_id 4821</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="stage-cap">"알아서 안 됐어요"가 아니라, 무엇을 시도했고 왜 막혔는지까지 함께 넘깁니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 시그니처 타임라인 ===================== -->
+<section style="background:var(--bg-soft)">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">한 줄로 보는 전형</span>
+      <h2 class="display">이 후보자, 지금<br>누가 붙잡고 있나요.</h2>
+      <p class="lede">
+        상태 이름을 외울 필요가 없습니다. 색만 보면 됩니다.
+        <b style="color:var(--st-ai)">보라</b>는 AI가 처리 중이라 볼 필요 없다는 뜻,
+        <b style="color:var(--st-esc)">빨강</b>은 지금 당신이 봐야 한다는 뜻입니다.
+      </p>
+    </div>
+
+    <div class="tl-wrap rv">
+      <div class="tl-card">
+        <div class="tl-head">
+          <span class="avt">이</span>
+          <span><span class="who">이서연</span> <span class="pos">· 백엔드 엔지니어 · 지원 12일차</span></span>
+          <span class="sp pill esc"><i></i>지금 사람이 봐야 함</span>
+        </div>
+
+        <div class="tl" id="tl">
+          <button class="tl-node done" data-n="0"><span class="dot">✓</span><span class="lb">지원</span><span class="sub">D+0</span></button>
+          <button class="tl-node done" data-n="1"><span class="dot">✓</span><span class="lb">서류 심사</span><span class="sub">D+2</span></button>
+          <button class="tl-node done" data-n="2"><span class="dot">✓</span><span class="lb">1차 인터뷰</span><span class="sub">D+6</span></button>
+          <button class="tl-node done" data-n="3"><span class="dot">✓</span><span class="lb">킥오프</span><span class="sub">D+7</span></button>
+          <button class="tl-node esc" data-n="4"><span class="dot">!</span><span class="lb">2차 인터뷰</span><span class="sub">조율 48h</span></button>
+          <button class="tl-node" data-n="5"><span class="dot">·</span><span class="lb">디브리프</span><span class="sub">대기</span></button>
+          <button class="tl-node" data-n="6"><span class="dot">·</span><span class="lb">처우 협의</span><span class="sub">대기</span></button>
+          <button class="tl-node" data-n="7"><span class="dot">·</span><span class="lb">오퍼</span><span class="sub">대기</span></button>
+        </div>
+
+        <div class="tl-detail is-esc" id="tlDetail">
+          <div>
+            <div class="h">2차 인터뷰 · 면접관 전원 거절 — 재조율이 필요합니다</div>
+            <div class="p">AI가 슬롯 3개를 두 차례 제안했고 모두 거절됐습니다. 다음 주 범위를 넓혀 재탐색하거나, 직접 조율로 전환하세요.</div>
+          </div>
+          <div class="act"><span class="btn btn-primary btn-sm">처리하기</span></div>
+        </div>
+
+        <div class="tl-legend">
+          <span class="pill done"><i></i>완료 — 지나간 단계</span>
+          <span class="pill ai"><i></i>AI 진행 중 — 볼 필요 없음</span>
+          <span class="pill esc"><i></i>사람 대기 — 지금 봐야 함</span>
+          <span class="pill late"><i></i>지연 — 기준 시간 초과</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 역할별 화면 ===================== -->
+<section class="roles" id="roles">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">역할별 첫 화면</span>
+      <h2 class="display">세 사람이 각자<br>다른 첫 화면을 봅니다.</h2>
+      <p class="lede">
+        같은 데이터를 쓰지만, 로그인하면 보이는 것은 다릅니다.
+        매일 쓰는 사람에게는 처리할 목록을, 가끔 쓰는 사람에게는 눌러야 할 버튼 하나를 보여줍니다.
+      </p>
+    </div>
+
+    <div class="role-tabs" id="roleTabs">
+      <button class="role-tab on" data-r="0"><div class="r">HR Coordinator</div><div class="f">매일 · 예외 처리가 일의 전부</div></button>
+      <button class="role-tab" data-r="1"><div class="r">Recruiter</div><div class="f">주 단위 · 포지션이 잘 굴러가는지</div></button>
+      <button class="role-tab" data-r="2"><div class="r">Hiring Manager</div><div class="f">가끔 · 배울 생각이 없음</div></button>
+    </div>
+
+    <div class="role-body">
+      <!-- Coordinator -->
+      <div class="role-panel on" data-rp="0">
+        <div class="role-copy">
+          <h3 class="title">잘 돌아가는 건이 아니라,<br>막힌 건만 보입니다.</h3>
+          <p class="body">코디네이터의 첫 화면에는 자동으로 진행 중인 건이 올라오지 않습니다. 사람이 판단해야 하는 것만 위에서부터 쌓입니다. 처리함이 비면 그날 조율할 일이 없다는 뜻입니다.</p>
+          <ul>
+            <li><b>맥락이 붙은 카드</b> — 누가 언제 무엇을 거절했는지, 리마인더는 몇 번 나갔는지까지 카드 안에 있습니다.</li>
+            <li><b>다음 행동이 버튼으로</b> — 재탐색 / 직접 조율 / 후보자에게 안내. 세 개 중 하나를 고르면 끝납니다.</li>
+            <li><b>빈 처리함이 정상</b> — 목록이 길어지는 것 자체가 이상 신호로 잡힙니다.</li>
+          </ul>
+        </div>
+        <div class="app-mock">
+          <div class="app-top"><span class="tt">처리함</span><span class="ss">사람 판단이 필요한 건만</span><span style="margin-left:auto" class="pill esc"><i></i>2건</span></div>
+          <div class="app-in">
+            <div class="esc-card hot">
+              <div class="top"><span class="pill esc"><i></i>재조율</span><span class="ctx">2차 인터뷰 · 이서연</span></div>
+              <div class="h">면접관 2명 모두 슬롯 거절</div>
+              <div class="p">최영수 "다음 주는 전부 어렵습니다" · 정하늘 무응답 48h</div>
+              <div class="btm"><span class="btn btn-primary btn-sm">다시 탐색</span><span class="btn btn-ghost btn-sm">직접 조율</span><span class="who">D+12</span></div>
+            </div>
+            <div class="esc-card">
+              <div class="top"><span class="pill late"><i></i>지연</span><span class="ctx">1차 인터뷰 · 박지훈</span></div>
+              <div class="h">후보자 슬롯 선택 링크 미확인 · 36시간</div>
+              <div class="p">리마인더 2회 발송 완료. 전화 안내로 전환할지 결정이 필요합니다.</div>
+              <div class="btm"><span class="btn btn-primary btn-sm">연락처 열기</span><span class="btn btn-ghost btn-sm">슬롯 재발송</span><span class="who">D+5</span></div>
+            </div>
+            <div class="empty-state">
+              <div class="ic">✓</div>
+              <div class="h">나머지 14건은 AI가 진행 중입니다</div>
+              <div class="p">막히면 이 목록에 올라옵니다. 지금은 열어볼 필요 없습니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recruiter -->
+      <div class="role-panel" data-rp="1">
+        <div class="role-copy">
+          <h3 class="title">지원자 한 명이 아니라,<br>포지션 전체의 흐름.</h3>
+          <p class="body">리크루터는 개별 건을 처리하지 않습니다. 어느 포지션이 어디서 막혀 있는지, 어느 단계에서 시간을 잃고 있는지를 봅니다. 포지션 한 줄이 곧 그 포지션의 파이프라인 요약입니다.</p>
+          <ul>
+            <li><b>포지션 단위 타임라인</b> — 지원자들이 어느 단계에 몰려 있는지 색 띠로 즉시 보입니다.</li>
+            <li><b>병목 자동 표시</b> — 단계별 평균 체류 시간이 기준을 넘으면 그 구간이 표시됩니다.</li>
+            <li><b>현업 응답 속도</b> — 어느 부서가 면접 요청에 늦게 답하는지 데이터로 남습니다.</li>
+          </ul>
+        </div>
+        <div class="app-mock">
+          <div class="app-top"><span class="tt">진행 중 포지션</span><span class="ss">2026년 1분기</span><span style="margin-left:auto" class="pill accent">4개</span></div>
+          <div class="app-in">
+            <div class="pos-row">
+              <div class="top"><span class="nm">백엔드 엔지니어</span><span class="dp">플랫폼실</span><span class="ct">지원 42 · 진행 9</span></div>
+              <div class="minitl"><i class="d"></i><i class="d"></i><i class="d"></i><i class="a"></i><i class="a"></i><i></i><i></i><i></i></div>
+              <div class="minitl-lb"><span>서류</span><span>1차</span><span>2차</span><span>오퍼</span></div>
+            </div>
+            <div class="pos-row">
+              <div class="top"><span class="nm">프로덕트 디자이너</span><span class="dp">디자인실</span><span class="ct">지원 28 · 진행 5</span></div>
+              <div class="minitl"><i class="d"></i><i class="d"></i><i class="e"></i><i class="e"></i><i></i><i></i><i></i><i></i></div>
+              <div class="minitl-lb"><span>서류</span><span>1차</span><span>2차</span><span>오퍼</span></div>
+            </div>
+            <div class="pos-row" style="box-shadow:inset 0 0 0 2px var(--st-late);background:#fffdf5">
+              <div class="top"><span class="nm">데이터 엔지니어</span><span class="dp">데이터실</span><span class="ct" style="color:var(--st-late)">1차 단계 평균 9.4일</span></div>
+              <div class="minitl"><i class="d"></i><i class="d"></i><i class="a"></i><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="minitl-lb"><span>서류</span><span>1차 병목</span><span>2차</span><span>오퍼</span></div>
+            </div>
+            <div class="pos-row">
+              <div class="top"><span class="nm">테크니컬 라이터</span><span class="dp">개발지원팀</span><span class="ct">지원 11 · 진행 2</span></div>
+              <div class="minitl"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="a"></i><i></i><i></i></div>
+              <div class="minitl-lb"><span>서류</span><span>1차</span><span>2차</span><span>오퍼</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hiring Manager -->
+      <div class="role-panel" data-rp="2">
+        <div class="role-copy">
+          <h3 class="title">배울 게 없어야<br>쓰는 사람입니다.</h3>
+          <p class="body">현업 면접관은 채용 툴을 배우고 싶어 하지 않습니다. 그래서 화면에는 지금 눌러야 할 것만 남깁니다. 메뉴도, 필터도, 검색창도 없습니다. Slack에서 버튼만 눌러도 여기까지 올 일이 없습니다.</p>
+          <ul>
+            <li><b>할 일 카드만</b> — 평가지 작성, 슬롯 선택. 없으면 "지금 할 일이 없습니다"가 뜹니다.</li>
+            <li><b>Slack에서 그대로 끝남</b> — 대부분의 경우 이 화면에 들어오지 않아도 됩니다.</li>
+            <li><b>평가지는 열자마자 입력</b> — 후보자 이력이 왼쪽에 붙어 있어 창을 옮길 필요가 없습니다.</li>
+          </ul>
+        </div>
+        <div class="app-mock">
+          <div class="app-top"><span class="tt">최영수 님, 오늘 할 일</span><span class="ss">2026년 1월 13일</span></div>
+          <div class="app-in">
+            <div class="todo-card">
+              <span class="ic2">📝</span>
+              <span><span class="h">김민준 님 1차 인터뷰 평가지</span><span class="p">어제 진행 · 오늘 안에 작성해 주세요</span></span>
+              <span class="go btn btn-primary btn-sm">작성</span>
+            </div>
+            <div class="todo-card">
+              <span class="ic2">📅</span>
+              <span><span class="h">이서연 님 2차 인터뷰 일정</span><span class="p">가능한 시간 하나만 골라 주세요</span></span>
+              <span class="go btn btn-primary btn-sm">선택</span>
+            </div>
+            <div class="empty-state" style="background:#fff;box-shadow:inset 0 0 0 1.5px var(--line-soft)">
+              <div class="ic">✓</div>
+              <div class="h">그 외에 확인할 것은 없습니다</div>
+              <div class="p">새 요청이 생기면 Slack으로 알려드립니다.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 내부 미팅 ===================== -->
+<section>
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">면접 사이의 회의들</span>
+      <h2 class="display">사람들이 잊는 건<br>면접이 아니라 그 사이입니다.</h2>
+      <p class="lede">킥오프와 디브리프는 늘 미뤄집니다. 잡는 사람이 따로 없기 때문입니다. TalentCore ATS는 전형 상태가 바뀌는 순간 이 회의들을 스스로 만듭니다.</p>
+    </div>
+
+    <div class="mt-grid">
+      <div class="mt rv">
+        <div class="tag">KICK-OFF</div>
+        <h3>2차 인터뷰 킥오프</h3>
+        <p>2차 면접관들이 무엇을 볼지 사전에 맞추는 30분. 1차 통과가 확정되면 자동으로 잡힙니다. 안건과 1차 평가 요약이 초대장에 함께 들어갑니다.</p>
+        <div class="trig"><b>생성 조건</b>1차 인터뷰 합격 처리 → 2차 면접관 캘린더에서 30분 블록 탐색 → 2차 인터뷰 3영업일 전까지</div>
+        <div class="attendees">
+          <span class="att req">2차 면접관 전원</span><span class="att">Hiring Manager</span><span class="att">Recruiter</span><span class="att">HR Coordinator</span>
+        </div>
+      </div>
+
+      <div class="mt rv">
+        <div class="tag">DEBRIEF</div>
+        <h3>2차 인터뷰 디브리프</h3>
+        <p>면접 직후 30분. 기억이 남아 있을 때 결론을 내리기 위한 자리입니다. 면접 종료 시각 기준으로 가장 가까운 공통 슬롯에 자동 배치됩니다.</p>
+        <div class="trig"><b>생성 조건</b>2차 인터뷰 종료 → 당일~익일 30분 블록 탐색 → 평가지 미작성자에게 사전 리마인더</div>
+        <div class="attendees">
+          <span class="att req">2차 면접관 전원</span><span class="att req">Hiring Manager</span><span class="att">Recruiter</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 에스컬레이션 ===================== -->
+<section class="esc-sec">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">사람에게 넘기는 순간</span>
+      <h2 class="display">자동화가 멈추는 조건을<br>먼저 정해뒀습니다.</h2>
+      <p class="lede">"어떻게든 해보다가 안 되면"이 아니라, 처음부터 정해진 조건에서 멈추고 사람을 부릅니다. 그래야 담당자가 언제 개입해야 할지 예측할 수 있습니다.</p>
+    </div>
+
+    <div class="esc-list rv">
+      <div class="esc-item"><span class="t">면접관 전원 슬롯 거절</span><span class="c">2회 재탐색 후에도 확정 실패</span><span class="lv h">즉시</span></div>
+      <div class="esc-item"><span class="t">후보자 전 시간대 거절</span><span class="c">제안 슬롯을 모두 불가로 응답</span><span class="lv h">즉시</span></div>
+      <div class="esc-item"><span class="t">EA 조율 대상 면접관 포함</span><span class="c">자동 알림 자체를 발송하지 않음</span><span class="lv h">시작 전</span></div>
+      <div class="esc-item"><span class="t">면접관 무응답</span><span class="c">리마인더 2회 후 48시간 경과</span><span class="lv m">48시간</span></div>
+      <div class="esc-item"><span class="t">후보자 링크 미확인</span><span class="c">발송 후 36시간 내 미열람</span><span class="lv m">36시간</span></div>
+      <div class="esc-item"><span class="t">일정 충돌 발생</span><span class="c">확정 후 면접관 캘린더에 상위 일정 등록</span><span class="lv h">즉시</span></div>
+      <div class="esc-item"><span class="t">면접 당일 노쇼</span><span class="c">시작 15분 경과 후 미입장</span><span class="lv h">즉시</span></div>
+      <div class="esc-item"><span class="t">단계 체류 시간 초과</span><span class="c">포지션별 기준 SLA 초과</span><span class="lv l">기준 초과 시</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 데이터 ===================== -->
+<section id="data">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">데이터</span>
+      <h2 class="display">보고서를 위해<br>따로 정리하지 않습니다.</h2>
+      <p class="lede">
+        조율 과정에서 발생한 모든 이벤트가 그 자리에서 기록됩니다.
+        분기 리포트를 만들려고 시트를 다시 채우는 작업이 사라집니다.
+      </p>
+    </div>
+
+    <div class="data-grid">
+      <div class="kpi-board rv">
+        <div class="kpi-row">
+          <div class="kpi star"><div class="k">평균 조율 소요 시간</div><div class="v">4.3<em>시간</em></div><div class="d">최근 30일 · 확정까지</div></div>
+          <div class="kpi star"><div class="k">사람이 개입한 비율</div><div class="v">11<em>%</em></div><div class="d">전체 조율 건 대비</div></div>
+          <div class="kpi"><div class="k">면접관 평균 응답</div><div class="v">38<em>분</em></div><div class="d">알림 → 클릭</div></div>
+          <div class="kpi"><div class="k">노쇼율</div><div class="v">2.1<em>%</em></div><div class="d">리마인더 적용 후</div></div>
+        </div>
+        <div class="funnel">
+          <div class="fn"><span class="l">서류</span><span class="b" style="width:100%">168</span><span class="r">100%</span></div>
+          <div class="fn"><span class="l">1차</span><span class="b" style="width:46%">77</span><span class="r">46%</span></div>
+          <div class="fn"><span class="l">2차</span><span class="b" style="width:23%">39</span><span class="r">23%</span></div>
+          <div class="fn"><span class="l">처우 협의</span><span class="b" style="width:11%">18</span><span class="r">11%</span></div>
+          <div class="fn"><span class="l">입사 확정</span><span class="b" style="width:7%;background:var(--st-done)">12</span><span class="r">7%</span></div>
+        </div>
+        <p class="small" style="margin-top:14px">※ 화면은 기능 설명을 위한 예시 데이터입니다.</p>
+      </div>
+
+      <div class="rv">
+        <h3 class="title">두 개의 숫자면<br>충분합니다.</h3>
+        <p class="body" style="margin-top:16px">
+          이 제품이 일을 하고 있는지는 두 지표로 판단합니다.
+          <b>조율에 걸린 시간</b>이 줄고 있는가, 그리고 <b>사람이 손댄 비율</b>이 줄고 있는가.
+          나머지 숫자는 이 둘을 설명하기 위한 보조 지표입니다.
+        </p>
+        <div class="export-note">
+          <p class="small" style="font-weight:700;color:var(--text-2)">그대로 내보낼 수 있는 것</p>
+          <div class="chips">
+            <span class="chip">전형 단계 이력</span>
+            <span class="chip">단계별 체류 시간</span>
+            <span class="chip">조율 시도 로그</span>
+            <span class="chip">면접관 응답 속도</span>
+            <span class="chip">에스컬레이션 사유</span>
+            <span class="chip">노쇼 · 취소 이력</span>
+            <span class="chip">채용 경로별 전환율</span>
+            <span class="chip">부서별 소요 기간</span>
+          </div>
+          <p class="small" style="margin-top:16px">
+            채용절차법상 보관·파기 의무와 개인정보 보유기간에 맞춰,
+            지원자 데이터는 설정한 기간이 지나면 자동으로 파기 대상에 오릅니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== TalentCore 연동 ===================== -->
+<section class="int" id="integration">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="eyebrow">TalentCore 연동</span>
+      <h2 class="display">채용에서 끝나지 않고,<br>입사로 이어집니다.</h2>
+      <p class="lede">
+        별도 제품이 아니라 TalentCore 안의 한 모듈입니다.
+        조직도, 결재선, 권한, 직원 정보를 그대로 씁니다. 옮겨 적는 단계가 없습니다.
+      </p>
+    </div>
+
+    <div class="int-grid">
+      <div class="int-cell rv"><div class="from">TalentCore 직원 정보</div><div class="to">→ <b>면접관 프로필</b></div><div class="ex">직원 레코드를 확장해서 씁니다. 면접관을 따로 등록하지 않습니다.</div></div>
+      <div class="int-cell rv"><div class="from">TalentCore 조직도</div><div class="to">→ <b>포지션 · 열람 범위</b></div><div class="ex">부서 트리를 그대로 상속합니다. 본인 조직 아래만 보입니다.</div></div>
+      <div class="int-cell rv"><div class="from">TalentCore 결재선</div><div class="to">→ <b>채용 요청서 승인</b></div><div class="ex">쓰던 결재 흐름을 그대로 씁니다. 별도 승인 규칙을 만들지 않습니다.</div></div>
+      <div class="int-cell rv"><div class="from">TalentCore 권한(RBAC)</div><div class="to">→ <b>ATS 역할</b></div><div class="ex">기존 권한 위에 코디네이터·리크루터·면접관 역할을 겹칩니다.</div></div>
+      <div class="int-cell rv"><div class="from">TalentCore 알림함</div><div class="to">→ <b>채용 알림 통합</b></div><div class="ex">결재 대기와 면접 요청이 한 곳에 모입니다. 확인할 곳이 하나입니다.</div></div>
+      <div class="int-cell rv"><div class="from">ATS 오퍼 수락</div><div class="to">→ <b>입사 예정자 자동 생성</b></div><div class="ex">온보딩 체크리스트와 입사 서류 요청이 그 자리에서 시작됩니다.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA ===================== -->
+<section class="cta-final" id="cta">
+  <div class="narrow">
+    <h2 class="display-xl">조율 메일함을<br>닫을 시간입니다.</h2>
+    <p>지금 쓰는 캘린더와 Slack에 연결하는 것으로 시작합니다. 면접관에게 새 계정을 만들라고 할 필요가 없습니다.</p>
+    <div class="btns">
+      <a class="btn btn-primary" href="#">도입 상담 요청</a>
+      <a class="btn btn-onink" href="#how">작동 방식 다시 보기</a>
+    </div>
+    <p class="small">TalentCore를 이미 쓰고 있다면, 모듈만 켜면 됩니다.</p>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="about">
+        <a class="logo" href="#top"><span class="mark">T</span>TalentCore<span class="badge">ATS</span></a>
+        <p>사람을 중심에 둔 HR OS. 인터뷰 스케줄링 자동화 모듈은 반복되는 조율을 걷어내고, 판단이 필요한 순간만 사람에게 남깁니다.</p>
+      </div>
+      <div class="links">
+        <div class="col">
+          <h5>제품</h5>
+          <a href="#why">문제 정의</a>
+          <a href="#principle">분담 원칙</a>
+          <a href="#how">작동 방식</a>
+          <a href="#roles">역할별 화면</a>
+        </div>
+        <div class="col">
+          <h5>연동</h5>
+          <a href="#integration">TalentCore</a>
+          <a href="#">Google Calendar</a>
+          <a href="#">Slack</a>
+          <a href="#data">데이터 내보내기</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bar">© 2026 TalentCore. 화면과 수치는 기능 설명을 위한 예시입니다.</div>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
