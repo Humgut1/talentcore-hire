@@ -36,6 +36,7 @@ import { sendNowFor, sendDueReminders as runDueReminders, type SendReport } from
 import { mailerStatus, type MailerStatus } from './mailer'
 import { sendCandMail } from './maillog'
 import { tplByCode } from './cand-mail'
+import { rejectMailDraft, type StageLite } from './decision'
 import { syncDirectory, lastSyncedAt, type SyncReport } from './directory'
 import { coreState, coreLabel, fetchSeats, pushHire, type CoreSeat } from './core'
 
@@ -1335,41 +1336,138 @@ export async function setPersonPrefs(
 export interface BulkReport {
   ok: number                              // 처리된 사람 수
   fail: { cid: string; nm: string; reason: string }[]
+  /* 통보 메일을 함께 보내기로 했을 때만 채워진다.
+     판정과 메일은 따로 세야 한다 — 메일이 안 나가도 판정은 이미 저장됐기 때문에,
+     한 숫자로 합치면 "불합격이 안 됐다"고 잘못 읽힌다. */
+  mail?: { sent: number; failed: number; why?: string }
 }
 
 const nameOf = (cid: string) => cands.find(x => x.id === cid)?.nm ?? cid
 
-/** 여러 명을 각자의 다음 단계로. 마지막 단계에 서 있는 사람은 건너뛴다. */
-export async function bulkAdvance(cids: string[]): Promise<BulkReport> {
-  await hydrateData()
-  const fail: BulkReport['fail'] = []
-  let ok = 0
-  for (const cid of cids) {
-    const nm = nameOf(cid)
-    const r = await advanceCand(cid)
-    if (r.ok) ok++
-    else fail.push({ cid, nm, reason: r.reason ?? 'unknown' })
-  }
-  return { ok, fail }
+/* 메일 한 통. 실패 사유는 첫 건만 남긴다 — 열 명에게 같은 이유로 실패하는 것이 보통이라
+   사유를 열 줄 늘어놓아 봐야 읽히지 않는다. */
+async function tally(
+  m: { sent: number; failed: number; why?: string },
+  r: { ok: boolean; reason?: string },
+) {
+  if (r.ok) m.sent++
+  else { m.failed++; if (!m.why) m.why = r.reason ?? 'unknown' }
 }
 
-/** 여러 명을 같은 사유로 불합격. 사유가 없으면 한 명도 처리하지 않는다. */
+/* ---- 통보 메일 두 종류 ----
+   한 명을 처리할 때(후보자 카드)와 여러 명을 처리할 때(보드)가 같은 문장을 보내야 해서
+   여기 한 곳에만 둔다. 문장을 짓는 규칙이 두 벌이 되면 반드시 어긋난다. */
+
+/** 다음 단계로 옮겨진 사람에게 나가는 안내. toNm 은 '옮겨진 뒤'의 단계 이름이다 —
+    방금 통과한 단계를 적으면 "서류 단계로 모시게 되었습니다"가 되어 버린다. */
+async function mailAdvance(c: Candidate, toNm: string, tplCode: string) {
+  const t = tplByCode(tplCode)
+  if (!t) return { ok: false, reason: 'no-template' }
+  const pos = posById(c.p)
+  const m = t.make({ cand: c.nm, pos: pos.title, stage: toNm, rc: pos.rec, company: 'TalentCore' })
+  return sendCandMail({
+    cid: c.id, kind: t.v,
+    ...(c.email ? { to: c.email } : {}),
+    subject: m.subject, body: m.body, byNm: pos.rec,
+  })
+}
+
+/** 불합격 통보. atNm 은 '떨어지기 전에' 서 있던 단계다 — 처리하고 나서 읽으면
+    '불합격' 레일이 잡혀 "불합격 단계까지 함께해 주셔서 감사합니다"가 된다.
+    notify 가 'auto' 면 사유와 단계에 맞춰 본문을 짓고, 아니면 그 템플릿을 쓴다. */
+async function mailReject(
+  c: Candidate, at: StageLite, code: RejectCode, notify: string,
+) {
+  const pos = posById(c.p)
+  const t = notify === 'auto' ? null : tplByCode(notify)
+  if (notify !== 'auto' && !t) return { ok: false, reason: 'no-template' }
+  const m = t
+    ? t.make({ cand: c.nm, pos: pos.title, stage: at.nm, rc: pos.rec, company: 'TalentCore' })
+    : rejectMailDraft({ cand: c.nm, pos: pos.title, stage: at, code, sender: pos.rec })
+  return sendCandMail({
+    cid: c.id, kind: t ? t.v : 'reject-notice',
+    ...(c.email ? { to: c.email } : {}),
+    subject: m.subject, body: m.body, byNm: pos.rec,
+  })
+}
+
+/** 한 명을 다음 단계로 + 통보. 후보자 카드에서 쓴다.
+    메일이 실패해도 판정은 이미 저장돼 있다 — 그래서 ok 와 mail 을 따로 돌려준다. */
+export async function advanceAndNotify(cid: string, mailCode?: string | null) {
+  await hydrateData()
+  const c = cands.find(x => x.id === cid)
+  const r = await advanceCand(cid)
+  if (!r.ok || !c || !mailCode) return { ...r, mail: null as null | { ok: boolean; reason?: string } }
+  const mail = await mailAdvance(c, r.to ?? stageById(c.p, c.st).nm, mailCode)
+  return { ...r, mail }
+}
+
+/** 한 명을 불합격 + 통보. notify 는 bulkReject 와 같은 규칙. */
+export async function rejectAndNotify(
+  cid: string, code: string, memo?: string, notify: string | null = 'auto',
+) {
+  await hydrateData()
+  const c = cands.find(x => x.id === cid)
+  const at = c ? stageById(c.p, c.st) : null
+  const r = await rejectCand(cid, code, memo)
+  if (!r.ok || !c || !at || !notify) return { ...r, mail: null as null | { ok: boolean; reason?: string } }
+  const mail = await mailReject(c, at, code as RejectCode, notify)
+  return { ...r, mail }
+}
+
+/** 여러 명을 각자의 다음 단계로. 마지막 단계에 서 있는 사람은 건너뛴다.
+    mailCode 를 주면 옮겨진 사람에게만 그 템플릿으로 안내 메일이 나간다.
+    null 이면 판정만 하고 통보하지 않는다(이미 다른 채널로 알린 경우). */
+export async function bulkAdvance(cids: string[], mailCode?: string | null): Promise<BulkReport> {
+  await hydrateData()
+  const fail: BulkReport['fail'] = []
+  const t = mailCode ? tplByCode(mailCode) : null
+  const mail = t ? { sent: 0, failed: 0 } as NonNullable<BulkReport['mail']> : undefined
+  let ok = 0
+
+  for (const cid of cids) {
+    const nm = nameOf(cid)
+    const c = cands.find(x => x.id === cid)
+    const r = await advanceCand(cid)
+    if (!r.ok) { fail.push({ cid, nm, reason: r.reason ?? 'unknown' }); continue }
+    ok++
+    if (!t || !c || !mail) continue
+    await tally(mail, await mailAdvance(c, r.to ?? stageById(c.p, c.st).nm, t.v))
+  }
+  return { ok, fail, ...(mail ? { mail } : {}) }
+}
+
+/** 여러 명을 같은 사유로 불합격. 사유가 없으면 한 명도 처리하지 않는다.
+    notify:
+      'auto' — 사유와 그 사람이 서 있던 단계에 맞춰 본문을 지어 보낸다(기본).
+               서류에서 떨어진 사람과 최종 면접에서 떨어진 사람에게 같은 문장을 보내지 않기 위해서다.
+      템플릿코드 — 그 템플릿으로 보낸다(예: 인재풀 보관 안내).
+      null — 보내지 않는다. */
 export async function bulkReject(
-  cids: string[], code: string, memo?: string,
+  cids: string[], code: string, memo?: string, notify: string | null = 'auto',
 ): Promise<BulkReport> {
   await hydrateData()
   if (!code || !REJECT_REASONS.some(r => r.v === code)) {
     return { ok: 0, fail: cids.map(cid => ({ cid, nm: nameOf(cid), reason: 'need-reason' })) }
   }
   const fail: BulkReport['fail'] = []
+  const t = notify && notify !== 'auto' ? tplByCode(notify) : null
+  const mail = notify ? { sent: 0, failed: 0 } as NonNullable<BulkReport['mail']> : undefined
   let ok = 0
+
   for (const cid of cids) {
     const nm = nameOf(cid)
+    const c = cands.find(x => x.id === cid)
+    /* 서 있던 단계는 불합격 처리 전에 붙잡아 둔다 — 처리하고 나면 '불합격' 레일로 옮겨져
+       "불합격 단계까지 함께해 주셔서 감사합니다"가 되어 버린다. */
+    const at = c ? stageById(c.p, c.st) : null
     const r = await rejectCand(cid, code, memo)
-    if (r.ok) ok++
-    else fail.push({ cid, nm, reason: r.reason ?? 'unknown' })
+    if (!r.ok) { fail.push({ cid, nm, reason: r.reason ?? 'unknown' }); continue }
+    ok++
+    if (!mail || !c || !at || !notify) continue
+    await tally(mail, await mailReject(c, at, code as RejectCode, notify))
   }
-  return { ok, fail }
+  return { ok, fail, ...(mail ? { mail } : {}) }
 }
 
 /** 여러 명에게 같은 템플릿으로 메일.

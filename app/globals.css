@@ -281,6 +281,29 @@ ul { padding: 0; list-style: none; }
 .ask-p b { font-weight: 700; color: var(--t1); }
 .zero-row { padding: 34px 16px; text-align: center; font-size: 12.5px; color: var(--t3); }
 
+/* 통보 메일 고르기 — 판정 창 안에서 "무엇이 나가는지"까지 한 번에 정한다.
+   드롭다운 대신 줄로 편 것은, 세 번째 선택지(보내지 않음)가 접혀 있으면
+   메일이 나가는 줄 모르고 처리하는 일이 생기기 때문이다. */
+.mp { display: flex; flex-direction: column; gap: 6px; }
+.mp-o { display: grid; grid-template-columns: 16px 1fr; align-items: start; column-gap: 9px; row-gap: 1px;
+  padding: 9px 11px; border-radius: var(--r-sm); cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--line); transition: box-shadow .15s, background .15s; }
+.mp-o:hover { background: var(--hover); }
+.mp-o.on { box-shadow: inset 0 0 0 1.5px var(--brand); }
+.mp-o input { grid-row: 1 / span 2; margin: 2px 0 0; accent-color: var(--brand); }
+.mp-o b { font-size: 12.5px; font-weight: 600; color: var(--t1); }
+.mp-o i { font-style: normal; font-size: 11.5px; color: var(--t3); line-height: 1.5; }
+
+/* 나갈 문장 미리보기. 본문을 짓는 함수가 순수 함수라 서버에 묻지 않고 바로 그린다. */
+.mail-pv { margin-top: 14px; border-radius: var(--r-sm); background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.mail-pv-h { padding: 8px 12px; font-size: 11px; font-weight: 700; color: var(--t3);
+  letter-spacing: .02em; border-bottom: 1px solid var(--line); }
+.mail-pv-h span { font-weight: 500; letter-spacing: 0; }
+.mail-pv-s { padding: 10px 12px 0; font-size: 12.5px; font-weight: 600; color: var(--t1); }
+.mail-pv-b { padding: 6px 12px 12px; font-size: 12px; color: var(--t2); line-height: 1.75;
+  white-space: pre-wrap; max-height: 240px; overflow-y: auto; }
+
 /* 자동 저장 표시 — 이 화면에 저장 버튼이 없다는 사실을 대신 말해 준다. */
 .save-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 999px;
   font-size: 11px; font-weight: 600; color: var(--t3); background: var(--sunken);

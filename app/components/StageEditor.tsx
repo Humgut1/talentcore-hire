@@ -220,7 +220,7 @@ export default function StageEditor(
   const tabs: [string, string, string][] = [
     ['board', '파이프라인', 'i-columns'],
     ['progress', '진행 매트릭스', 'i-rows'],
-    ['setup', '공고 설정', 'i-sliders'],
+    ['setup', '전형 단계', 'i-sliders'],
     ['auto', '자동화', 'i-zap'],
     ['links', '지원 링크', 'i-link'],
   ]

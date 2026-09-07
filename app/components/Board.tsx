@@ -11,8 +11,8 @@ import {
 } from '../lib/data'
 import { persistMove, persistCand, addCandidate, assignMeeting, meetingPicker, searchMeetingSlots, confirmMeeting,
   bulkAdvance, bulkReject, bulkMail } from '../lib/actions'
-import { REJECT_REASONS, rejectDef } from '../lib/decision'
-import { MAIL_TPLS } from '../lib/cand-mail'
+import { REJECT_REASONS, rejectDef, rejectMailDraft, type RejectCode } from '../lib/decision'
+import { MAIL_TPLS, tplByCode } from '../lib/cand-mail'
 import { mtgViews, type MtgView } from '../lib/meetings'
 import BulkSend from './BulkSend'
 
@@ -99,6 +99,13 @@ export default function Board(
   const [tpl, setTpl] = useState(MAIL_TPLS[0]?.v ?? '')
   const [busy, run] = useTransition()
 
+  /* 통보 메일 — 판정과 한 창에서 정한다.
+     판정만 저장하고 통보는 따로 보내게 두면, 떨어뜨린 사람이 아무 연락도 못 받은 채
+     남는 일이 실제로 생긴다. 그래서 기본값은 '보낸다'이고, 끄는 것은 명시적인 선택이다.
+     null = 보내지 않음 · 'auto' = 사유와 단계에 맞춰 본문을 지어서 보냄. */
+  const [passMail, setPassMail] = useState<string | null>('doc-pass')
+  const [rjMail, setRjMail] = useState<string | null>('auto')
+
   /* 처리한 사람은 열에서 사라지거나 다른 열로 옮겨간다.
      서버가 진실이므로 화면을 손으로 고치지 않고 그대로 다시 받아 온다. */
   const done = (label: string) => { setSel([]); setAsk(null); router.refresh(); pushToast(label) }
@@ -107,19 +114,75 @@ export default function Board(
     const nms = sel.map(id => list.find(c => c.id === id)?.nm).filter(Boolean) as string[]
     return nms.length <= 4 ? nms.join(' · ') : `${nms.slice(0, 4).join(' · ')} 외 ${nms.length - 4}명`
   })()
-  const report = (r: { ok: number; fail: { nm: string }[] }, verb: string) =>
+  const report = (
+    r: { ok: number; fail: { nm: string }[]; mail?: { sent: number; failed: number; why?: string } },
+    verb: string,
+  ) =>
     `<b>${r.ok}명</b> ${verb}` +
-    (r.fail.length ? ` · ${r.fail.length}명은 처리하지 못했습니다 (${r.fail.slice(0, 3).map(f => f.nm).join(', ')}${r.fail.length > 3 ? ' 외' : ''})` : '')
+    (r.fail.length ? ` · ${r.fail.length}명은 처리하지 못했습니다 (${r.fail.slice(0, 3).map(f => f.nm).join(', ')}${r.fail.length > 3 ? ' 외' : ''})` : '') +
+    /* 판정과 통보는 따로 말한다 — 메일이 못 나가도 판정은 이미 저장됐다. */
+    (r.mail
+      ? ` · 통보 메일 <b>${r.mail.sent}통</b> 발송` +
+        (r.mail.failed
+          ? `, <b>${r.mail.failed}통</b>은 나가지 못했습니다${r.mail.why === 'not-configured' ? ' (메일 발송이 아직 연결되지 않았습니다)' : ''}`
+          : '')
+      : '')
 
   function doPass() {
-    run(async () => { const r = await bulkAdvance(sel); done(report(r, '다음 단계로 보냈습니다')) })
+    run(async () => { const r = await bulkAdvance(sel, passMail); done(report(r, '다음 단계로 보냈습니다')) })
   }
   function doReject() {
-    run(async () => { const r = await bulkReject(sel, rjCode, rjMemo); done(report(r, '불합격 처리했습니다')); setRjMemo('') })
+    run(async () => {
+      const r = await bulkReject(sel, rjCode, rjMemo, rjMail)
+      done(report(r, '불합격 처리했습니다')); setRjMemo('')
+    })
   }
   function doMail() {
     run(async () => { const r = await bulkMail(sel, tpl); done(report(r, '에게 메일을 보냈습니다')) })
   }
+
+  /* ---- 나갈 메일 미리보기 ----
+     본문을 짓는 함수가 순수 함수라 서버에 묻지 않고 여기서 그대로 만들 수 있다.
+     고른 사람이 여러 명이면 첫 사람 기준으로 보여 준다 — 나머지는 이름과 단계만 바뀐다. */
+  const pv = list.find(c => c.id === sel[0])
+  const pvNext = (() => {
+    if (!pv) return null
+    const line = stages.filter(sg => !sg.rail)
+    return line[line.findIndex(sg => sg.id === pv.st) + 1] ?? null
+  })()
+  /* 합격 통보의 기본값은 '다음 단계가 무엇이냐'에 달렸다.
+     지원 접수 → 서류 검토처럼 안에서만 움직이는 경우엔 후보자에게 알릴 소식이 아니다.
+     인터뷰·과제로 넘어갈 때만 기본으로 켠다. */
+  const defaultPassMail = () => {
+    const c = list.find(x => x.id === sel[0])
+    if (!c) return null
+    const line = stages.filter(sg => !sg.rail)
+    const nx = line[line.findIndex(sg => sg.id === c.st) + 1]
+    return nx && (nx.kind === 'interview' || nx.kind === 'task') ? 'doc-pass' : null
+  }
+  const passDraft = (() => {
+    if (!pv || !passMail) return null
+    const t = tplByCode(passMail)
+    if (!t) return null
+    return t.make({
+      cand: pv.nm, pos: p.title, stage: pvNext?.nm ?? stageById(PID, pv.st).nm,
+      rc: p.rec, company: 'TalentCore',
+    })
+  })()
+  const rjDraft = (() => {
+    if (!pv || !rjMail || !rjCode) return null
+    if (rjMail !== 'auto') {
+      const t = tplByCode(rjMail)
+      return t ? t.make({
+        cand: pv.nm, pos: p.title, stage: stageById(PID, pv.st).nm,
+        rc: p.rec, company: 'TalentCore',
+      }) : null
+    }
+    return rejectMailDraft({
+      cand: pv.nm, pos: p.title, stage: stageById(PID, pv.st),
+      code: rjCode as RejectCode, sender: p.rec,
+    })
+  })()
 
   /* ---- 마감된 사람 보기 ----
      예전에는 보드 오른쪽에 세로 레일 두 개(입사·불합격)가 붙어 있었다.
@@ -733,7 +796,7 @@ export default function Board(
           <b>{sel.length}명 선택</b>
           <button className="pb-x" onClick={() => setSel([])} title="선택 해제"><Icon id="i-x" className="ic-sm" /></button>
           <i className="pb-sep" />
-          <button className="btn" disabled={busy} onClick={() => setAsk('pass')}>
+          <button className="btn" disabled={busy} onClick={() => { setPassMail(defaultPassMail()); setAsk('pass') }}>
             <Icon id="i-check-circle" className="ic-sm" />합격
           </button>
           <button className="btn" disabled={busy} onClick={() => setAsk('reject')}>
@@ -762,17 +825,35 @@ export default function Board(
             </div>
             <div className="drawer-b">
               {ask === 'pass' && (
-                <p className="ask-p">
-                  선택한 <b>{sel.length}명</b>을 각자 서 있는 단계의 <b>다음 단계</b>로 보냅니다.
-                  단계마다 서 있는 자리가 다르면 각자 다른 단계로 갑니다.
-                  오퍼 단계로 넘어가는 분은 처우안 초안이 함께 만들어집니다.
-                </p>
+                <>
+                  <p className="ask-p">
+                    선택한 <b>{sel.length}명</b>을 각자 서 있는 단계의 <b>다음 단계</b>로 보냅니다.
+                    단계마다 서 있는 자리가 다르면 각자 다른 단계로 갑니다.
+                    오퍼 단계로 넘어가는 분은 처우안 초안이 함께 만들어집니다.
+                  </p>
+                  <div className="field">
+                    <label>통보 메일</label>
+                    <div className="mp">
+                      {([
+                        ['doc-pass', '일정 조율 요청', '다음 전형 일정을 잡기 위해 가능한 시간을 여쭙습니다'],
+                        ['iv-info', '면접 안내', '이미 시간이 정해진 경우 — 확정된 일정을 안내합니다'],
+                        [null, '보내지 않음', '이미 전화·문자로 알렸거나, 본문을 직접 쓰고 싶은 경우'],
+                      ] as [string | null, string, string][]).map(([v, l, d]) => (
+                        <label key={v ?? 'none'} className={'mp-o' + (passMail === v ? ' on' : '')}>
+                          <input type="radio" name="passmail" checked={passMail === v}
+                            onChange={() => setPassMail(v)} />
+                          <b>{l}</b><i>{d}</i>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
               {ask === 'reject' && (
                 <>
                   <p className="ask-p">
                     선택한 <b>{sel.length}명</b>을 같은 사유로 불합격 처리합니다.
-                    통보 메일은 나가지 않습니다 — 메일은 따로 보내세요.
+                    사유는 안에서만 남고, 통보 메일에는 적히지 않습니다.
                   </p>
                   <div className="field">
                     <label>사유 (필수)</label>
@@ -786,6 +867,22 @@ export default function Board(
                     <label>메모 (선택)</label>
                     <input className="in" value={rjMemo} placeholder="예) 요구 연봉 밴드 초과"
                       onChange={e => setRjMemo(e.target.value)} />
+                  </div>
+                  <div className="field">
+                    <label>통보 메일</label>
+                    <div className="mp">
+                      {([
+                        ['auto', '전형 결과 안내', '사유와 서 있던 단계에 맞춰 본문을 지어 보냅니다'],
+                        ['thanks', '지원 감사 · 인재풀 보관', '다음 공고에 다시 연락드릴 분에게'],
+                        [null, '보내지 않음', '이미 알렸거나, 통보하지 않기로 한 경우'],
+                      ] as [string | null, string, string][]).map(([v, l, d]) => (
+                        <label key={v ?? 'none'} className={'mp-o' + (rjMail === v ? ' on' : '')}>
+                          <input type="radio" name="rjmail" checked={rjMail === v}
+                            onChange={() => setRjMail(v)} />
+                          <b>{l}</b><i>{d}</i>
+                        </label>
+                      ))}
+                    </div>
                   </div>
                 </>
               )}
@@ -804,14 +901,30 @@ export default function Board(
                   </div>
                 </>
               )}
+
+              {/* 실제로 나갈 문장을 보여 준다. 여러 명이면 첫 사람 기준 — 나머지는 이름과 단계만 바뀐다. */}
+              {(() => {
+                const dr = ask === 'pass' ? passDraft : ask === 'reject' ? rjDraft : null
+                if (!dr || !pv) return null
+                return (
+                  <div className="mail-pv">
+                    <div className="mail-pv-h">
+                      나갈 메일 미리보기
+                      {sel.length > 1 ? <span> · {pv.nm} 님 기준, 나머지는 이름·단계만 바뀝니다</span> : null}
+                    </div>
+                    <div className="mail-pv-s">{dr.subject}</div>
+                    <div className="mail-pv-b">{dr.body}</div>
+                  </div>
+                )
+              })()}
             </div>
             <div className="drawer-f">
               <button className="btn" onClick={() => setAsk(null)} disabled={busy}>취소</button>
               <button className="btn solid" disabled={busy || (ask === 'reject' && !rjCode) || (ask === 'mail' && !tpl)}
                 onClick={ask === 'pass' ? doPass : ask === 'reject' ? doReject : doMail}>
                 {busy ? '처리 중…'
-                  : ask === 'pass' ? `${sel.length}명 보내기`
-                  : ask === 'reject' ? `${sel.length}명 불합격`
+                  : ask === 'pass' ? `${sel.length}명 보내기${passMail ? ' + 메일' : ' (메일 없음)'}`
+                  : ask === 'reject' ? `${sel.length}명 불합격${rjMail ? ' + 통보' : ' (통보 없음)'}`
                   : `${sel.length}명에게 보내기`}
               </button>
             </div>

@@ -9,7 +9,8 @@
    · 버튼은 무채색. 색은 상태(보류·불합격·이견)에만 쓴다.
    · 불합격 사유는 <우리가 거절> / <후보자가 이탈> 두 묶음으로 나눠 받는다.
      둘을 섞으면 퍼널에서 '기준이 빡센 것'과 '우리가 안 팔린 것'이 구분되지 않는다.
-   · 통보 메일은 초안까지만 만든다. 여기서 발송하지 않는다.
+   · 통보 메일은 판정과 한 창에서 정한다 — 판정만 저장하고 통보를 잊는 일이 실제로 생긴다.
+     '보내지 않음'은 언제든 고를 수 있지만, 그건 눌러서 고른 선택이어야 한다.
    ========================================================= */
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,7 +20,47 @@ import {
   type DecisionView, type RejectCode, type RejectSide,
 } from '../lib/decision'
 import { VERDICT_LABEL } from '../lib/scorecard'
-import { advanceCand, holdCand, rejectCand, undoReject } from '../lib/actions'
+import { tplByCode } from '../lib/cand-mail'
+import { advanceAndNotify, holdCand, rejectAndNotify, undoReject } from '../lib/actions'
+
+/* 통보 메일 고르는 줄 — 보드의 일괄 처리 창과 같은 문구를 쓴다. */
+const PASS_MAIL: [string | null, string, string][] = [
+  ['doc-pass', '일정 조율 요청', '다음 전형 일정을 잡기 위해 가능한 시간을 여쭙습니다'],
+  ['iv-info', '면접 안내', '이미 시간이 정해진 경우 — 확정된 일정을 안내합니다'],
+  [null, '보내지 않음', '이미 전화·문자로 알렸거나, 본문을 직접 쓰고 싶은 경우'],
+]
+const RJ_MAIL: [string | null, string, string][] = [
+  ['auto', '전형 결과 안내', '사유와 서 있던 단계에 맞춰 본문을 지어 보냅니다'],
+  ['thanks', '지원 감사 · 인재풀 보관', '다음 공고에 다시 연락드릴 분에게'],
+  [null, '보내지 않음', '이미 알렸거나, 통보하지 않기로 한 경우'],
+]
+
+function MailPick({ name, opts, v, set, busy }: {
+  name: string; opts: [string | null, string, string][]
+  v: string | null; set: (x: string | null) => void; busy: boolean
+}) {
+  return (
+    <div className="mp" style={{ marginTop: 10 }}>
+      {opts.map(([val, l, d]) => (
+        <label key={val ?? 'none'} className={'mp-o' + (v === val ? ' on' : '')}>
+          <input type="radio" name={name} checked={v === val} disabled={busy}
+            onChange={() => set(val)} />
+          <b>{l}</b><i>{d}</i>
+        </label>
+      ))}
+    </div>
+  )
+}
+
+function MailPv({ d }: { d: { subject: string; body: string } }) {
+  return (
+    <div className="mail-pv">
+      <div className="mail-pv-h">나갈 메일 미리보기</div>
+      <div className="mail-pv-s">{d.subject}</div>
+      <div className="mail-pv-b">{d.body}</div>
+    </div>
+  )
+}
 
 const REASON: Record<string, string> = {
   'no-candidate': '후보자를 찾지 못했습니다.',
@@ -50,13 +91,18 @@ export default function DecisionClient({
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
-  const [open, setOpen] = useState<'' | 'hold' | 'reject' | 'mail'>('')
+  const [open, setOpen] = useState<'' | 'pass' | 'hold' | 'reject'>('')
+  /* 합격 통보의 기본값은 다음 단계가 무엇이냐에 달렸다 — 안에서만 움직이는 이동
+     (지원 접수 → 서류 검토)은 후보자에게 알릴 소식이 아니다. */
+  const [passMail, setPassMail] = useState<string | null>(
+    view.next && (view.next.kind === 'interview' || view.next.kind === 'task') ? 'doc-pass' : null,
+  )
+  const [rjMail, setRjMail] = useState<string | null>('auto')
 
   const [memo, setMemo] = useState('')
   const [side, setSide] = useState<RejectSide>('us')
   const [code, setCode] = useState<RejectCode | ''>('')
   const [rMemo, setRMemo] = useState('')
-  const [copied, setCopied] = useState(false)
 
   /* done 을 함수로도 받는다 — 서버가 '무슨 일까지 했는지'(오퍼 초안 자동 생성 등)를
      돌려주는 경우가 있어서, 그 결과에 맞는 문장을 보여주려는 것. */
@@ -81,19 +127,25 @@ export default function DecisionClient({
     }
   }
 
-  /* 통보 초안 — 사유를 고른 뒤에만 만들어진다(사유에 따라 문장이 달라진다). */
-  const draft = code
-    ? rejectMailDraft({ cand, pos, stage: view.cur, code, sender })
-    : null
-
-  async function copyDraft() {
-    if (!draft) return
-    try {
-      await navigator.clipboard.writeText(`${draft.subject}\n\n${draft.body}`)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1600)
-    } catch { /* 클립보드 권한이 없으면 그냥 눈으로 읽고 복사한다 */ }
+  /* 통보 초안 — 사유(또는 템플릿)를 고른 뒤에만 만들어진다.
+     본문을 짓는 함수가 순수 함수라, 서버에 묻지 않고 고르는 즉시 바뀐다. */
+  const mk = (v: string) => {
+    const t = tplByCode(v)
+    return t ? t.make({ cand, pos, stage: view.cur.nm, rc: sender, company: 'TalentCore' }) : null
   }
+  const draft = !code || !rjMail ? null
+    : rjMail === 'auto' ? rejectMailDraft({ cand, pos, stage: view.cur, code, sender })
+      : mk(rjMail)
+  const passDraft = !passMail || !view.next ? null : (() => {
+    const t = tplByCode(passMail)
+    return t ? t.make({ cand, pos, stage: view.next.nm, rc: sender, company: 'TalentCore' }) : null
+  })()
+
+  /* 판정과 통보는 따로 말한다 — 메일이 못 나가도 판정은 이미 저장됐다. */
+  const mailTail = (m?: { ok: boolean; reason?: string } | null) =>
+    !m ? '' : m.ok ? ' · 통보 메일을 보냈습니다'
+      : m.reason === 'not-configured' ? ' · 통보 메일은 나가지 못했습니다 (메일 발송이 아직 연결되지 않았습니다)'
+        : ' · 통보 메일은 나가지 못했습니다'
 
   /* ---------- 평가 현황 한 줄 ---------- */
   const evalLine = !view.gradable ? null : (
@@ -174,9 +226,7 @@ export default function DecisionClient({
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
           <button className="btn solid" disabled={busy || !view.next}
-            onClick={() => run(() => advanceCand(cid), r =>
-              `${r.to ?? view.next?.nm ?? '다음 단계'} 단계로 보냈습니다` +
-              (r.offerMade ? ' · 처우안 초안을 만들어 뒀습니다' : ''))}>
+            onClick={() => setOpen(open === 'pass' ? '' : 'pass')}>
             <Icon id="i-check-sq" className="ic-sm" />다음 단계로
           </button>
           <button className="btn" disabled={busy}
@@ -187,6 +237,27 @@ export default function DecisionClient({
       </>
     )
   }
+
+  /* ---------- 펼침: 합격 ----------
+     한 번 더 누르게 한 것은 메일이 실제로 나가기 때문이다. 무엇이 나가는지 보고 누른다. */
+  const passBox = open === 'pass' ? (
+    <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--t3)' }}>
+        {cand} 님을 <b>{view.next?.nm}</b> 단계로 보냅니다. 함께 나갈 메일을 고르세요.
+      </div>
+      <MailPick name="dc-pass" opts={PASS_MAIL} v={passMail} set={setPassMail} busy={busy} />
+      {passDraft ? <MailPv d={passDraft} /> : null}
+      <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+        <button className="btn solid" disabled={busy || !view.next}
+          onClick={() => run(() => advanceAndNotify(cid, passMail), r =>
+            `${r.to ?? view.next?.nm ?? '다음 단계'} 단계로 보냈습니다` +
+            (r.offerMade ? ' · 처우안 초안을 만들어 뒀습니다' : '') + mailTail(r.mail))}>
+          {passMail ? '보내고 메일 발송' : '보내기 (메일 없음)'}
+        </button>
+        <button className="btn quiet" disabled={busy} onClick={() => setOpen('')}>취소</button>
+      </div>
+    </div>
+  ) : null
 
   /* ---------- 펼침: 보류 ---------- */
   const holdBox = open === 'hold' ? (
@@ -205,8 +276,8 @@ export default function DecisionClient({
   ) : null
 
   /* ---------- 펼침: 불합격 ----------
-     메일 초안을 펼쳐도 사유 선택은 계속 보인다(사유를 바꾸면 초안도 바뀐다). */
-  const rejectBox = open === 'reject' || open === 'mail' ? (
+     사유를 바꾸면 아래 초안도 그 자리에서 바뀐다. 내부 사유 코드는 본문에 쓰지 않는다. */
+  const rejectBox = open === 'reject' ? (
     <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         {(['us', 'them'] as RejectSide[]).map(s => (
@@ -240,44 +311,17 @@ export default function DecisionClient({
         placeholder="덧붙일 내용 (선택) — 구체적일수록 다음 채용에서 쓸모가 있습니다"
         value={rMemo} onChange={e => setRMemo(e.target.value)} disabled={busy} />
 
-      {draft ? (
-        <div style={{ marginTop: 10 }}>
-          <button className="btn quiet" type="button"
-            onClick={() => setOpen(open === 'mail' ? 'reject' : 'mail')}>
-            <Icon id="i-mail" className="ic-sm" />통보 메일 초안 보기
-          </button>
-        </div>
-      ) : null}
+      <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 12 }}>통보 메일</div>
+      <MailPick name="dc-rj" opts={RJ_MAIL} v={rjMail} set={setRjMail} busy={busy} />
+      {draft ? <MailPv d={draft} /> : null}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button className="btn" disabled={busy || !code}
-          onClick={() => run(() => rejectCand(cid, code, rMemo), '전형을 종료로 기록했습니다')}>
-          {side === 'them' ? '이탈로 기록' : '불합격 기록'}
+          onClick={() => run(() => rejectAndNotify(cid, code, rMemo, rjMail),
+            r => '전형을 종료로 기록했습니다' + mailTail(r.mail))}>
+          {(side === 'them' ? '이탈로 기록' : '불합격 기록') + (rjMail ? ' + 통보' : '')}
         </button>
         <button className="btn quiet" disabled={busy} onClick={() => setOpen('')}>취소</button>
-      </div>
-    </div>
-  ) : null
-
-  /* ---------- 펼침: 통보 메일 초안 ---------- */
-  const mailBox = open === 'mail' && draft ? (
-    <div style={{ marginTop: 14, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-      <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 8 }}>
-        초안입니다. <b>자동 발송하지 않습니다</b> — 읽고 고쳐서 보내세요.
-        내부 사유 코드는 본문에 쓰지 않습니다.
-      </div>
-      <div className="sheet" style={{ padding: '12px 14px', background: 'var(--sunken)' }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600 }}>{draft.subject}</div>
-        <pre style={{
-          fontSize: 12, color: 'var(--t2)', lineHeight: 1.7, marginTop: 8,
-          whiteSpace: 'pre-wrap', fontFamily: 'inherit',
-        }}>{draft.body}</pre>
-      </div>
-      <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-        <button className="btn" type="button" onClick={copyDraft}>
-          <Icon id="i-copy" className="ic-sm" />{copied ? '복사됨' : '초안 복사'}
-        </button>
-        <button className="btn quiet" type="button" onClick={() => setOpen('reject')}>닫기</button>
       </div>
     </div>
   ) : null
@@ -291,9 +335,9 @@ export default function DecisionClient({
         </div>
         <div style={{ padding: '12px 18px 18px' }}>
           {body}
+          {passBox}
           {holdBox}
           {rejectBox}
-          {mailBox}
           {err ? <div style={{ fontSize: 11.5, color: 'var(--esc)', marginTop: 10 }}>{err}</div>
             : msg ? <div style={{ fontSize: 11.5, color: 'var(--done)', marginTop: 10 }}>{msg}</div>
               : null}

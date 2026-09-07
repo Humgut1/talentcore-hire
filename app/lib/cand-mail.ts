@@ -163,5 +163,12 @@ export const MAIL_TPLS: MailTpl[] = [
 ]
 
 export const tplByCode = (v: string) => MAIL_TPLS.find(t => t.v === v)
+
+/* 고르는 목록에는 없지만 기록에는 남는 메일.
+   불합격 통보는 사유와 그 사람이 서 있던 단계에 따라 본문이 그때그때 지어지므로
+   (decision.ts rejectMailDraft) 고정 템플릿으로 둘 수 없다. */
+const EXTRA_KIND: Record<string, string> = {
+  'reject-notice': '불합격 통보',
+}
 export const mailKindLabel = (v: string) =>
-  MAIL_TPLS.find(t => t.v === v)?.l ?? v
+  MAIL_TPLS.find(t => t.v === v)?.l ?? EXTRA_KIND[v] ?? v
