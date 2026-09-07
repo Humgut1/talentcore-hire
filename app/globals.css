@@ -629,6 +629,64 @@ ul { padding: 0; list-style: none; }
 
 .se-f.as-btn { cursor: pointer; border-radius: 5px; padding: 2px 5px; }
 .se-f.as-btn:hover { background: var(--sunken); color: var(--t2); }
+/* --- 단계 카드 (setup 개편) ------------------------------------
+   예전에는 한 줄에 입력칸 7~9개가 라벨 없이 들어가 있었다(.se-row).
+   이제 단계 하나가 카드 하나다: 접으면 머리줄만, 펼치면 라벨 붙은 칸.
+   .se-row 계열은 render.ts 의 옛 화면이 아직 쓰므로 그대로 둔다. */
+.se-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-bottom: 11px; }
+.se-arrow { color: var(--t4); font-size: 11px; }
+.se-step { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+           border-radius: 20px; background: var(--sunken); font-size: 11.5px;
+           font-weight: 600; color: var(--t2); border: 1px solid transparent; }
+.se-step i { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+.se-step b { font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--t4); }
+button.se-step:hover { background: var(--brand-soft); color: var(--brand-deep); }
+.se-step.on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand-deep); }
+.se-step.end { background: none; border: 1px dashed var(--line); color: var(--t4); }
+
+.se-card { border-top: 1px solid var(--line); background: var(--canvas); }
+.sheet .se-card:first-child { border-top: 0; }
+.se-card.over-top { box-shadow: inset 0 2px 0 var(--brand); }
+.se-card.over-bot { box-shadow: inset 0 -2px 0 var(--brand); }
+.se-card.open { background: var(--chrome); }
+
+.se-hd { display: flex; align-items: center; gap: 9px; padding: 11px 14px; cursor: pointer; }
+.se-hd:hover { background: var(--chrome); }
+.se-no { display: flex; align-items: center; justify-content: center; flex: none;
+         width: 17px; height: 17px; border-radius: 5px; background: var(--sunken);
+         font-family: var(--mono); font-size: 10.5px; font-weight: 700; color: var(--t4); }
+.se-nm { flex: none; max-width: 220px; font-size: 13px; font-weight: 600; letter-spacing: -0.02em;
+         color: var(--t1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.se-cnt { flex: none; font-size: 11px; color: var(--t4); }
+.se-cnt.on { color: var(--t2); font-weight: 600; }
+.se-sum { margin-left: auto; min-width: 0; font-size: 11px; color: var(--t4);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.se-locked { display: inline-flex; align-items: center; gap: 4px; flex: none;
+             padding: 3px 8px; border-radius: 20px; background: var(--sunken);
+             font-size: 10.5px; color: var(--t4); white-space: nowrap; }
+.se-tog { display: flex; flex: none; color: var(--t4); transition: transform .15s; }
+.se-tog.up { transform: rotate(180deg); }
+
+.se-body { display: flex; flex-direction: column; gap: 15px; padding: 2px 14px 16px 40px; }
+.se-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(172px, 1fr)); gap: 13px 16px; }
+.se-hlp { margin-top: 4px; font-size: 11px; line-height: 1.5; color: var(--t4); }
+.se-unit { display: flex; align-items: center; gap: 7px; }
+.se-unit .in { width: 78px; }
+.se-unit span { font-size: 12px; color: var(--t3); }
+.se-fl > label { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; color: var(--t3); }
+.se-seg { display: inline-flex; gap: 6px; }
+.se-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px;
+            border-radius: 20px; font-size: 11.5px; font-weight: 600; color: var(--t3);
+            background: var(--canvas); box-shadow: inset 0 0 0 1px var(--line); }
+.se-badge:hover { color: var(--t1); }
+.se-badge.on { color: var(--t1); background: var(--sunken); box-shadow: inset 0 0 0 1.5px var(--t2); }
+
+.se-rails { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px;
+            padding: 11px 14px; border: 1px dashed var(--line); border-radius: 10px; }
+.se-rails-t { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t4); }
+.se-rail { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--t2); }
+.se-rail b { font-weight: 600; }
+.se-rail span { font-size: 11px; color: var(--t4); }
 
 /* 면접관 지정 (setup) */
 .iv-pick { position: relative; display: flex; align-items: center; gap: 5px;

@@ -754,9 +754,9 @@ export async function editCandidate(
    stages·positions 테이블에 저장한다. DB 미설정이면 조용히 no-op.
    ========================================================= */
 
-/* 단계 하나의 속성 수정 — 이름·체류일·면접길이·면접관·자동 여부 */
+/* 단계 하나의 속성 수정 — 이름·체류일·면접길이·진행 형태·면접관·자동 여부 */
 export interface StagePatch {
-  nm?: string; sla?: number; dur?: number; ivs?: string[]; auto?: boolean
+  nm?: string; sla?: number; dur?: number; mode?: string; ivs?: string[]; auto?: boolean
 }
 export async function persistStageEdit(
   pid: string, id: string, patch: StagePatch,

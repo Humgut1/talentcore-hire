@@ -3,14 +3,15 @@
 /* =========================================================
    공고 설정 — 전형 단계 편집 (실동작)
    ---------------------------------------------------------
-   · 단계 이름/체류일/면접 길이/면접관 지정, 드래그 순서 변경,
-     프리셋·커스텀 추가, 삭제(진행 중 후보자 있으면 차단),
-     그리고 공고 기본 정보 편집까지 한 화면에서 처리한다.
+   · 단계 하나 = 카드 하나. 접었을 때는 "몇 번째 · 무슨 단계 · 지금 몇 명"만
+     보이고, 펼치면 라벨이 붙은 칸이 나온다. 예전에는 한 줄에 입력칸 7~9개가
+     라벨 없이 들어가 있어서, 어떤 칸이 무엇인지 눌러 보기 전에는 알 수 없었다.
+   · 끝 단계(입사·불합격)는 순서를 바꿀 수 없으므로 목록 밖 고정 줄로 내렸다.
    · 낙관적 갱신: 화면 상태를 먼저 바꾸고, DB가 설정돼 있으면
      서버 액션으로 저장한다(미설정이면 조용히 화면만 유지).
    · 헤더를 JSX로 직접 그려, 공고명·팀·상태를 편집하면 즉시 반영된다.
    ========================================================= */
-import { useRef, useState } from 'react'
+import { Fragment, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
 import { KIND, type Stage, type Person, type Position } from '../lib/data'
@@ -29,6 +30,7 @@ const PRESETS: { nm: string; kind: string; sla: number; dur: number; mode: strin
   { nm: '처우 협의', kind: 'offer', sla: 3, dur: 0, mode: '—' },
 ]
 const DUR_OPTS = [30, 45, 60, 90, 120]
+const MODE_OPTS = ['대면', '화상', '전화']
 
 /* 비레일 단계 색 램프: 연한 라벤더 → 브랜드 인디고 */
 function ramp(n: number, i: number): string {
@@ -42,6 +44,19 @@ function recolor(list: Stage[]): Stage[] {
   const cols = list.filter(s => !s.rail)
   let i = 0
   return list.map(s => (s.rail ? s : { ...s, color: ramp(cols.length, i++) }))
+}
+
+/* 접힌 카드에 한 줄로 붙는 요약 — 펼치지 않고도 이 단계가 어떤 단계인지 알게 한다. */
+function summary(s: Stage): string {
+  const bits = [`체류 ${s.sla}일`]
+  if (s.kind === 'interview') {
+    if (s.dur) bits.push(`${s.dur}분`)
+    if (s.mode && s.mode !== '—') bits.push(s.mode)
+    bits.push(s.ivs.length ? `면접관 ${s.ivs.length}명` : '면접관 미지정')
+  } else {
+    bits.push(s.auto ? '자동' : '수동')
+  }
+  return bits.join(' · ')
 }
 
 interface Toast { id: number; html: string }
@@ -60,6 +75,10 @@ export default function StageEditor(
   const [pos, setPos] = useState<Position>(position)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [pick, setPick] = useState<string | null>(null) // 면접관 지정 팝오버 대상 단계 id
+  const [open, setOpen] = useState<string | null>(null) // 지금 펼쳐 놓은 카드
+  /* 카드 전체가 draggable 이면 안에 있는 입력칸에서 글자를 끌 때도 카드가 끌린다.
+     그래서 손잡이를 누르고 있는 동안에만 그 카드를 draggable 로 켠다. */
+  const [grab, setGrab] = useState<string | null>(null)
   const toastSeq = useRef(0)
   const dragId = useRef<string | null>(null)
   const [over, setOver] = useState<{ id: string; pos: 'top' | 'bot' } | null>(null)
@@ -106,9 +125,9 @@ export default function StageEditor(
   /* ---- 단계 속성 수정 ---- */
   function patch(id: string, p: Partial<Stage>) {
     setStages(list => list.map(s => (s.id === id ? { ...s, ...p } : s)))
-    const { nm, sla, dur, ivs, auto } = p
+    const { nm, sla, dur, mode, ivs, auto } = p
     mark()
-    void persistStageEdit(pid, id, { nm, sla, dur, ivs, auto }).catch(() => {})
+    void persistStageEdit(pid, id, { nm, sla, dur, mode, ivs, auto }).catch(() => {})
   }
 
   /* ---- 면접관 토글 ---- */
@@ -142,6 +161,8 @@ export default function StageEditor(
     }
     const next = recolor([...stages.slice(0, insertAt), base, ...stages.slice(insertAt)])
     setStages(next)
+    /* 새로 만든 단계는 이름부터 고치게 된다 — 만들자마자 펼쳐 준다. */
+    setOpen(id)
     const ord = next.findIndex(s => s.id === id)
     const colored = next.find(s => s.id === id)!
     const ns: NewStage = {
@@ -162,6 +183,7 @@ export default function StageEditor(
     }
     const next = recolor(stages.filter(x => x.id !== id))
     setStages(next)
+    if (open === id) setOpen(null)
     void persistDeleteStage(pid, id).then(r => {
       if (!r.ok && r.reason === 'has-candidates') {
         // 서버 재확인에서 걸리면 되돌린다.
@@ -178,6 +200,7 @@ export default function StageEditor(
   function onDrop(targetId: string) {
     const src = dragId.current
     dragId.current = null
+    setGrab(null)
     const info = over
     setOver(null)
     if (!src || src === targetId) return
@@ -267,134 +290,230 @@ export default function StageEditor(
           <div>
             <div className="sec-h">
               <h3>전형 단계 구성</h3><span className="n">{cols.length}단계</span>
-              <span className="hint"><Icon id="i-grip" className="ic-sm" /> 끌어서 순서 변경 · 이름을 눌러 수정</span>
+              <span className="hint"><Icon id="i-grip" className="ic-sm" /> 손잡이를 끌어 순서 변경 · 카드를 눌러 펼치기</span>
               <div className="right"><SaveTag /></div>
             </div>
 
+            {/* 지원자가 지나가는 순서 한눈에 — 아래 목록을 고치면 여기가 같이 바뀐다. */}
+            <div className="se-flow">
+              {cols.map((s, i) => (
+                <Fragment key={s.id}>
+                  {i > 0 && <span className="se-arrow">→</span>}
+                  <button
+                    type="button"
+                    className={'se-step' + (open === s.id ? ' on' : '')}
+                    onClick={() => setOpen(open === s.id ? null : s.id)}
+                  >
+                    <i style={{ background: s.color }} />
+                    <span>{s.nm}</span>
+                    <b>{candCounts[s.id] || 0}</b>
+                  </button>
+                </Fragment>
+              ))}
+              {rails.length > 0 && (
+                <>
+                  <span className="se-arrow">→</span>
+                  <span className="se-step end">
+                    <Icon id="i-lock" className="ic-sm" />
+                    {rails.map(r => r.nm).join(' · ')}
+                  </span>
+                </>
+              )}
+            </div>
+
             <div className="sheet">
-              {stages.map((s, i) => {
+              {cols.map((s, i) => {
                 const drop = over?.id === s.id ? (over.pos === 'top' ? ' over-top' : ' over-bot') : ''
+                const n = candCounts[s.id] || 0
+                const isOpen = open === s.id
                 return (
                   <div
                     key={s.id}
-                    className={'se-row' + drop}
-                    draggable={!s.rail}
+                    className={'se-card' + drop + (isOpen ? ' open' : '')}
+                    draggable={grab === s.id}
                     data-s={s.id}
                     data-i={i}
-                    onDragStart={() => { if (!s.rail) dragId.current = s.id }}
+                    onDragStart={() => { dragId.current = s.id }}
                     onDragOver={e => {
-                      if (s.rail || !dragId.current) return
+                      if (!dragId.current) return
                       e.preventDefault()
                       const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                      const pos: 'top' | 'bot' = e.clientY < r.top + r.height / 2 ? 'top' : 'bot'
-                      setOver(o => (o?.id === s.id && o.pos === pos ? o : { id: s.id, pos }))
+                      const at: 'top' | 'bot' = e.clientY < r.top + r.height / 2 ? 'top' : 'bot'
+                      setOver(o => (o?.id === s.id && o.pos === at ? o : { id: s.id, pos: at }))
                     }}
                     onDrop={() => onDrop(s.id)}
-                    onDragEnd={() => { dragId.current = null; setOver(null) }}
+                    onDragEnd={() => { dragId.current = null; setGrab(null); setOver(null) }}
                   >
-                    {s.rail
-                      ? <span className="se-grip" style={{ opacity: .25 }}><Icon id="i-lock" className="ic-sm" /></span>
-                      : <span className="se-grip"><Icon id="i-grip" /></span>}
-                    <i className="se-sw" style={{ background: s.color }} />
-                    <input
-                      className="se-name" value={s.nm} readOnly={s.rail}
-                      onChange={e => setStages(l => l.map(x => (x.id === s.id ? { ...x, nm: e.target.value } : x)))}
-                      onBlur={e => { if (!s.rail) patch(s.id, { nm: e.target.value.trim() || s.nm }) }}
-                    />
-                    <span className="se-kind">{KIND[s.kind]}</span>
+                    {/* --- 접었을 때도 보이는 머리줄 --- */}
+                    <div className="se-hd" onClick={() => setOpen(isOpen ? null : s.id)}>
+                      <span
+                        className="se-grip"
+                        title="끌어서 순서 변경"
+                        onMouseDown={() => setGrab(s.id)}
+                        onMouseUp={() => setGrab(null)}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <Icon id="i-grip" />
+                      </span>
+                      <span className="se-no">{i + 1}</span>
+                      <i className="se-sw" style={{ background: s.color }} />
+                      <b className="se-nm">{s.nm}</b>
+                      <span className="se-kind">{KIND[s.kind]}</span>
+                      <span className={'se-cnt' + (n > 0 ? ' on' : '')}>지금 {n}명</span>
+                      <span className="se-sum">{summary(s)}</span>
+                      {/* 삭제는 눌러 보고 나서 막히면 늦다 — 막힌 이유를 먼저 보여 준다. */}
+                      {n > 0
+                        ? (
+                          <span className="se-locked" title={`이 단계에 후보자 ${n}명이 서 있습니다`}>
+                            <Icon id="i-lock" className="ic-sm" />{n}명이 서 있어 삭제 불가
+                          </span>
+                        )
+                        : (
+                          <button
+                            className="se-del" title="단계 삭제"
+                            onClick={e => { e.stopPropagation(); delStage(s.id) }}
+                          >
+                            <Icon id="i-trash" className="ic-sm" />
+                          </button>
+                        )}
+                      <span className={'se-tog' + (isOpen ? ' up' : '')}>
+                        <Icon id="i-chevron" className="ic-sm" />
+                      </span>
+                    </div>
 
-                    {s.rail
-                      ? <span className="se-f"><Icon id="i-lock" />고정 단계</span>
-                      : (
-                        <>
-                          <label className="se-f" title="이 단계의 기준 체류일">
-                            <Icon id="i-clock" />
+                    {/* --- 펼쳤을 때: 라벨이 붙은 칸 --- */}
+                    {isOpen && (
+                      <div className="se-body">
+                        <div className="se-fields">
+                          <div className="field">
+                            <label>단계 이름</label>
                             <input
-                              className="in sm w-xs" type="number" min={0} value={s.sla}
-                              onChange={e => setStages(l => l.map(x => (x.id === s.id ? { ...x, sla: +e.target.value } : x)))}
-                              onBlur={e => patch(s.id, { sla: Math.max(0, +e.target.value || 0) })}
-                            />d
-                          </label>
+                              className="in" value={s.nm}
+                              onChange={e => setStages(l => l.map(x => (x.id === s.id ? { ...x, nm: e.target.value } : x)))}
+                              onBlur={e => patch(s.id, { nm: e.target.value.trim() || s.nm })}
+                            />
+                          </div>
+                          <div className="field">
+                            <label>기준 체류일</label>
+                            <div className="se-unit">
+                              <input
+                                className="in" type="number" min={0} value={s.sla}
+                                onChange={e => setStages(l => l.map(x => (x.id === s.id ? { ...x, sla: +e.target.value } : x)))}
+                                onBlur={e => patch(s.id, { sla: Math.max(0, +e.target.value || 0) })}
+                              />
+                              <span>일</span>
+                            </div>
+                            <p className="se-hlp">이 날짜를 넘긴 후보자 카드는 보드에서 지연으로 바뀝니다.</p>
+                          </div>
 
-                          {s.kind === 'interview'
-                            ? (
-                              <>
-                                <label className="se-f" title="면접 길이">
-                                  <Icon id="i-video" />
-                                  <select
-                                    className="sel sm w-sm" value={s.dur}
-                                    onChange={e => patch(s.id, { dur: +e.target.value })}
-                                  >
-                                    {DUR_OPTS.map(m => <option key={m} value={m}>{m}분</option>)}
-                                  </select>
-                                </label>
+                          {/* 면접 단계에만 있는 칸 — 다른 단계에서는 아예 그리지 않는다. */}
+                          {s.kind === 'interview' && (
+                            <>
+                              <div className="field">
+                                <label>면접 길이</label>
+                                <select
+                                  className="sel" value={s.dur}
+                                  onChange={e => patch(s.id, { dur: +e.target.value })}
+                                >
+                                  {DUR_OPTS.map(m => <option key={m} value={m}>{m}분</option>)}
+                                </select>
+                                <p className="se-hlp">캘린더에서 이만큼 비어 있는 시간을 찾습니다.</p>
+                              </div>
+                              <div className="field">
+                                <label>진행 형태</label>
+                                <select
+                                  className="sel" value={MODE_OPTS.includes(s.mode) ? s.mode : ''}
+                                  onChange={e => patch(s.id, { mode: e.target.value })}
+                                >
+                                  {!MODE_OPTS.includes(s.mode) && <option value="">미정</option>}
+                                  {MODE_OPTS.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                                <p className="se-hlp">후보자에게 나가는 안내에 이대로 적힙니다.</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
 
-                                {/* 면접관 지정 */}
-                                <div className="iv-pick">
-                                  <Icon id="i-users" className="ic" />
-                                  {s.ivs.length === 0 && <span className="iv-none">미지정</span>}
-                                  {s.ivs.map(uid => {
-                                    const u = people.find(p => p.id === uid)
-                                    if (!u) return null
-                                    return (
-                                      <span className={'iv-chip' + (u.ea ? ' ea' : '')} key={uid}>
-                                        {u.nm}{u.ea && <b>EA</b>}
-                                        <button className="iv-x" title="제외" onClick={() => toggleIv(s.id, uid)}>
-                                          <Icon id="i-x" className="ic-sm" />
-                                        </button>
-                                      </span>
-                                    )
-                                  })}
-                                  <button className="iv-add" onClick={() => setPick(pick === s.id ? null : s.id)}>
-                                    <Icon id="i-plus" className="ic-sm" />
-                                  </button>
+                        <div className="se-fl">
+                          <label>진행 방식</label>
+                          <div className="se-seg">
+                            <button
+                              className={'se-badge' + (s.auto ? ' on' : '')}
+                              onClick={() => patch(s.id, { auto: true })}
+                            >
+                              <Icon id="i-zap" className="ic-sm" />자동
+                            </button>
+                            <button
+                              className={'se-badge' + (!s.auto ? ' on' : '')}
+                              onClick={() => patch(s.id, { auto: false })}
+                            >
+                              <Icon id="i-user" className="ic-sm" />수동
+                            </button>
+                          </div>
+                          <p className="se-hlp">
+                            {s.auto
+                              ? '사람이 붙지 않아도 넘어가는 단계로 표시됩니다.'
+                              : '사람이 직접 확인하고 넘기는 단계로 표시됩니다.'}
+                          </p>
+                        </div>
 
-                                  {pick === s.id && (
-                                    <>
-                                      <div className="iv-backdrop" onClick={() => setPick(null)} />
-                                      <div className="iv-menu">
-                                        <div className="iv-menu-h">면접관 선택</div>
-                                        {interviewers.map(u => {
-                                          const on = s.ivs.includes(u.id)
-                                          return (
-                                            <button
-                                              className={'iv-opt' + (on ? ' on' : '')} key={u.id}
-                                              onClick={() => toggleIv(s.id, u.id)}
-                                            >
-                                              <i className="iv-ck">{on && <Icon id="i-mark" className="ic-sm" />}</i>
-                                              <span className="iv-nm">{u.nm}</span>
-                                              <span className="iv-tt">{u.tt}</span>
-                                              {u.ea && <span className="iv-ea">EA</span>}
-                                            </button>
-                                          )
-                                        })}
-                                        {s.ivs.some(uid => people.find(p => p.id === uid)?.ea) && (
-                                          <div className="iv-note">
-                                            <Icon id="i-info" className="ic-sm" />
-                                            EA 조율 대상이 있어 이 단계는 자동화에서 제외됩니다.
-                                          </div>
-                                        )}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              </>
-                            )
-                            : (
-                              <button
-                                className="se-f as-btn" title="자동/수동 전환"
-                                onClick={() => patch(s.id, { auto: !s.auto })}
-                              >
-                                <Icon id="i-zap" />{s.auto ? '자동' : '수동'}
+                        {s.kind === 'interview' && (
+                          <div className="se-fl">
+                            <label>면접관</label>
+                            <div className="iv-pick">
+                              {s.ivs.length === 0 && <span className="iv-none">미지정</span>}
+                              {s.ivs.map(uid => {
+                                const u = people.find(p => p.id === uid)
+                                if (!u) return null
+                                return (
+                                  <span className={'iv-chip' + (u.ea ? ' ea' : '')} key={uid}>
+                                    {u.nm}{u.ea && <b>EA</b>}
+                                    <button className="iv-x" title="제외" onClick={() => toggleIv(s.id, uid)}>
+                                      <Icon id="i-x" className="ic-sm" />
+                                    </button>
+                                  </span>
+                                )
+                              })}
+                              <button className="iv-add" onClick={() => setPick(pick === s.id ? null : s.id)}>
+                                <Icon id="i-plus" className="ic-sm" />
                               </button>
-                            )}
-                        </>
-                      )}
 
-                    {!s.rail && (
-                      <button className="se-del" title="단계 삭제" onClick={() => delStage(s.id)}>
-                        <Icon id="i-trash" className="ic-sm" />
-                      </button>
+                              {pick === s.id && (
+                                <>
+                                  <div className="iv-backdrop" onClick={() => setPick(null)} />
+                                  <div className="iv-menu">
+                                    <div className="iv-menu-h">면접관 선택</div>
+                                    {interviewers.map(u => {
+                                      const on = s.ivs.includes(u.id)
+                                      return (
+                                        <button
+                                          className={'iv-opt' + (on ? ' on' : '')} key={u.id}
+                                          onClick={() => toggleIv(s.id, u.id)}
+                                        >
+                                          <i className="iv-ck">{on && <Icon id="i-mark" className="ic-sm" />}</i>
+                                          <span className="iv-nm">{u.nm}</span>
+                                          <span className="iv-tt">{u.tt}</span>
+                                          {u.ea && <span className="iv-ea">EA</span>}
+                                        </button>
+                                      )
+                                    })}
+                                    {s.ivs.some(uid => people.find(p => p.id === uid)?.ea) && (
+                                      <div className="iv-note">
+                                        <Icon id="i-info" className="ic-sm" />
+                                        EA 조율 대상이 있어 이 단계는 자동화에서 제외됩니다.
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                            <p className="se-hlp">
+                              여기 넣은 사람의 캘린더에서 빈 시간을 찾습니다.
+                              EA 조율 대상이 한 명이라도 있으면 이 단계는 자동 조율에서 빠집니다.
+                            </p>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )
@@ -411,6 +530,23 @@ export default function StageEditor(
                 </button>
               ))}
             </div>
+
+            {/* 끝 단계는 순서를 바꿀 수도, 지울 수도 없다. 그래서 끄는 목록에서 빼고
+                아래 고정 줄로 내렸다 — 목록 안에 섞여 있으면 끌리는 줄 알고 잡는다. */}
+            {rails.length > 0 && (
+              <div className="se-rails">
+                <span className="se-rails-t">
+                  <Icon id="i-lock" className="ic-sm" />끝 단계 — 순서와 이름이 고정입니다
+                </span>
+                {rails.map(r => (
+                  <span className="se-rail" key={r.id}>
+                    <i className="se-sw" style={{ background: r.color }} />
+                    <b>{r.nm}</b>
+                    <span>{candCounts[r.id] || 0}명</span>
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* ----- 기본 정보 ----- */}
             <div className="sec-h" style={{ marginTop: 26 }}>
@@ -514,7 +650,7 @@ export default function StageEditor(
             <div className="note" style={{ marginTop: 14 }}>
               <h4><Icon id="i-info" className="ic-sm" />주의</h4>
               <ul>
-                <li>진행 중인 후보자가 있는 단계는 삭제할 수 없습니다.</li>
+                <li>후보자가 서 있는 단계는 삭제할 수 없습니다 — 카드에 몇 명인지 같이 적혀 있습니다.</li>
                 <li><b>입사 · 불합격</b>은 종료 단계라 순서와 이름이 고정입니다.</li>
                 <li>단계를 바꿔도 이미 지나간 후보자의 이력은 그대로 보존됩니다.</li>
               </ul>
