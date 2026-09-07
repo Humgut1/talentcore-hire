@@ -693,24 +693,28 @@ function googleSetupNote(g?: GoogleStatus): string {
   if (g?.state === 'connected') return ''
   const step = (n: number, h: string, d: string) =>
     `<li><b>${n}. ${h}</b><div style="color:var(--t3);margin-top:2px">${d}</div></li>`
-  return `<div class="note"><h4>${ico('i-info', 'ic-sm')}Google Calendar 연결 방법 (최초 1회)</h4><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.55">` +
-    step(1, 'Google Cloud 프로젝트 만들기', 'console.cloud.google.com 에서 프로젝트를 만들고 <b>Google Calendar API</b> 를 사용 설정합니다.') +
+  return `<div class="note"><h4>${ico('i-info', 'ic-sm')}Google 연결 방법 (최초 1회 · 캘린더 + 메일 발송)</h4><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.55">` +
+    step(1, 'Google Cloud 프로젝트 만들기', 'console.cloud.google.com 에서 프로젝트를 만들고 <b>Google Calendar API</b> 와 <b>Gmail API</b> 를 사용 설정합니다. 캘린더는 면접 시간 찾기에, Gmail 은 후보자 통보 메일에 씁니다.') +
     step(2, 'OAuth 동의 화면 구성', '앱 이름·지원 이메일을 입력하고, 테스트 사용자에 회사 계정을 추가합니다.') +
     step(3, 'OAuth 클라이언트 ID 발급', '유형 <b>웹 애플리케이션</b> · 승인된 리디렉션 URI 에 <span class="mono">http://localhost:3000/api/google/callback</span> 을 등록합니다.') +
     step(4, '.env.local 에 키 입력', '<span class="mono">GOOGLE_CLIENT_ID</span> · <span class="mono">GOOGLE_CLIENT_SECRET</span> 를 채우고 서버를 재시작합니다. (예시: <span class="mono">.env.local.example</span>)') +
-    step(5, '연결 버튼 누르기', '이 화면에 나타나는 <b>Google 연결</b> 버튼으로 계정을 승인하면 완료됩니다.') +
+    step(5, '연결 버튼 누르기', '이 화면에 나타나는 <b>Google 연결</b> 버튼으로 계정을 승인하면 완료됩니다. 캘린더 조회와 메일 발송 권한을 함께 물어봅니다 — 둘 다 허용해 주세요.') +
     '</ol><div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line);color:var(--t3);font-size:11.5px">' +
     '면접관별 캘린더 주소는 <span class="mono">GOOGLE_CALENDAR_MAP</span> (예: <span class="mono">{"u1":"lead@company.com"}</span>) 로 매핑합니다. 매핑이 없으면 수동 가용성으로 자동 폴백합니다.</div></div>'
 }
 
-/* 리마인드 실발송 상태 — 이메일(Resend)·Slack(웹훅) 각각의 연결 여부.
+/* 실발송 상태 — 이메일(Gmail 우선, 없으면 Resend)·Slack(웹훅) 각각의 연결 여부.
    테스트 수신 주소가 걸려 있으면 그 사실을 반드시 눈에 보이게 한다.
    (실수로 진짜 후보자에게 나가는 사고를 막는 안전장치이므로 숨기지 않는다) */
 function mailerRows(r: (i: string, t: string, d: string, ctl: string) => string, m?: MailerStatus): string {
   const on = `<span class="pill ok">${ico('i-check-circle', 'ic-sm')}연결됨</span>`
   const off = '<span class="pill">미설정</span>'
-  const email = r('i-mail', '리마인드 이메일',
-    m?.email ? `Resend · 발신 ${esc(m.from ?? '')}` : 'RESEND_API_KEY 를 넣으면 실제로 발송됩니다',
+  /* 어느 길로 나가는지까지 적는다 — Gmail 이면 담당자 보낸 편지함에 남고
+     후보자 회신도 그 메일함으로 들어온다. 두 길의 결과가 눈에 띄게 다르다. */
+  const email = r('i-mail', '메일 발송',
+    m?.email
+      ? `${m.via === 'gmail' ? 'Gmail' : 'Resend'} · 발신 ${esc(m.from ?? '')}`
+      : '위에서 Google 계정을 연결하면 그 계정으로 발송됩니다 (또는 RESEND_API_KEY)',
     m?.email ? on : off)
   const slack = r('i-msg', '리마인드 Slack',
     m?.slack ? 'Incoming Webhook · 채널로 발송' : 'SLACK_WEBHOOK_URL 을 넣으면 실제로 발송됩니다',
@@ -757,7 +761,7 @@ export function settingsHTML(g?: GoogleStatus, flash?: string, m?: MailerStatus,
     grp('L-3 알림 템플릿',
       r('i-mail', '후보자 슬롯 안내', '한국어 기본 · 영어 병행', '<span class="pill">2개 언어</span><button class="btn quiet">편집</button>') +
       r('i-mail', '면접 확정 안내', '캘린더 인비 동시 발송', '<span class="pill">2개 언어</span><button class="btn quiet">편집</button>') +
-      r('i-mail', '불합격 통보', '자동 발송하지 않음 · 초안만 생성', '<span class="pill warn">수동 발송</span><button class="btn quiet">편집</button>')) +
+      r('i-mail', '불합격 통보', '판정 창에서 고른 대로 발송 · 사유와 단계에 맞춰 본문 자동 작성', '<span class="pill">선택 발송</span><button class="btn quiet">편집</button>')) +
     grp('L-6 개인정보',
       r('i-shield', '보유 기간', '최종 결과일로부터', '<select class="sel sm w-sm"><option>2년</option><option>1년</option><option>3년</option></select>') +
       r('i-trash', '자동 파기 예약', '보유 기간 경과 시 자동 삭제', '<span class="pill ok">켜짐</span>' + sw(true)) +

@@ -32,6 +32,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 설정 안내가 담긴 빈 서식은 저장소에 남긴다 — 값은 하나도 들어 있지 않다.
+!.env.local.example
 
 # vercel
 .vercel

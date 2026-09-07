@@ -43,7 +43,12 @@ export interface GoogleTokens {
   connectedAt?: string
 }
 
-const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly'
+/* 캘린더 조회 + 메일 발송. 두 가지를 한 번의 동의로 받는다 —
+   후보자에게 나가는 통보 메일도 이 계정에서 나가기 때문이다.
+   scope 를 늘렸으므로 이미 연결해 둔 계정은 한 번 다시 연결해야 한다
+   (예전 토큰에는 gmail.send 권한이 없다). */
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send'
+const SCOPE = ['https://www.googleapis.com/auth/calendar.readonly', GMAIL_SCOPE].join(' ')
 const TOKEN_FILE = path.join(process.cwd(), '.google-tokens.json')
 
 /* ---- 설정/토큰 ---- */
@@ -85,6 +90,56 @@ export function googleStatus(): GoogleStatus {
   const t = readTokensSync()
   if (!t?.access_token) return { state: 'configured' }
   return { state: 'connected', email: t.email, connectedAt: t.connectedAt, scope: t.scope }
+}
+
+/** 이 계정으로 메일을 보낼 수 있나. 연결돼 있어도 예전 동의라 권한이 없을 수 있다. */
+export function gmailReady(): boolean {
+  const t = readTokensSync()
+  return Boolean(t?.access_token && (t.scope ?? '').includes(GMAIL_SCOPE))
+}
+
+/** 연결된 계정 주소(발신 주소로 쓴다). Gmail 은 인증한 계정으로만 보낼 수 있다. */
+export function gmailAddress(): string | undefined {
+  return readTokensSync()?.email
+}
+
+/** Gmail API 로 한 통. 실패해도 throw 하지 않고 이유를 돌려준다. */
+export async function gmailSend(
+  to: string, subject: string, text: string, fromName?: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const tok = await validAccessToken()
+  if (!tok) return { ok: false, reason: 'not-connected' }
+
+  /* 한글 제목은 그대로 넣을 수 없다(헤더는 ASCII만 허용) — RFC 2047 로 감싼다.
+     본문도 같은 이유로 base64 로 실어 보낸다. */
+  const b64 = (v: string) => Buffer.from(v, 'utf8').toString('base64')
+  const CRLF = String.fromCharCode(13, 10)  // 메일 헤더 줄바꿈은 CRLF 여야 한다
+  const from = gmailAddress()
+  const raw = [
+    `From: ${fromName ? `=?UTF-8?B?${b64(fromName)}?= ` : ''}<${from ?? 'me'}>`,
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${b64(subject)}?=`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+    '',
+    b64(text),
+  ].join(CRLF)
+
+  try {
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        raw: Buffer.from(raw, 'utf8').toString('base64')
+          .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+      }),
+    })
+    if (!res.ok) return { ok: false, reason: `${res.status} ${(await res.text()).slice(0, 160)}` }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, reason: String(e).slice(0, 160) }
+  }
 }
 
 /* ---- OAuth ---- */
