@@ -45,3 +45,6 @@ next-env.d.ts
 
 # 로컬 전용 도구 설정 (외부 서비스 토큰 포함 · 커밋 금지)
 .claude/settings.local.json
+
+# 성능 비교용 배포 빌드 출력
+/.next-prod/
