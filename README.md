@@ -1,36 +1,204 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TalentCore Hire — 채용 관리(ATS)
 
-## Getting Started
+> **면접 일정은 조율하지 않고 잡힙니다.**
+> 슬롯 탐색·발송·리마인드·기록은 시스템이 하고, 협상이 필요한 순간만 사람에게 올립니다.
+> Next.js + Supabase · [TalentCore](https://github.com/Humgut1/hr-system) HR 플랫폼의 채용 모듈 (내부 코드명 **Cadence**)
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 이 제품이 푸는 문제
+
+채용 담당자가 하루에 가장 많이 하는 일은 후보자를 고르는 일이 아니라 **일정을 맞추는 행정**입니다.
+
+| 실제로 막히는 지점 | 이 제품의 대응 |
+|---|---|
+| 캘린더가 비어 있어도 실제로는 안 되는 시간이 있다 | 자동 확정하지 않는다. 면접관이 직접 고른 자리만 확정된다 |
+| 2차 면접은 면접관 2명의 **2시간 연속 교집합**을 찾아야 한다 | 연속 블록으로 탐색하고, 안 되면 이유를 먼저 화면에 띄운다 |
+| 임원 면접관은 비서(EA)가 알림을 거른다 | EA 조율 대상은 애초에 자동화에서 빠져 담당자 큐로 간다 |
+| 후보자에게 자리를 5개 보냈는데 다른 후보자와 겹친다 | 선착순 공용 풀 — 자리보다 후보자가 많으면 발송 자체를 막는다 |
+| "그 사람 어떻게 됐지"가 사람 머릿속에만 남는다 | 판정을 합격·**보류**·불합격 세 갈래로 두고 전부 기록한다 |
+
+---
+
+## 설계 원칙
+
+**1. 화면은 공고 보드 하나다.**
+채용 담당자가 하루 종일 열어 두는 화면은 공고 보드뿐이고, 조율·판정·평가·오퍼·메일이 **후보자 카드를 벗어나지 않고** 끝납니다. 기능마다 별도 화면을 만들면 담당자는 하루에 같은 후보자를 다섯 번 찾게 됩니다.
+
+**2. 색은 상태에만 쓴다.**
+버튼과 강조는 무채색입니다. 화면에 색이 붙어 있다 = 사람이 볼 것, 이 한 가지 뜻만 갖습니다.
+
+| 상태 | 색 | 의미 | 사용자 행동 |
+|---|---|---|---|
+| 자동 진행 중 | `#9A9AA5` 그레이 | 시스템이 처리 중 | 볼 필요 없음 |
+| 사람 대기 | `#D92D20` 버밀리언 | 에스컬레이션 | **지금 처리** |
+| 지연 | `#B5730B` 앰버 | 기준 체류일 초과 | 곧 처리 |
+| 완료 | `#0A9459` 그린 | 단계 확정 | 없음 |
+
+인디고 `#5B53D6` 는 브랜드(로고·활성 내비)와 전형 단계 램프에만 씁니다. 상태 4색과 색상 계열이 겹치지 않아 한 화면에 같이 있어도 서로를 오염시키지 않습니다.
+
+**3. 누르기 전에 막히는 이유가 먼저 보인다.**
+판단 규칙(`app/lib/iv-flow.ts`, `decision.ts`)은 DB 쓰기와 분리된 순수 함수입니다. 같은 규칙을 화면에서도 그대로 돌려, 버튼을 눌러 보고 나서 실패하는 일이 없습니다.
+
+**4. 외부 연동은 3상태로 고정한다.**
+Google · 메일 · TalentCore 연동은 전부 같은 규칙을 따릅니다 — **미설정**(아무 일도 안 하고 화면에 "연동 안 됨"이라고만 표시) / **설정됨**(실제 동작) / **실패**(기록하고 사람에게 올림). 설정하지 않아도 앱은 샘플 데이터로 끝까지 굴러갑니다.
+
+---
+
+## 화면 구조
+
+```
+공고 보드  ─ 후보자 카드(서랍) ─┬─ 서류 판정 · 평가지
+   │                            ├─ 면접 자리 제시 · 확정 · 재조율
+   │                            ├─ 오퍼 · 자리(정원) 예약
+   │                            └─ 메일(템플릿) · 제출서류
+   ├─ 전형 단계 편집 (단계·체류일·면접 길이·면접관)
+   ├─ 자동 규칙 · 진행 현황 · 공개 링크
+   └─ 사이드바 : 내 할 일 · 서류 검토 · 후보자 전체 · 인재풀
+                 면접관 · 대시보드 · 내보내기 · 설정
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+외부 사용자(후보자·면접관)는 **계정을 만들지 않습니다.** 서명된 링크로만 들어옵니다 — 자리 고르기(`/pick`), 가용성 입력(`/avail`), 면접 브리핑(`/brief`), 평가지(`/iv`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 주요 기능
 
-## Learn More
+### 공고 · 파이프라인
+- 공고별 전형 단계 직접 설계 — 단계 추가/순서 변경, 기준 체류일, 면접 길이·진행 형태(대면/화상/전화), 단계별 면접관 지정
+- 드래그앤드롭 칸반 보드 · 기준 체류일 초과 시 카드가 자동으로 '지연'으로 전환
+- 입사/불합격은 고정 종료 단계 · 후보자가 서 있는 단계는 삭제 차단
 
-To learn more about Next.js, take a look at the following resources:
+### 서류 검토
+- 한 명씩 들어갔다 나오지 않는 **연속 검토 모드** — 판정하면 자동으로 다음 사람
+- 판정 3갈래(합격 / 보류 / 불합격) · 불합격 사유 필수(서버에서 강제)
+- 사유를 **"우리가 거절" / "후보자가 이탈"** 로 분리 저장 — 섞으면 퍼널 지표가 거짓말을 합니다
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 면접 일정 조율
+- 면접관 Google 캘린더 free/busy 조회 → 빈 시간 탐색 (미연동 시 수동 가용성으로 폴백)
+- 1차 = 하이어링 매니저 60분 / 2차 = 차상위 리더 + 협업 리더 **120분 연속**(사이 휴식 없음)
+- 후보자에게 **보내는 날부터 7일 안에서 자리 5개** 제시 · 고르기 전까지 48시간 가예약
+- 임원(L8 이상) 포함 건은 발송 직전 담당자 확인 모달
+- 선착순(벌크) 발송 — 여러 후보자가 같은 자리 풀을 공유하되, 후보자는 다른 후보자의 존재를 절대 알 수 없음. 자리 < 후보자면 하드 블록, 자리 < 후보자×1.5면 경고
+- 재조율 · 노쇼 · 면접관 거절을 각각 다른 사건으로 기록
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 평가 · 오퍼
+- 면접관 평가지(스코어카드) · 면접 브리핑(후보자 이력 + 무엇을 볼지)
+- 오퍼는 '만들었다'와 '보냈다'를 다른 사건으로 기록 — 수락률 분모에 초안이 섞이지 않음
+- **순차 승인**(앞사람이 승인해야 다음 차례) · 연봉 밴드 초과 시 승인 단계 자동 추가
+- 그 시점의 밴드를 오퍼에 복사 보관 · 거절 사유는 고정 항목(보상/타사/역할/타이밍/잔류)
+- 오퍼 수락 시 TalentCore 정원(자리) 예약 → 충원 처리
 
-## Deploy on Vercel
+### 메일 · 문서
+- 템플릿 기반 후보자 메일(AI 생성 없음) · 발송 이력 전부 기록
+- 연결한 Gmail 계정에서 발송 → 보낸 편지함에 남고 후보자 회신도 그 메일함으로
+- 후보자 제출서류는 비공개 버킷에 저장, 볼 때마다 짧게 살아 있는 링크 발급
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 인재풀 · 지표
+- 은메달(인터뷰까지 갔고 부정 평가 없던 사람) 중심 재발굴 · 최근 불합격/연락두절은 명단에서 제외
+- 중복 후보자 감지(이메일·전화 중 하나만 겹쳐도) → 주 프로필을 사람이 골라 병합
+- 대시보드 — 퍼널 · 단계별 체류 · 소스별 유입 · 종료 사유(우리가 거절 / 후보자 이탈 분리). 숫자는 전부 실제 후보자 데이터에서 계산
+- 내보내기 — 1행 = 후보자 1명 × 공고 1건 컬럼 설계 화면 (엑셀 다운로드는 아직 미구현)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## TalentCore(HRIS) 연동
+
+두 시스템은 **방향이 다른 두 개의 문**으로만 붙습니다.
+
+| 방향 | 내용 | 이유 |
+|---|---|---|
+| TalentCore → Hire (push) | 승인된 채용 요청서를 '자리'로 밀어 넣음 | 자리는 한 번 정해지면 바뀌지 않으므로 밀어도 안전 |
+| Hire → TalentCore (pull) | 직원 명부(면접관)를 주기적으로 당겨옴 | 입사·퇴사·부서이동은 매일 바뀜. 밀면 한 번 실패했을 때 어긋난 채로 남음 |
+
+채용 요청서(JD)의 원본은 TalentCore가 갖고, Hire는 그것을 전형으로 굴립니다. 둘 다 설정하지 않아도 Hire 단독으로 동작합니다.
+
+---
+
+## 기술 스택
+
+| 항목 | 내용 |
+|---|---|
+| Framework | Next.js 16 (App Router) · React 19 · TypeScript strict |
+| Database | Supabase (PostgreSQL) · 서버 액션에서 service_role 로 직접 쿼리 |
+| 스토리지 | Supabase Storage (후보자 제출서류, 비공개 버킷 + signed URL) |
+| 외부 연동 | Google Calendar (free/busy · 가예약) · Gmail 발송 · Slack Webhook · Resend(대안) |
+| UI | 커스텀 CSS 단일 시트(Pretendard) — 외부 UI 라이브러리 없음 |
+| 상태 | 서버 컴포넌트 + 서버 액션 중심 · 클라이언트 상태 최소화 |
+
+---
+
+## 로컬 실행
+
+```bash
+git clone https://github.com/Humgut1/talentcore-hire.git
+cd talentcore-hire
+npm install
+npm run dev          # → http://localhost:3000
+```
+
+**환경변수 없이도 바로 뜹니다.** DB 설정이 비어 있으면 샘플 데이터(공고 5개 · 면접관 13명 · 후보자)로 전 화면이 동작합니다.
+
+### 실제 DB 붙이기
+
+1. [Supabase](https://supabase.com) 프로젝트 생성
+2. SQL Editor 에서 순서대로 실행 — `supabase/schema.sql` → `migration-002` … `migration-011` → (선택) `supabase/seed.sql`
+3. `.env.local.example` 를 `.env.local` 로 복사하고 Supabase URL·키 3개를 채운 뒤 서버 재시작
+
+### 환경변수
+
+| 키 | 필요 시점 | 비고 |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 실제 DB 사용 | 공개 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 실제 DB 사용 | **서버 전용 비밀값** |
+| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 캘린더 조회 + Gmail 발송 | Calendar API · Gmail API 둘 다 사용 설정 |
+| `GOOGLE_CALENDAR_MAP` | 캘린더 조회 | 면접관 내부 id → 캘린더 이메일 매핑 |
+| `REMINDER_TEST_TO` | **메일 켜기 전 안전장치** | 값이 있으면 모든 메일이 이 주소로만 나감 |
+| `RESEND_API_KEY` | Gmail 대신 발송할 때 | 선택 |
+| `SLACK_WEBHOOK_URL` | Slack 알림 | 선택 |
+| `CRON_SECRET` | `/api/cron/reminders` 보호 | `Authorization: Bearer <값>` |
+| `CORE_INBOUND_TOKEN` | TalentCore → Hire 인바운드 | 없으면 문이 닫힘(401) |
+| `CORE_URL` · `CORE_API_TOKEN` | Hire → TalentCore 명부 조회 | 선택 |
+
+전체 목록과 발급 방법은 [`.env.local.example`](.env.local.example) 에 주석으로 들어 있습니다.
+
+---
+
+## 저장소 구성
+
+```
+app/
+  lib/          판단 규칙 · DB 접근 · 외부 연동 (규칙과 I/O 를 분리)
+  components/   화면 컴포넌트
+  p/[pid]/      공고 단위 화면 (보드 · 전형 단계 · 자동 규칙 · 진행 현황)
+  pick|avail|brief|iv|book|o|e/   외부 사용자용 서명 링크 화면 (로그인 없음)
+  api/          Google OAuth · 크론 · TalentCore 인바운드 · 명부 동기화
+supabase/       schema.sql + 순번 마이그레이션 + 샘플 데이터
+docs/           기능 설계 문서
+concepts/       초기 HTML 프로토타입 (참고용, 앱과 무관)
+index.html      제품 소개 페이지 프로토타입 (참고용)
+```
+
+---
+
+## 보안
+
+- 비밀값(`SUPABASE_SERVICE_ROLE_KEY` · `GOOGLE_CLIENT_SECRET` · 각종 토큰)은 `.env.local` 에만 두며 저장소에 올리지 않습니다. `.env.local.example` 은 **값이 비어 있는 서식**입니다.
+- Google OAuth 토큰(`.google-tokens.json`)은 로컬 파일로만 보관하며 `.gitignore` 처리되어 있습니다.
+- 후보자 제출서류 버킷은 비공개이며, 화면에 붙일 때마다 만료되는 서명 링크를 발급합니다.
+- 메일을 실제로 켜기 전에는 `REMINDER_TEST_TO` 를 먼저 채우세요. 실수로 진짜 지원자에게 메일이 나가는 사고를 막는 안전장치입니다.
+- 저장소의 모든 이름·이메일·회사 데이터는 **가상의 샘플**입니다.
+
+---
+
+## 개발 배경
+
+비전공자 HR 주니어가 Claude Code로 단독 개발했습니다. Greenhouse · Ashby · Workday 등 기존 ATS 를 조사한 뒤, 그 제품들이 왜 그렇게 만들었는지를 근거로 남기며 설계했습니다 — 소스의 각 모듈 상단 주석에 그 판단 근거가 그대로 들어 있습니다.
+
+TalentCore 제품군: **[TalentCore](https://github.com/Humgut1/hr-system)**(HRIS 본체) · **Hire**(채용, 이 저장소) · Screen(AI 면접) · Grow(성장)
+
+---
+
+## License
+
+MIT
