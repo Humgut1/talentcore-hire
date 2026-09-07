@@ -9,7 +9,7 @@ import {
   cands, stageById, stagesOf, personById, personByName, posById, people, TODAY,
   auto, evals, offerOf, _patchAuto, _pushEval, _setOffer, _patchCand, _pushTrail,
   _addPosition, nextPositionId, defaultAuto, _setAvail, _patchMeeting, meetings,
-  _addCand, nextCandId, _patchPositionBand, _patchPositionState, _patchPerson,
+  _addCand, nextCandId, _patchPositionBand, _patchPositionState, _patchPositionPublic, _patchPerson,
   type AutoConfig, type Rule, type Candidate, type TrailItem, type Position, type Person,
 } from './data'
 import { stagesFromTemplate } from './templates'
@@ -868,6 +868,32 @@ export async function persistPosition(
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb.from('positions').update(patch).eq('id', pid)
+  return error ? { ok: false, reason: error.message } : { ok: true }
+}
+
+/* =========================================================
+   채용 사이트 노출 설정 (마이그레이션 012)
+   ---------------------------------------------------------
+   '내건다/내린다'를 공고 상태(오픈/홀드/마감)와 따로 두는 이유:
+   자리는 아직 살아 있는데 지원만 그만 받고 싶은 때가 실제로 자주 있다
+   (지원자가 충분히 모였을 때, 내부 후보로 먼저 채워 볼 때).
+   상태를 홀드로 바꿔 버리면 보드의 진행 중 후보자까지 멈춘 것처럼 읽힌다.
+   ========================================================= */
+export interface PublicPatch { pub?: boolean; loc?: string; exp?: string; due?: string }
+
+/** 채용 사이트에 보이는 값 저장. 칸이 없는 DB 에서는 화면만 바뀐다. */
+export async function savePositionPublic(
+  pid: string, patch: PublicPatch,
+): Promise<{ ok: boolean; reason?: string }> {
+  _patchPositionPublic(pid, patch)
+  const sb = serverClient()
+  if (!sb) return { ok: false, reason: 'not-configured' }
+  const row: Record<string, unknown> = {}
+  if (patch.pub !== undefined) row.pub = patch.pub
+  if (patch.loc !== undefined) row.loc = patch.loc || null
+  if (patch.exp !== undefined) row.exp = patch.exp || null
+  if (patch.due !== undefined) row.due = patch.due || null
+  const { error } = await sb.from('positions').update(row).eq('id', pid)
   return error ? { ok: false, reason: error.message } : { ok: true }
 }
 

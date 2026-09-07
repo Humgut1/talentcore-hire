@@ -17,7 +17,8 @@ import { Icon } from './IconSprite'
 import { KIND, type Stage, type Person, type Position } from '../lib/data'
 import {
   persistStageEdit, persistStageLayout, persistAddStage,
-  persistDeleteStage, persistPosition, savePositionBand, type NewStage,
+  persistDeleteStage, persistPosition, savePositionBand, savePositionPublic,
+  type NewStage,
 } from '../lib/actions'
 
 /* 프리셋 (render.ts 의 PRESETS 와 동일) */
@@ -75,6 +76,7 @@ export default function StageEditor(
   const [pos, setPos] = useState<Position>(position)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [pick, setPick] = useState<string | null>(null) // 면접관 지정 팝오버 대상 단계 id
+  const [copied, setCopied] = useState(false)  // 공개 주소를 방금 복사했는가
   const [open, setOpen] = useState<string | null>(null) // 지금 펼쳐 놓은 카드
   /* 카드 전체가 draggable 이면 안에 있는 입력칸에서 글자를 끌 때도 카드가 끌린다.
      그래서 손잡이를 누르고 있는 동안에만 그 카드를 draggable 로 켠다. */
@@ -234,6 +236,14 @@ export default function StageEditor(
     setPos(p => ({ ...p, band: [a, b] }))
     mark()
     void savePositionBand(pid, a, b).catch(() => {})
+  }
+
+  /* 채용 사이트에 보이는 값. 마이그레이션 012 전이면 저장은 실패하지만
+     화면은 바뀐 대로 둔다 — 담당자가 방금 친 값이 사라지는 게 더 나쁘다. */
+  function savePublic(patch: { pub?: boolean; loc?: string; exp?: string; due?: string }) {
+    setPos(p => ({ ...p, ...patch }))
+    mark()
+    void savePositionPublic(pid, patch).catch(() => {})
   }
 
   /* ---- 헤더용 파생값 ---- */
@@ -634,6 +644,79 @@ export default function StageEditor(
                   onChange={e => setField('jd', e.target.value)}
                   onBlur={e => saveField('jd', e.target.value)}
                 />
+              </div>
+            </div>
+
+            {/* ----- 채용 사이트 ----- */}
+            <div className="sec-h" style={{ marginTop: 26 }}>
+              <h3>채용 사이트</h3>
+              <span className="hint">여기서 켜면 회사 채용 페이지에 바로 올라갑니다</span>
+            </div>
+            <div className="sheet" style={{ padding: '16px 18px' }}>
+              <div className="se-pub">
+                <button
+                  className={'sw' + (pos.pub !== false ? ' on' : '')}
+                  aria-pressed={pos.pub !== false}
+                  onClick={() => savePublic({ pub: pos.pub === false })}
+                />
+                <div>
+                  <b>{pos.pub !== false ? '채용 사이트에 걸려 있습니다' : '채용 사이트에서 내려갔습니다'}</b>
+                  <span>
+                    {pos.st === 'open'
+                      ? pos.pub !== false
+                        ? '누구나 공고를 보고 지원할 수 있습니다.'
+                        : '주소를 아는 사람이 직접 들어와도 열리지 않습니다. 진행 중인 후보자는 그대로입니다.'
+                      : '공고 상태가 오픈이 아니라서, 켜 두어도 채용 사이트에는 보이지 않습니다.'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="row3" style={{ marginTop: 14 }}>
+                <div className="field">
+                  <label>근무지</label>
+                  <input
+                    className="in" value={pos.loc ?? ''} placeholder="서울 강남"
+                    onChange={e => setField('loc', e.target.value)}
+                    onBlur={e => savePublic({ loc: e.target.value.trim() })}
+                  />
+                </div>
+                <div className="field">
+                  <label>경력 요건</label>
+                  <input
+                    className="in" value={pos.exp ?? ''} placeholder="경력 3년 이상"
+                    onChange={e => setField('exp', e.target.value)}
+                    onBlur={e => savePublic({ exp: e.target.value.trim() })}
+                  />
+                </div>
+                <div className="field">
+                  <label>마감일</label>
+                  <input
+                    className="in" type="date" value={pos.due ?? ''}
+                    onChange={e => savePublic({ due: e.target.value })}
+                  />
+                </div>
+              </div>
+              <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+                마감일을 비워 두면 공고에 <b>상시 채용</b>으로 표시되고, 지원은 계속 받습니다.
+              </span>
+
+              <div className="se-url">
+                <code>{`/careers/${pid}`}</code>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    const url = `${window.location.origin}/careers/${pid}`
+                    void navigator.clipboard.writeText(url).then(() => {
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 1600)
+                    }).catch(() => {})
+                  }}
+                >
+                  <Icon id="i-link" className="ic-sm" />{copied ? '복사됨' : '공개 주소 복사'}
+                </button>
+                <a className="btn quiet" href={`/careers/${pid}`} target="_blank" rel="noreferrer">
+                  지원자 화면으로 보기
+                </a>
               </div>
             </div>
           </div>

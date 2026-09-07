@@ -688,6 +688,17 @@ button.se-step:hover { background: var(--brand-soft); color: var(--brand-deep); 
 .se-rail b { font-weight: 600; }
 .se-rail span { font-size: 11px; color: var(--t4); }
 
+/* 채용 사이트 노출 — 켜고 끄는 줄과 공개 주소 */
+.se-pub { display: flex; align-items: flex-start; gap: 11px; }
+.se-pub .sw { flex: none; margin-top: 2px; }
+.se-pub > div { flex: 1; min-width: 0; }
+.se-pub b { display: block; font-size: 12.5px; font-weight: 600; color: var(--t1); }
+.se-pub span { display: block; margin-top: 2px; font-size: 11.5px; color: var(--t3); }
+.se-url { display: flex; align-items: center; gap: 8px; margin-top: 16px;
+          padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.se-url code { font-family: var(--mono); font-size: 11.5px; color: var(--t2);
+               background: var(--sunken); border-radius: var(--r-sm); padding: 5px 9px; }
+
 /* 면접관 지정 (setup) */
 .iv-pick { position: relative; display: flex; align-items: center; gap: 5px;
            flex-wrap: wrap; min-width: 0; }

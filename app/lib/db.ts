@@ -49,6 +49,12 @@ function mapPosition(r: any): Position {
     ...(r.req_ref ? { reqRef: r.req_ref } : {}),
     ...(r.openings ? { openings: r.openings } : {}),
     ...(r.opening_codes?.length ? { openingCodes: r.opening_codes } : {}),
+    /* 마이그레이션 012 전 DB 에는 없다 → 빠진 채로 남고, 채용 사이트는
+       '아직 판단한 적 없음 = 내걸림'으로 읽는다(지금까지와 같은 동작). */
+    ...(r.pub != null ? { pub: !!r.pub } : {}),
+    ...(r.loc ? { loc: r.loc } : {}),
+    ...(r.exp ? { exp: r.exp } : {}),
+    ...(r.due ? { due: r.due } : {}),
   }
 }
 function mapStage(r: any): Stage {
@@ -156,6 +162,9 @@ function mapCandidate(r: any): Candidate {
     ...(r.reject_memo ? { rjMemo: r.reject_memo } : seedRj?.rjMemo ? { rjMemo: seedRj.rjMemo } : {}),
     ...(r.decided_at ? { decided: r.decided_at } : {}),
     ...(r.person_key ? { pk: r.person_key } : {}),
+    /* 마이그레이션 012. 채용 사이트로 직접 들어온 지원건에만 있다. */
+    ...(r.phone ? { phone: r.phone } : {}),
+    ...(r.note ? { note: r.note } : {}),
   }
 }
 /* DB 행이 언제나 이긴다. 다만 DB에 아직 넣지 않은 씨앗 지원건은 그대로 얹는다 —

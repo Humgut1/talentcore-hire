@@ -164,11 +164,36 @@ export const MAIL_TPLS: MailTpl[] = [
 
 export const tplByCode = (v: string) => MAIL_TPLS.find(t => t.v === v)
 
+/* 채용 사이트로 지원이 들어온 순간 자동으로 나가는 접수 확인.
+   고르는 목록(MAIL_TPLS)에는 넣지 않는다 — 사람이 골라 보내는 메일이 아니라
+   시스템이 보내는 영수증이라서, 담당자 화면의 템플릿 목록을 어지럽힐 뿐이다.
+   그래도 문안은 여기 둔다. 회사 이름으로 나가는 글은 전부 이 파일에 모은다. */
+export function applyAckMail(c: MailCtx & { steps?: string[] }) {
+  const flow = c.steps && c.steps.length
+    ? ['', '전형 절차는 다음과 같습니다.', ...c.steps.map((s, i) => `  ${i + 1}. ${s}`)]
+    : []
+  return {
+    subject: `[${CO(c)}] ${c.pos} 지원이 접수되었습니다`,
+    body: [
+      `${c.cand} 님, 안녕하세요. ${CO(c)} 채용팀입니다.`,
+      '',
+      `${c.pos} 포지션에 지원해 주셔서 감사합니다. 지원서가 정상적으로 접수되었습니다.`,
+      ...flow,
+      '',
+      '서류 검토 결과는 접수일로부터 영업일 기준 7일 이내에 이 메일 주소로 안내드립니다.',
+      '지원 내용을 수정하거나 취소하고 싶으시면 이 메일로 회신해 주세요.',
+      '',
+      `${CO(c)} 채용팀 드림`,
+    ].join('\n'),
+  }
+}
+
 /* 고르는 목록에는 없지만 기록에는 남는 메일.
    불합격 통보는 사유와 그 사람이 서 있던 단계에 따라 본문이 그때그때 지어지므로
    (decision.ts rejectMailDraft) 고정 템플릿으로 둘 수 없다. */
 const EXTRA_KIND: Record<string, string> = {
   'reject-notice': '불합격 통보',
+  'apply-ack': '지원 접수 확인',
 }
 export const mailKindLabel = (v: string) =>
   MAIL_TPLS.find(t => t.v === v)?.l ?? EXTRA_KIND[v] ?? v

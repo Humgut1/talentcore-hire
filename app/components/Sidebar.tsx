@@ -124,6 +124,11 @@ export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
             <Icon id={it.i} />{it.n}
           </Link>
         ))}
+        {/* 채용 사이트는 앱이 아니라 바깥 사람이 보는 화면이라 새 탭으로 연다.
+            사이드바가 따라 들어가면 안 되는 유일한 주소다. */}
+        <a className="nav-i" href="/careers" target="_blank" rel="noreferrer">
+          <Icon id="i-briefcase" />채용 사이트
+        </a>
       </div>
 
       <div className="side-foot">

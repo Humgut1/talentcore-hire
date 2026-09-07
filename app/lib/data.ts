@@ -44,6 +44,11 @@ export interface Position {
   reqRef?: string           // 채용 요청서 번호(REQ-12) — 출처 표시·역추적
   openings?: number         // 이 공고가 채우는 자리 수. 없으면 1명.
   openingCodes?: string[]   // 자리 카드 코드(OP-12-1 …). 합격자를 어느 카드에 채울지 고를 때 쓴다
+  /* ---- 채용 사이트(공개 공고)용. 마이그레이션 012 전 DB 에는 없다 ---- */
+  pub?: boolean    // 채용 사이트에 내걸었는가. undefined = 아직 판단한 적 없음(= 내걸림)
+  loc?: string     // 근무지. 공고를 보는 사람이 두 번째로 보는 값이다
+  exp?: string     // 경력 요건 한 줄 ('경력 3년 이상' / '신입·경력')
+  due?: string     // 마감일(YYYY-MM-DD). 없으면 '상시 채용'
 }
 export interface Stage {
   id: string; nm: string; kind: StageKind; sla: number; dur: number
@@ -61,6 +66,9 @@ export interface Candidate {
   rj?: RejectCode  // 불합격 사유 코드. '우리가 거절'인지 '후보자가 이탈'인지가 여기서 갈린다.
   rjMemo?: string  // 사유에 덧붙인 내용(선택).
   decided?: string // 판정일. 사유 리포트의 기간 필터에 쓴다.
+  /* ---- 채용 사이트로 직접 들어온 지원건. 마이그레이션 012 전 DB 에는 없다 ---- */
+  phone?: string   // 연락처. 지원 폼에서만 들어온다
+  note?: string    // 지원자가 직접 쓴 지원 동기. 'why'(상태 사유)와 섞지 않는다
   pk?: string      // '사람' 식별자. 중복 병합이 끝난 지원건에만 붙는다.
                    // 자기 id 면 '확인했고 다른 사람', 남의 id 면 '그 사람과 같은 사람'.
                    // 지원건을 합치지 않는 이유는 pool.ts 머리글에 적어 둔다.
@@ -85,11 +93,11 @@ export let people: Person[] = [
 ]
 
 export let positions: Position[] = [
-  { id:'p1', title:'백엔드 엔지니어 (시니어)', dept:'플랫폼본부', team:'서버팀',   emp:'정규직', st:'open',   rec:'정수민', hm:'최영수', opened:'2026-07-20', ttf:23, band:[8000,10000], jd:'분산 트랜잭션 처리와 대용량 이벤트 파이프라인을 설계·운영할 시니어 백엔드 엔지니어를 찾습니다.' },
-  { id:'p2', title:'프로덕트 디자이너',        dept:'프로덕트본부', team:'디자인팀', emp:'정규직', st:'open',   rec:'정수민', hm:'김서진', opened:'2026-07-28', ttf:15, band:[6500,8500],  jd:'B2B SaaS 제품의 핵심 플로우를 설계합니다.' },
-  { id:'p3', title:'데이터 엔지니어',          dept:'플랫폼본부', team:'데이터팀', emp:'정규직', st:'open',   rec:'박현우', hm:'노아름', opened:'2026-06-30', ttf:43, band:[7500,9500],  jd:'데이터 웨어하우스 구축과 파이프라인 운영.' },
-  { id:'p4', title:'세일즈 매니저',            dept:'사업본부',   team:'세일즈팀', emp:'정규직', st:'hold',   rec:'박현우', hm:'이강민', opened:'2026-07-02', ttf:41, band:[6000,8000],  jd:'엔터프라이즈 신규 고객 발굴.' },
-  { id:'p5', title:'QA 엔지니어',              dept:'플랫폼본부', team:'품질팀',   emp:'계약직', st:'closed', rec:'정수민', hm:'임수정', opened:'2026-05-11', ttf:58, band:[5500,7000],  jd:'자동화 테스트 설계.' },
+  { id:'p1', title:'백엔드 엔지니어 (시니어)', dept:'플랫폼본부', team:'서버팀',   emp:'정규직', st:'open',   rec:'정수민', hm:'최영수', opened:'2026-07-20', ttf:23, band:[8000,10000], jd:'분산 트랜잭션 처리와 대용량 이벤트 파이프라인을 설계·운영할 시니어 백엔드 엔지니어를 찾습니다.', loc:'서울 강남', exp:'경력 5년 이상', due:'2026-09-30' },
+  { id:'p2', title:'프로덕트 디자이너',        dept:'프로덕트본부', team:'디자인팀', emp:'정규직', st:'open',   rec:'정수민', hm:'김서진', opened:'2026-07-28', ttf:15, band:[6500,8500],  jd:'B2B SaaS 제품의 핵심 플로우를 설계합니다.', loc:'서울 강남', exp:'경력 3년 이상' },
+  { id:'p3', title:'데이터 엔지니어',          dept:'플랫폼본부', team:'데이터팀', emp:'정규직', st:'open',   rec:'박현우', hm:'노아름', opened:'2026-06-30', ttf:43, band:[7500,9500],  jd:'데이터 웨어하우스 구축과 파이프라인 운영.', loc:'서울 강남 · 주 2회 재택', exp:'경력 3년 이상', due:'2026-09-20' },
+  { id:'p4', title:'세일즈 매니저',            dept:'사업본부',   team:'세일즈팀', emp:'정규직', st:'hold',   rec:'박현우', hm:'이강민', opened:'2026-07-02', ttf:41, band:[6000,8000],  jd:'엔터프라이즈 신규 고객 발굴.', loc:'서울 강남', exp:'경력 7년 이상' },
+  { id:'p5', title:'QA 엔지니어',              dept:'플랫폼본부', team:'품질팀',   emp:'계약직', st:'closed', rec:'정수민', hm:'임수정', opened:'2026-05-11', ttf:58, band:[5500,7000],  jd:'자동화 테스트 설계.', loc:'서울 강남', exp:'신입·경력' },
 ]
 
 export let stages: Record<string, Stage[]> = {
@@ -914,6 +922,16 @@ export function _patchPositionBand(pid: string, band: [number, number]) {
    DB 값으로 다시 맞춰진다. */
 export function _patchPositionState(pid: string, st: Position['st']) {
   positions = positions.map(p => (p.id === pid ? { ...p, st } : p))
+}
+
+/* 채용 사이트 노출값(공개 여부·근무지·경력·마감일)만 고치기.
+   마이그레이션 012 전 DB 에서는 저장이 실패하지만, 화면은 진행시킨다 —
+   새로고침 전까지는 담당자가 방금 고친 대로 보인다. */
+export function _patchPositionPublic(
+  pid: string,
+  patch: Partial<Pick<Position, 'pub' | 'loc' | 'exp' | 'due'>>,
+) {
+  positions = positions.map(p => (p.id === pid ? { ...p, ...patch } : p))
 }
 
 /* 인재풀에서 다시 올린 지원건 인메모리 반영.
