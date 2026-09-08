@@ -77,7 +77,18 @@ export default async function CareerDetail({ params }: Params) {
         </Link>
 
         <span className="s-eyebrow">{post.dept}{post.team && post.team !== post.dept ? ` · ${post.team}` : ''}</span>
-        <h1>{post.title}</h1>
+
+        {/* 지원 버튼을 제목 옆에 한 번 더 둔다. Toss·당근·Stripe 모두
+            스크롤 없이 보이는 자리에 지원 버튼이 있다. 이미 마음을 정하고
+            들어온 사람을 JD 끝까지 스크롤시킬 이유가 없다. */}
+        <div className="s-title">
+          <h1>{post.title}</h1>
+          {closed ? (
+            <span className="s-cta s-cta-top" aria-disabled="true">지원 마감</span>
+          ) : (
+            <Link href={`/careers/${post.id}/apply`} className="s-cta s-cta-top">지원하기</Link>
+          )}
+        </div>
 
         <dl className="s-facts">
           <div className="s-fact"><dt>고용형태</dt><dd>{post.emp}</dd></div>
@@ -103,10 +114,10 @@ export default async function CareerDetail({ params }: Params) {
           {post.steps.length > 0 && (
             <div className="s-panel">
               <span className="s-eyebrow">전형 절차</span>
-              <div className="s-steps">
+              <div className="s-plan">
                 {post.steps.map((s, i) => (
                   <div key={i}>
-                    {i > 0 && <div className="s-rail" />}
+                    {i > 0 && <div className="s-tie" />}
                     <div className="s-step">
                       <span className="s-num">{i + 1}</span>
                       <span className="s-nm">{s}</span>
