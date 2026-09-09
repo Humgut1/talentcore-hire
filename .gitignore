@@ -50,3 +50,4 @@ next-env.d.ts
 
 # 성능 비교용 배포 빌드 출력
 /.next-prod/
+/.next-gate/

@@ -1085,3 +1085,23 @@ button.se-step:hover { background: var(--brand-soft); color: var(--brand-deep); 
              color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .c-app-m span { display: block; margin-top: 2px; font-size: 11px; color: var(--t4); }
 .c-app .pill { flex: none; }
+
+/* ---- 데모 띠 (문지기 B) ------------------------------------
+   데모로 들어온 사람에게만 보인다. 상태색을 쓰지 않는다 —
+   이건 후보자의 상태가 아니라 이 화면 자체의 조건이라서,
+   색을 쓰면 보드의 빨강·주황과 같은 말인 줄 읽힌다. 무채색으로 둔다. */
+.demobar {
+  position: fixed; inset: 0 0 auto 0; z-index: 60; height: 34px;
+  display: flex; align-items: center; gap: 10px; padding: 0 14px;
+  background: var(--t1); color: #fff; font-size: 11.5px; letter-spacing: -.01em;
+}
+.demobar b { font-weight: 700; flex: none; }
+.demobar span { color: rgba(255,255,255,.72); min-width: 0;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demobar a { margin-left: auto; flex: none; color: #fff; text-decoration: none;
+             font-weight: 600; border: 1px solid rgba(255,255,255,.3);
+             border-radius: var(--r-sm, 6px); padding: 3px 9px; }
+.demobar a:hover { background: rgba(255,255,255,.12); }
+
+.app.has-demobar { padding-top: 34px; }
+.app.has-demobar .side { top: 34px; height: calc(100vh - 34px); }

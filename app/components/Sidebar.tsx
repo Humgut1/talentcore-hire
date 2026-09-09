@@ -78,8 +78,8 @@ export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
     <aside className="side">
       <div className="brand">
         <span className="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-mark" /></svg></span>
-        <span className="brand-name">Cadence</span>
-        <span className="brand-tag">임시명</span>
+        <span className="brand-name">Hire</span>
+        <span className="brand-tag">TalentCore</span>
       </div>
 
       <div className="nav-sec">
