@@ -32,6 +32,19 @@ export interface CareerPost {
   steps: string[]      // 전형 절차 — 지원자가 가장 궁금해하는 것
 }
 
+/* TalentCore 에서 넘어온 공고의 JD 첫 줄에는 출처가 붙어 있다.
+   `※ TalentCore 요청 REQ-12 · 자리 OP-12-1 · 증원 · 예산 안 · 희망 입사일 …`
+   이건 담당자용 표시다. 지원자에게는 사내 요청서 번호도, 이 채용이 예산 안인지
+   밖인지도 보여 줄 이유가 없다 — 회사의 내부 사정이다. 여기서 걷어낸다. */
+function publicJd(jd: string): string {
+  const NL = String.fromCharCode(10)
+  return jd
+    .split(/\r?\n/)
+    .filter(line => !line.trimStart().startsWith('※'))
+    .join(NL)
+    .replace(/^\s+/, '')
+}
+
 /** 마감일이 지났는가. 마감일이 없으면 상시 채용이라 지나지 않는다. */
 export function isClosed(due: string, today: string): boolean {
   return !!due && due < today
@@ -47,7 +60,7 @@ function toPost(p: Position, stages: Stage[]): CareerPost {
     emp: p.emp,
     loc: p.loc || '서울',
     exp: p.exp || '경력 무관',
-    jd: p.jd || '',
+    jd: publicJd(p.jd || ''),
     opened: p.opened,
     due: p.due || '',
     /* 전형 절차는 Hire 가 이미 알고 있는 것이다. 지원자에게 '서류 → 1차 →
