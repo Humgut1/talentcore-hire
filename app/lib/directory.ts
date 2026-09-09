@@ -77,7 +77,12 @@ export async function syncDirectory(): Promise<SyncReport> {
 
   const now = new Date().toISOString()
   const inserts: any[] = []
-  const updates: { id: string; patch: any }[] = []
+  /* 고칠 사람은 한 줄씩 보내지 않고 한 번에 묶어 보낸다.
+     사람이 180명이면 왕복 180번이 되어 Vercel 함수 제한(60초)에 걸린다.
+     묶어 보내려면 모든 줄의 칸 구성이 같아야 하므로, 바뀐 칸만이 아니라
+     'TalentCore 것' 전부를 실어 보낸다 — 안 바뀐 칸은 같은 값이 다시 들어갈 뿐이고,
+     'Hire 것'(면접 역할·EA·알림채널·응답기준)은 아예 싣지 않으니 그대로 남는다. */
+  const updates: any[] = []
   const seen = new Set<string>()
   let added = 0, updated = 0, reactivated = 0, deact = 0
 
@@ -121,7 +126,12 @@ export async function syncDirectory(): Promise<SyncReport> {
     /* '재직 여부만 바뀐 사람'을 갱신 숫자에 같이 넣으면 화면에 두 번 세어진다.
        퇴사/복직은 아래 자기 칸에서만 센다. */
     if (Object.keys(patch).some(k => k !== 'active')) updated++
-    updates.push({ id: hit.id, patch: { ...patch, synced_at: now } })
+    updates.push({
+      id: hit.id,
+      nm: p.name, tt: titleOf(p), dept: deptOf(p), email,
+      emp_no: p.emp_no || null, src: 'core', active: p.active,
+      core_role: p.role, core_level: p.level ?? null, synced_at: now,
+    })
   }
 
   /* 명부에서 사라진 사람 — TalentCore 에서 온 사람만 잠근다.
@@ -132,12 +142,15 @@ export async function syncDirectory(): Promise<SyncReport> {
 
   const fail = (e: { message: string }) => ({ ok: false as const, reason: 'bad-response' as const, detail: e.message })
 
-  if (inserts.length) {
-    const { error } = await sb.from('people').insert(inserts)
+  /* 한 번에 다 밀어 넣으면 요청 본문이 커져 실패할 수 있으므로 200명씩 끊는다. */
+  const CHUNK = 200
+  for (let i = 0; i < inserts.length; i += CHUNK) {
+    const { error } = await sb.from('people').insert(inserts.slice(i, i + CHUNK))
     if (error) return fail(error)
   }
-  for (const u of updates) {
-    const { error } = await sb.from('people').update(u.patch).eq('id', u.id)
+  for (let i = 0; i < updates.length; i += CHUNK) {
+    const { error } = await sb.from('people')
+      .upsert(updates.slice(i, i + CHUNK), { onConflict: 'id' })
     if (error) return fail(error)
   }
   if (gone.length) {
