@@ -26,6 +26,9 @@ export interface CorePerson {
   name: string
   email: string | null
   title: string
+  /* TalentCore 직급 레벨 1~9. 실장 8 / 본부장·부문장 9.
+     '실장 이상이 면접관이면 발송 전 확인' 규칙이 이 값을 본다. */
+  level?: number | null
   dept: string
   role: string                 // admin / manager / recruiter / employee
   active: boolean

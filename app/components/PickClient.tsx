@@ -30,6 +30,10 @@ export interface PickData {
   seq?: boolean            // 이어서 보는 면접인가
   slots?: PickSlot[]
   bookedLabel?: string
+  /* 메일이 실제로 나갈 수 있는 상태인가(Gmail 연결됨).
+     연결 전에는 "보내드렸어요"가 거짓말이 된다 — 후보자는 오지 않는 메일을
+     기다리다 면접을 놓친다. 그래서 안내 문구를 사실에 맞춰 바꾼다. */
+  mailOn?: boolean
 }
 
 export default function PickClient({ data }: { data: PickData }) {
@@ -131,7 +135,9 @@ export default function PickClient({ data }: { data: PickData }) {
               <div className="bk-confirm-time mono">{done.label}</div>
               <div className="bk-confirm-meta">{data.company} · {data.positionTitle} · {data.mode ?? '화상'}</div>
             </div>
-            <p className="bk-note">캘린더 초대와 접속 정보를 이메일로 보내드렸어요. 변경이 필요하면 회신해 주세요.</p>
+            <p className="bk-note">{data.mailOn
+              ? '캘린더 초대와 접속 정보를 이메일로 보내드렸어요. 변경이 필요하면 회신해 주세요.'
+              : '확정된 시간은 담당자에게 전달됐어요. 접속 정보는 담당자가 따로 안내드립니다.'}</p>
           </div>
         ) : data.status === 'booked' ? (
           <div className="bk-body">

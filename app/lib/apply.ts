@@ -90,6 +90,16 @@ export async function submitApplication(
   if (!agreed) {
     return { ok: false, field: 'agree', error: '개인정보 수집·이용에 동의하셔야 지원을 접수할 수 있습니다.' }
   }
+  /* 이력서는 화면에 별표(필수)로 걸려 있다. 파일을 아예 안 보낸 요청은 여기서
+     막는다 — 브라우저가 이미 막으므로 정상 지원자는 이 메시지를 볼 일이 없고,
+     폼을 우회한 요청만 걸린다. 별표를 걸어 놓고 통과시키면 담당자는 검토할 것이
+     없는 카드를 받는다.
+     반대로 '파일은 왔는데 저장소가 꺼져 있었다'는 아래에서 접수시킨다 —
+     우리 쪽 사정으로 지원자를 잃지 않는다는 이 파일의 원칙 그대로다. */
+  const resume = form.get('resume')
+  if (!(resume instanceof File) || resume.size === 0) {
+    return { ok: false, field: 'resume', error: '이력서 파일을 첨부해 주세요.' }
+  }
 
   /* 같은 공고에 이미 진행 중인 지원건이 있으면 새로 만들지 않는다.
      떨어졌던 사람이 다시 지원하는 것은 막지 않는다 — 그건 정상적인 재지원이다. */
@@ -139,15 +149,10 @@ export async function submitApplication(
     saveErr = error?.message
   }
 
-  /* ---- 이력서 파일 ---- */
-  const file = form.get('resume')
+  /* ---- 이력서 파일 ---- 있다는 것은 위에서 확인했다. 저장이 실패해도 접수는 유효하다. */
   let docErr: string | undefined
-  if (file instanceof File && file.size > 0) {
-    const up = await putDoc({ cid: id, kind: 'resume', file, byNm: nm })
-    if (!up.ok) docErr = up.reason
-  } else {
-    docErr = 'no-file'
-  }
+  const up = await putDoc({ cid: id, kind: 'resume', file: resume, byNm: nm })
+  if (!up.ok) docErr = up.reason
 
   /* ---- 담당자 화면에 남는 한 줄 ---- */
   await pushLine(id, {
@@ -156,10 +161,10 @@ export async function submitApplication(
     p: [
       `${post.title} · 경력 ${Math.round(yr)}년`,
       `유입 ${src}`,
-      docErr === 'no-file' ? '이력서 파일 없음' : docErr ? `이력서 저장 실패(${docErr})` : '이력서 첨부됨',
+      docErr ? `이력서 저장 실패(${docErr}) — 지원자에게 다시 받아야 합니다` : '이력서 첨부됨',
       '개인정보 수집·이용 동의함',
     ].join(' · '),
-    s: docErr && docErr !== 'no-file' ? 'bad' : 'done',
+    s: docErr ? 'bad' : 'done',
   })
 
   /* ---- 접수 확인 메일. 안 나가도 접수는 유효하다 ---- */

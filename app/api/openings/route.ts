@@ -20,12 +20,15 @@
 import { NextResponse } from 'next/server'
 import { checkInbound } from '../../lib/inbound'
 import { hydrateData } from '../../lib/db'
-import { positions, people } from '../../lib/data'
-import { createPosition } from '../../lib/actions'
+import { positions, people, personById } from '../../lib/data'
+import { createPosition, setPersonRoles } from '../../lib/actions'
 
 export const dynamic = 'force-dynamic'
 
 interface OpeningIn { id?: number | string; code?: string }
+/* 요청서가 지목한 사람 한 명. 사번이 먼저다 — 동명이인이 있는 회사에서
+   이름만으로 고르면 엉뚱한 사람에게 면접이 잡힌다. */
+interface PanelPerson { emp_no?: string; name?: string }
 interface Body {
   title?: string
   dept?: string
@@ -37,9 +40,13 @@ interface Body {
   target_start?: string   // 희망 입사일 (YYYY-MM-DD)
   hire_type?: string      // 신규 채용 / 결원 충원 …
   req_ref?: string        // REQ-12
+  level?: string          // 자리 카드의 직급 라벨 (L4 — Senior)
   openings?: OpeningIn[]
   recruiter?: string      // Hire 쪽 담당자 이름. 없으면 첫 리크루터가 맡는다.
   hiring_manager?: string
+  /* 면접관 세 자리. TalentCore 요청서가 이미 알고 있는 사람들이다.
+     hm = 부서장(1차) · upper = 차상위 리더 · collab = 요청서에서 고른 협업 리더(2차). */
+  panel?: { hm?: PanelPerson | null; upper?: PanelPerson | null; collab?: PanelPerson | null }
 }
 
 const bad = (msg: string, status = 400) =>
@@ -80,7 +87,51 @@ export async function POST(req: Request) {
     return (hit || pool[0])?.nm || ''
   }
   const rec = pick(b.recruiter, '리크루터')
-  const hm = pick(b.hiring_manager, '하이어링 매니저')
+
+  /* ---- 면접관 세 자리 ----
+     TalentCore 는 사번과 이름을 함께 보낸다. 사번이 맞으면 그 사람이고,
+     사번이 없거나 아직 명부 동기화 전이면 이름으로 한 번 더 찾아본다.
+     못 찾으면 그 자리는 비워 둔 채로 공고를 연다 — 여기서 실패시키면
+     사람 하나 안 맞았다고 채용 전체가 안 열린다. 대신 응답에 적어 보낸다. */
+  const findPerson = (p?: PanelPerson | null): string | undefined => {
+    if (!p) return undefined
+    const no = (p.emp_no || '').trim()
+    const nm = (p.name || '').trim()
+    const live = people.filter(x => x.active !== false)
+    const byNo = no ? live.find(x => (x.empNo || '') === no) : undefined
+    if (byNo) return byNo.id
+    if (!nm) return undefined
+    const hits = live.filter(x => x.nm === nm)
+    /* 동명이인이면 고르지 않는다. 아무나 집어넣는 것보다 비워 두는 게 낫다. */
+    return hits.length === 1 ? hits[0].id : undefined
+  }
+  const hmId = findPerson(b.panel?.hm)
+  const upperId = findPerson(b.panel?.upper)
+  const collabId = findPerson(b.panel?.collab)
+  const missing = [
+    b.panel?.hm && !hmId ? '부서장' : null,
+    b.panel?.upper && !upperId ? '차상위 리더' : null,
+    b.panel?.collab && !collabId ? '협업 리더' : null,
+  ].filter(Boolean) as string[]
+
+  /* 공고 머리의 HM 이름 — 요청서가 지목한 부서장이 주인이다.
+     못 찾았을 때만 Hire 명부의 첫 하이어링 매니저로 떨어진다. */
+  const hm = (hmId ? personById(hmId)?.nm : '') || pick(b.hiring_manager, '하이어링 매니저')
+
+  /* 면접 역할을 달아 준다. TalentCore 에서 넘어온 사람은 역할이 비어 있어서
+     단계 설정 화면의 면접관 목록에 아예 안 뜬다 — 배정은 됐는데 화면에서는
+     안 보이는, 제일 헷갈리는 상태가 된다. 역할은 Hire 것이라 동기화가
+     덮어쓰지 않으니 여기서 붙여도 안전하다. */
+  for (const [uid, extra] of [
+    [hmId, ['인터뷰어', '하이어링 매니저']],
+    [upperId, ['인터뷰어']],
+    [collabId, ['인터뷰어']],
+  ] as [string | undefined, string[]][]) {
+    if (!uid) continue
+    const cur = personById(uid)?.roles || []
+    const add = extra.filter(r => !cur.includes(r))
+    if (add.length) await setPersonRoles(uid, [...cur, ...add])
+  }
 
   /* 희망 입사일·채용 유형은 Hire 에 담을 칸이 없다. 칸을 새로 파기보다
      JD 머리에 한 줄로 남긴다 — 리크루터가 실제로 보는 자리가 거기다. */
@@ -103,7 +154,14 @@ export async function POST(req: Request) {
     jd,
     template: 'std',
     reqRef: (b.req_ref || '').trim() || undefined,
+    level: (b.level || '').trim() || undefined,
     openingCodes: codes,
+    panel: {
+      ...(hmId ? { r1: [hmId] } : {}),
+      ...((upperId || collabId)
+        ? { r2: [upperId, collabId].filter(Boolean) as string[] }
+        : {}),
+    },
   })
 
   if (!r.ok || !r.id) return bad(r.reason || 'create-failed', 500)
@@ -117,6 +175,7 @@ export async function POST(req: Request) {
     board_url: `${origin}/p/${r.id}/board`,
     setup_url: `${origin}/p/${r.id}/setup`,
     /* Supabase 가 아직 안 붙은 개발 환경이면 서버가 꺼질 때 사라진다는 뜻 */
+    ...(missing.length ? { panel_missing: missing } : {}),
     ...(r.reason === 'not-configured' ? { warning: 'not-configured' } : {}),
   })
 }

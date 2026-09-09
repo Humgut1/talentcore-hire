@@ -74,10 +74,10 @@ export default function BulkSend({
   return (
     <div className="bs-modal" onClick={onClose}>
       <div className="bs-dlg" onClick={e => e.stopPropagation()}>
-        <b>{ack ? '고위 면접관이 포함돼 있습니다' : `후보자 ${cids.length}명에게 함께 보내기`}</b>
+        <b>{ack ? '실장(L8)급 이상 면접관이 포함돼 있습니다' : `후보자 ${cids.length}명에게 함께 보내기`}</b>
         <p>
           {ack
-            ? `${seniors.join(' · ')} 님이 포함돼 있습니다. 이대로 보낼까요?`
+            ? `${seniors.join(' · ')} 님은 실장(L8)급 이상입니다. 실장급 이상 면접관은 보내기 전에 한 번 확인받습니다 — 보내는 순간 그분들 캘린더에 자리가 모두 가예약으로 잡히고, 후보자가 고를 때까지 48시간 묶여 있습니다.`
             : '한 무리에게 같은 자리를 함께 냅니다 — 먼저 고른 분이 가져갑니다. 후보자 화면에는 다른 지원자가 드러나지 않고, 나간 자리는 그냥 목록에서 사라집니다.'}
         </p>
 

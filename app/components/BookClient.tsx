@@ -25,6 +25,8 @@ export interface BookData {
   slots?: BookSlot[]
   bookedLabel?: string
   pendingMsg?: string
+  /* PickClient 와 같은 이유 — Gmail 연결 전에는 메일이 나가지 않는다. */
+  mailOn?: boolean
 }
 
 export default function BookClient({ data }: { data: BookData }) {
@@ -84,7 +86,9 @@ export default function BookClient({ data }: { data: BookData }) {
               <div className="bk-confirm-time mono">{done.label}</div>
               <div className="bk-confirm-meta">{data.company} · {data.positionTitle} · {data.mode}</div>
             </div>
-            <p className="bk-note">캘린더 초대와 접속 정보를 이메일로 보내드렸어요. 변경이 필요하면 회신해 주세요.</p>
+            <p className="bk-note">{data.mailOn
+              ? '캘린더 초대와 접속 정보를 이메일로 보내드렸어요. 변경이 필요하면 회신해 주세요.'
+              : '확정된 시간은 담당자에게 전달됐어요. 접속 정보는 담당자가 따로 안내드립니다.'}</p>
           </div>
         ) : data.status === 'booked' ? (
           /* ---- 이미 확정됨(재방문) ---- */
@@ -162,7 +166,9 @@ export default function BookClient({ data }: { data: BookData }) {
               <button className="bk-cta" disabled={!chosen || busy} onClick={confirm}>
                 {busy ? '확정 중…' : chosen ? `${chosen.day.split(' ')[0]} ${chosen.label} 확정하기` : '시간을 선택해 주세요'}
               </button>
-              <p className="bk-fine">선택한 시간으로 면접이 확정되며, 캘린더 초대가 이메일로 발송됩니다.</p>
+              <p className="bk-fine">{data.mailOn
+                ? '선택한 시간으로 면접이 확정되며, 캘린더 초대가 이메일로 발송됩니다.'
+                : '선택한 시간으로 면접이 확정되며, 담당자가 세부 안내를 드립니다.'}</p>
             </div>
           </div>
         )}

@@ -11,7 +11,7 @@ import IvClient, { type IvData } from '../../../../components/IvClient'
 import { hydrateData } from '../../../../lib/db'
 import { cands, stageById, posById, personById, evals, TODAY } from '../../../../lib/data'
 import { scheduleFor, fmtMin, configFor, businessDays } from '../../../../lib/schedule'
-import { resolveProvider } from '../../../../lib/google'
+import { resolveProvider, gmailReady } from '../../../../lib/google'
 import { parseConfirmed, confirmedLabel } from '../../../../lib/reminders'
 import { attrsFor, isGradable } from '../../../../lib/scorecard'
 
@@ -58,6 +58,7 @@ export default async function Page(
   const mine = submitted.find(e => e.uid === iv.id)
 
   const base: IvData = {
+    mailOn: gmailReady(),
     status: 'request',
     cid: cand.id,
     uid: iv.id,

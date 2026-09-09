@@ -10,7 +10,7 @@ import BookClient, { type BookData } from '../../../components/BookClient'
 import { hydrateData } from '../../../lib/db'
 import { cands, stageById, posById, personById, company, TODAY } from '../../../lib/data'
 import { scheduleFor, fmtMin, configFor, businessDays } from '../../../lib/schedule'
-import { resolveProvider } from '../../../lib/google'
+import { resolveProvider, gmailReady } from '../../../lib/google'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -27,6 +27,7 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const pos = posById(cand.p)
   const base: Omit<BookData, 'status' | 'slots'> = {
     cid: cand.id,
+    mailOn: gmailReady(),
     name: cand.nm,
     company: company(cand.role),
     positionTitle: pos.title,

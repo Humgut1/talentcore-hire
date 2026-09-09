@@ -453,6 +453,9 @@ async function handOffToCore(cid: string, o: Offer): Promise<HandoffResult> {
   const push = await pushHire({
     name: c.nm,
     email: c.email ?? null,
+    /* 연락처도 같이 넘긴다. 입사 안내는 메일만으로 굴러가지 않는다 —
+       입사 전날 연락이 닿아야 하는 순간이 반드시 한 번은 온다. */
+    phone: c.phone ?? null,
     start_date: o.start ?? null,
     department: pos.dept || null,
     position: o.level || null,
@@ -582,7 +585,10 @@ function draftOfferFor(c: Candidate): Offer {
   const hm = personByName(pos.hm)
   const band: [number, number] = pos.band ?? [0, 0]
   return {
-    cid: c.id, st: 'draft', level: pos.title,
+    /* 직급은 자리 카드에서 온 값이 정답이다. 공고 제목은 '프론트엔드 엔지니어
+       (시니어) 2차'처럼 직급이 아니라서, 그대로 두면 TalentCore 입사예정자의
+       직급으로 돌아가 직원 전환 화면의 프리필을 깨뜨린다. */
+    cid: c.id, st: 'draft', level: pos.level || pos.title,
     base: band[0], sign: 0, band,
     chain: hm ? [{ uid: hm.id, nm: hm.nm, role: '하이어링 매니저', s: 'pending' }] : [],
     createdAt: TODAY_ISO,
@@ -937,6 +943,12 @@ export interface NewPositionInput {
      사람이 Hire 안에서 직접 개설하면 셋 다 비어 있고, openings 는 1이 된다. */
   reqRef?: string          // 채용 요청서 번호 (REQ-12)
   openingCodes?: string[]  // 자리 카드 코드 (OP-12-1 …). 장수가 곧 뽑는 인원이다
+  level?: string           // 자리 카드의 직급 라벨 (L4 — Senior). 오퍼 초안이 그대로 받는다
+  /* 면접관 자리 — TalentCore 요청서가 이미 지목해 둔 사람들(사람 id).
+     r1 = 1차(하이어링 매니저 혼자), r2 = 2차(차상위 리더 → 협업 리더).
+     이걸 비워 두고 공고를 열면 후보자가 인터뷰 단계에 서는 순간
+     조율이 '면접관 미지정'으로 막힌다. */
+  panel?: { r1?: string[]; r2?: string[] }
 }
 
 export async function createPosition(
@@ -953,6 +965,13 @@ export async function createPosition(
 
   const pid = nextPositionId()
   const st = stagesFromTemplate(input.template)
+  /* 인터뷰 단계에 면접관을 미리 앉힌다. 순서대로 1차·2차이고,
+     3차 이상은 템플릿에도 없으므로 비워 둔다(리크루터가 직접 고른다). */
+  if (input.panel) {
+    const line = st.filter(s => s.kind === 'interview')
+    if (line[0] && input.panel.r1?.length) line[0].ivs = input.panel.r1.slice(0, 1)
+    if (line[1] && input.panel.r2?.length) line[1].ivs = input.panel.r2.slice(0, 2)
+  }
   const cfg = defaultAuto()
   /* 자리 카드 코드가 왔으면 장수가 곧 뽑는 인원이다. 사람이 직접 만든 공고는 1명. */
   const codes = (input.openingCodes ?? []).filter(Boolean)
@@ -964,6 +983,7 @@ export async function createPosition(
     jd: input.jd.trim(), band: [lo, hi],
     ...(input.reqRef ? { reqRef: input.reqRef } : {}),
     ...(codes.length ? { openings, openingCodes: codes } : {}),
+    ...(input.level ? { level: input.level } : {}),
   }
 
   _addPosition(pos, st, cfg)
@@ -982,8 +1002,14 @@ export async function createPosition(
   const link = input.reqRef || codes.length
     ? { req_ref: input.reqRef ?? null, openings, opening_codes: codes }
     : {}
+  /* level 은 마이그레이션 013 이 만드는 칸이라 아직 없을 수 있다 —
+     없으면 아래에서 한 겹 벗겨 다시 넣는다. */
+  const lv = input.level ? { level: input.level } : {}
 
-  let { error } = await sb.from('positions').insert({ ...withBand, ...link })
+  let { error } = await sb.from('positions').insert({ ...withBand, ...link, ...lv })
+  if (error && /level/.test(error.message)) {
+    ({ error } = await sb.from('positions').insert({ ...withBand, ...link }))
+  }
   if (error && /req_ref|openings|opening_codes/.test(error.message)) {
     ({ error } = await sb.from('positions').insert(withBand))
   }
@@ -994,7 +1020,7 @@ export async function createPosition(
 
   const sErr = await sb.from('stages').insert(st.map((s, i) => ({
     position_id: pid, id: s.id, ord: i, nm: s.nm, kind: s.kind, sla: s.sla,
-    dur: s.dur, mode: s.mode, ivs: [], color: s.color, auto: s.auto, rail: !!s.rail,
+    dur: s.dur, mode: s.mode, ivs: s.ivs ?? [], color: s.color, auto: s.auto, rail: !!s.rail,
   })))
   if (sErr.error) return { ok: false, reason: sErr.error.message }
 

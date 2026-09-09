@@ -11,6 +11,7 @@ import { cands, posById, stageById, personById, demoNow } from '../../../lib/dat
 import { orgName } from '../../../lib/core'
 import { interviews, partsOf, slotsOf } from '../../../lib/iv-store'
 import { fmtMin, seatTaken } from '../../../lib/schedule'
+import { gmailReady } from '../../../lib/google'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const dayLabel = (date: string) => {
@@ -31,6 +32,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const org = await orgName()
   const base: Omit<PickData, 'status'> = {
     token,
+    mailOn: gmailReady(),
     name: cand?.nm ?? '',
     ...(org ? { company: org } : {}),
     positionTitle: pos.title,

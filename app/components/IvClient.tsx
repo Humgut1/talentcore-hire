@@ -40,6 +40,9 @@ export interface IvData {
   declinedReason?: string
   pendingMsg?: string
   recruiter?: string
+  /* 메일이 실제로 나갈 수 있는 상태인가(Gmail 연결됨) — 연결 전에는
+     "보내드렸어요"가 거짓이 되므로 문구를 사실에 맞춘다. */
+  mailOn?: boolean
   /* ---- 평가지(스코어카드) ---- */
   gradable?: boolean       // 이 단계가 평가 대상인가
   attrs?: string[]         // 이 단계에서 매길 항목
@@ -275,7 +278,9 @@ export default function IvClient({ data }: { data: IvData }) {
             </div>
             <h1 className="ivp-h1">면접이 확정되었습니다</h1>
             <p className="ivp-lead">
-              {data.ivName} 님, 아래 시간으로 확정했습니다. 캘린더 초대를 보내드렸어요.
+              {data.ivName} 님, 아래 시간으로 확정했습니다.{data.mailOn
+                ? ' 캘린더 초대를 보내드렸어요.'
+                : ' 캘린더 초대는 담당자가 따로 보내드립니다.'}
             </p>
             <div className="ivp-confirm">
               <div className="ivp-confirm-day">

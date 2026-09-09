@@ -360,8 +360,12 @@ export default function IvPanel({
       {ack && gate?.ack?.length ? (
         <div className="cq-modal" onClick={() => setAck(false)}>
           <div className="cq-dlg" onClick={e => e.stopPropagation()}>
-            <b>{gate.ack.join(' · ')} 님이 포함돼 있습니다</b>
-            <p>이대로 후보자와 면접관에게 자리 {chosen.length}개를 보낼까요?</p>
+            <b>{gate.ack.join(' · ')} 님은 실장(L8)급 이상입니다</b>
+            <p>
+              실장급 이상 면접관은 보내기 전에 한 번 확인받습니다. 보내는 순간
+              그분들 캘린더에 자리 {chosen.length}개가 모두 가예약으로 잡히고,
+              후보자가 하나를 고를 때까지 48시간 동안 묶여 있습니다.
+            </p>
             <div className="cq-dlg-f">
               <button className="btn quiet" onClick={() => setAck(false)}>취소</button>
               <button className="btn solid" onClick={() => send(true)}>보내기</button>

@@ -63,7 +63,7 @@ export async function syncDirectory(): Promise<SyncReport> {
 
   const { data: rows, error: readErr } = await sb
     .from('people')
-    .select('id, nm, tt, dept, email, emp_no, src, active, core_role')
+    .select('id, nm, tt, dept, email, emp_no, src, active, core_role, core_level')
   if (readErr) return { ok: false, reason: 'not-configured', detail: readErr.message }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -95,7 +95,7 @@ export async function syncDirectory(): Promise<SyncReport> {
         id,
         nm: p.name, tt: titleOf(p), dept: deptOf(p), email,
         emp_no: p.emp_no || null, src: 'core', active: p.active,
-        core_role: p.role, synced_at: now,
+        core_role: p.role, core_level: p.level ?? null, synced_at: now,
         /* ↓ 여기부터는 Hire 것이다. 처음 한 번만 기본값을 놓고 다시는 안 건드린다. */
         roles: [],            // 면접 안 함 — 리크루터가 Hire 에서 켠다
         ea: false, ch: 'email', sla: 24, resp: '—',
@@ -114,6 +114,7 @@ export async function syncDirectory(): Promise<SyncReport> {
     if ((hit.email || null) !== email) patch.email = email
     if ((hit.emp_no || null) !== (p.emp_no || null)) patch.emp_no = p.emp_no || null
     if (hit.core_role !== p.role) patch.core_role = p.role
+    if ((hit.core_level ?? null) !== (p.level ?? null)) patch.core_level = p.level ?? null
     if (hit.active !== p.active) { patch.active = p.active; if (p.active) reactivated++; else deact++ }
     if (hit.src !== 'core') patch.src = 'core'
 

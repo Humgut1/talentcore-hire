@@ -44,6 +44,9 @@ export interface Position {
   reqRef?: string           // 채용 요청서 번호(REQ-12) — 출처 표시·역추적
   openings?: number         // 이 공고가 채우는 자리 수. 없으면 1명.
   openingCodes?: string[]   // 자리 카드 코드(OP-12-1 …). 합격자를 어느 카드에 채울지 고를 때 쓴다
+  /* 자리 카드가 들고 있던 직급 라벨('L4 — Senior'). 오퍼 초안의 '직급' 기본값이다.
+     Hire 에서 사람이 직접 연 공고에는 없다 — 그때는 공고 제목으로 떨어진다. */
+  level?: string
   /* ---- 채용 사이트(공개 공고)용. 마이그레이션 012 전 DB 에는 없다 ---- */
   pub?: boolean    // 채용 사이트에 내걸었는가. undefined = 아직 판단한 적 없음(= 내걸림)
   loc?: string     // 근무지. 공고를 보는 사람이 두 번째로 보는 값이다
