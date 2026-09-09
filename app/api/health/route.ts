@@ -32,6 +32,8 @@ export async function GET() {
     SUPABASE_SERVICE_ROLE_KEY: seen(process.env.SUPABASE_SERVICE_ROLE_KEY),
     REMINDER_TEST_TO: seen(process.env.REMINDER_TEST_TO),
     CORE_URL: seen(process.env.CORE_URL),
+    CORE_API_TOKEN: seen(process.env.CORE_API_TOKEN),
+    CORE_INBOUND_TOKEN: seen(process.env.CORE_INBOUND_TOKEN),
     VERCEL_PROJECT_PRODUCTION_URL: seen(process.env.VERCEL_PROJECT_PRODUCTION_URL),
     VERCEL_GIT_COMMIT_SHA: seen(process.env.VERCEL_GIT_COMMIT_SHA),
   }
