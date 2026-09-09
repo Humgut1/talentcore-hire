@@ -12,19 +12,21 @@
      · configured   : 키는 있으나 아직 계정 연결 전 → "연결" 버튼
      · connected    : OAuth 토큰 보유 → 실제 캘린더 조회
 
-   토큰 저장: 로컬 개발용으로 프로젝트 루트 .google-tokens.json 에 보관
-     (.gitignore 에 포함 · 절대 커밋 금지). 서버리스 배포 시에는
-     이 파일 저장소를 DB/KV 로 교체해야 한다(주석 표시).
+   토큰 저장: Supabase 의 app_tokens 표(마이그레이션 014). 예전에는 프로젝트
+     루트의 .google-tokens.json 파일이었는데, 서버리스(Vercel)에 올리면
+     요청마다 디스크가 새로 생겨 파일이 사라진다 — 연결해도 다음 화면에서
+     풀린 것처럼 보인다. 로컬에서도 똑같이 DB 를 쓴다(두 곳이 다르게 동작하면
+     "내 컴퓨터에서는 되는데" 가 생긴다).
+     그 표에는 RLS 정책을 일부러 두지 않아 service_role 로만 열린다.
 
-   ⚠️ 이 파일은 서버에서만 import 된다(fs·시크릿 사용).
+   ⚠️ 이 파일은 서버에서만 import 된다(시크릿 사용).
       render.ts(클라이언트 번들)에서는 `import type` 로 타입만 가져온다.
    ========================================================= */
-import { promises as fs } from 'fs'
-import { readFileSync } from 'fs'
-import path from 'path'
+import { serverClient } from './supabase'
 import type { BusyBlock, CalendarProvider } from './schedule'
 import { ManualProvider } from './schedule'
 import { personById } from './data'
+import { appOrigin } from './origin'
 
 /* ---- 타입 (render.ts 가 type-only 로 재사용) ---- */
 export type GoogleState = 'unconfigured' | 'configured' | 'connected'
@@ -49,7 +51,6 @@ export interface GoogleTokens {
    (예전 토큰에는 gmail.send 권한이 없다). */
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.send'
 const SCOPE = ['https://www.googleapis.com/auth/calendar.readonly', GMAIL_SCOPE].join(' ')
-const TOKEN_FILE = path.join(process.cwd(), '.google-tokens.json')
 
 /* ---- 설정/토큰 ---- */
 export function googleConfigured(): boolean {
@@ -58,49 +59,56 @@ export function googleConfigured(): boolean {
 function redirectUri(): string {
   return (
     process.env.GOOGLE_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_ORIGIN || 'http://localhost:3000'}/api/google/callback`
+    `${appOrigin()}/api/google/callback`
   )
 }
 
-/** 동기 토큰 읽기(설정 화면 렌더처럼 빠른 상태 판단용). 없으면 null. */
-function readTokensSync(): GoogleTokens | null {
-  try {
-    return JSON.parse(readFileSync(TOKEN_FILE, 'utf8')) as GoogleTokens
-  } catch {
-    return null
-  }
-}
+/* 토큰은 app_tokens 표의 한 줄('google')에 통째로 들어 있다.
+   한 번의 화면 렌더에서 상태를 여러 번 묻기 때문에(설정 행·후보자 안내 문구·
+   메일 발송) 짧게 캐시한다. 서버리스에서는 인스턴스가 금방 죽으므로
+   이 캐시가 오래 살아남지 않는다 — 연결/해제 직후에는 아래에서 직접 비운다. */
+const TOKEN_ROW = 'google'
+const CACHE_MS = 15_000
+let cache: { at: number; v: GoogleTokens | null } | null = null
+
 async function readTokens(): Promise<GoogleTokens | null> {
-  try {
-    return JSON.parse(await fs.readFile(TOKEN_FILE, 'utf8')) as GoogleTokens
-  } catch {
-    return null
-  }
+  if (cache && Date.now() - cache.at < CACHE_MS) return cache.v
+  const sb = serverClient()
+  if (!sb) return null
+  const { data } = await sb.from('app_tokens').select('data').eq('id', TOKEN_ROW).maybeSingle()
+  const v = (data?.data as GoogleTokens | undefined) ?? null
+  cache = { at: Date.now(), v }
+  return v
 }
 async function writeTokens(t: GoogleTokens): Promise<void> {
-  await fs.writeFile(TOKEN_FILE, JSON.stringify(t, null, 2), 'utf8')
+  const sb = serverClient()
+  if (!sb) return
+  await sb.from('app_tokens').upsert({ id: TOKEN_ROW, data: t, updated_at: new Date().toISOString() })
+  cache = { at: Date.now(), v: t }
 }
 export async function disconnectGoogle(): Promise<void> {
-  try { await fs.unlink(TOKEN_FILE) } catch { /* 이미 없음 */ }
+  const sb = serverClient()
+  if (sb) await sb.from('app_tokens').delete().eq('id', TOKEN_ROW)
+  cache = { at: Date.now(), v: null }
 }
 
-/** 설정 화면용 현재 상태(동기). */
-export function googleStatus(): GoogleStatus {
+/** 설정 화면용 현재 상태. */
+export async function googleStatus(): Promise<GoogleStatus> {
   if (!googleConfigured()) return { state: 'unconfigured' }
-  const t = readTokensSync()
+  const t = await readTokens()
   if (!t?.access_token) return { state: 'configured' }
   return { state: 'connected', email: t.email, connectedAt: t.connectedAt, scope: t.scope }
 }
 
 /** 이 계정으로 메일을 보낼 수 있나. 연결돼 있어도 예전 동의라 권한이 없을 수 있다. */
-export function gmailReady(): boolean {
-  const t = readTokensSync()
+export async function gmailReady(): Promise<boolean> {
+  const t = await readTokens()
   return Boolean(t?.access_token && (t.scope ?? '').includes(GMAIL_SCOPE))
 }
 
 /** 연결된 계정 주소(발신 주소로 쓴다). Gmail 은 인증한 계정으로만 보낼 수 있다. */
-export function gmailAddress(): string | undefined {
-  return readTokensSync()?.email
+export async function gmailAddress(): Promise<string | undefined> {
+  return (await readTokens())?.email
 }
 
 /** Gmail API 로 한 통. 실패해도 throw 하지 않고 이유를 돌려준다. */
@@ -114,7 +122,7 @@ export async function gmailSend(
      본문도 같은 이유로 base64 로 실어 보낸다. */
   const b64 = (v: string) => Buffer.from(v, 'utf8').toString('base64')
   const CRLF = String.fromCharCode(13, 10)  // 메일 헤더 줄바꿈은 CRLF 여야 한다
-  const from = gmailAddress()
+  const from = await gmailAddress()
   const raw = [
     `From: ${fromName ? `=?UTF-8?B?${b64(fromName)}?= ` : ''}<${from ?? 'me'}>`,
     `To: ${to}`,

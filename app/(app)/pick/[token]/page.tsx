@@ -32,7 +32,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const org = await orgName()
   const base: Omit<PickData, 'status'> = {
     token,
-    mailOn: gmailReady(),
+    mailOn: await gmailReady(),
     name: cand?.nm ?? '',
     ...(org ? { company: org } : {}),
     positionTitle: pos.title,

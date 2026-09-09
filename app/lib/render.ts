@@ -27,6 +27,7 @@ import { reviewQueue } from './review'
 import { dupFor, otherApps } from './pool'
 import { docKindLabel, sizeLabel, type CandDoc } from './docs'
 import { mailKindLabel } from './cand-mail'
+import { appOrigin } from './origin'
 import type { MailRow } from './maillog'
 
 /* ---------- 프리미티브 ---------- */
@@ -668,7 +669,7 @@ function googleRow(r: (i: string, t: string, d: string, ctl: string) => string, 
     return r('i-calendar', 'Google Calendar', 'OAuth 키 설정됨 · 계정 연결만 남음', ctl)
   }
   const ctl = `<span class="pill">미설정</span>`
-  return r('i-calendar', 'Google Calendar', '.env.local 에 OAuth 키 입력 필요 (아래 안내)', ctl)
+  return r('i-calendar', 'Google Calendar', 'OAuth 키를 아직 넣지 않았습니다 (아래 안내)', ctl)
 }
 
 /* ?google= 결과 플래시 배너. */
@@ -696,8 +697,8 @@ function googleSetupNote(g?: GoogleStatus): string {
   return `<div class="note"><h4>${ico('i-info', 'ic-sm')}Google 연결 방법 (최초 1회 · 캘린더 + 메일 발송)</h4><ol style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.55">` +
     step(1, 'Google Cloud 프로젝트 만들기', 'console.cloud.google.com 에서 프로젝트를 만들고 <b>Google Calendar API</b> 와 <b>Gmail API</b> 를 사용 설정합니다. 캘린더는 면접 시간 찾기에, Gmail 은 후보자 통보 메일에 씁니다.') +
     step(2, 'OAuth 동의 화면 구성', '앱 이름·지원 이메일을 입력하고, 테스트 사용자에 회사 계정을 추가합니다.') +
-    step(3, 'OAuth 클라이언트 ID 발급', '유형 <b>웹 애플리케이션</b> · 승인된 리디렉션 URI 에 <span class="mono">http://localhost:3000/api/google/callback</span> 을 등록합니다.') +
-    step(4, '.env.local 에 키 입력', '<span class="mono">GOOGLE_CLIENT_ID</span> · <span class="mono">GOOGLE_CLIENT_SECRET</span> 를 채우고 서버를 재시작합니다. (예시: <span class="mono">.env.local.example</span>)') +
+    step(3, 'OAuth 클라이언트 ID 발급', `유형 <b>웹 애플리케이션</b> · 승인된 리디렉션 URI 에 <span class="mono">${appOrigin()}/api/google/callback</span> 을 등록합니다. (이 주소는 지금 이 화면이 떠 있는 곳 기준으로 자동 표시됩니다 — 로컬과 배포본을 둘 다 쓴다면 양쪽 주소를 모두 등록하세요.)`) +
+    step(4, '키 입력', '<span class="mono">GOOGLE_CLIENT_ID</span> · <span class="mono">GOOGLE_CLIENT_SECRET</span> 를 넣습니다. 내 컴퓨터면 <span class="mono">.env.local</span> 파일에 적고 서버를 재시작, 배포본이면 호스팅의 환경 변수 화면에 넣고 다시 배포합니다.') +
     step(5, '연결 버튼 누르기', '이 화면에 나타나는 <b>Google 연결</b> 버튼으로 계정을 승인하면 완료됩니다. 캘린더 조회와 메일 발송 권한을 함께 물어봅니다 — 둘 다 허용해 주세요.') +
     '</ol><div style="margin-top:11px;padding-top:10px;border-top:1px solid var(--line);color:var(--t3);font-size:11.5px">' +
     '면접관별 캘린더 주소는 <span class="mono">GOOGLE_CALENDAR_MAP</span> (예: <span class="mono">{"u1":"lead@company.com"}</span>) 로 매핑합니다. 매핑이 없으면 수동 가용성으로 자동 폴백합니다.</div></div>'

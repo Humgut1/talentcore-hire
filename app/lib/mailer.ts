@@ -43,11 +43,11 @@ export interface SendResult {
 
 const FROM = () => process.env.REMINDER_FROM || 'Cadence <onboarding@resend.dev>'
 
-export function mailerStatus(): MailerStatus {
-  const gmail = gmailReady()
+export async function mailerStatus(): Promise<MailerStatus> {
+  const gmail = await gmailReady()
   const email = gmail || Boolean(process.env.RESEND_API_KEY)
   const slack = Boolean(process.env.SLACK_WEBHOOK_URL)
-  const from = gmail ? (gmailAddress() ?? 'Gmail 계정') : process.env.RESEND_API_KEY ? FROM() : undefined
+  const from = gmail ? ((await gmailAddress()) ?? 'Gmail 계정') : process.env.RESEND_API_KEY ? FROM() : undefined
   return {
     state: email || slack ? 'configured' : 'unconfigured',
     email, slack,
@@ -69,7 +69,7 @@ export async function sendEmail(
   to: string | undefined, subject: string, text: string,
 ): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY
-  const gmail = gmailReady()
+  const gmail = await gmailReady()
   if (!gmail && !key) return { ok: false, channel: 'email', reason: 'not-configured' }
   const addr = resolveTo(to)
   if (!addr) return { ok: false, channel: 'email', reason: 'no-recipient' }

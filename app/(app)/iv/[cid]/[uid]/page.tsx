@@ -58,7 +58,7 @@ export default async function Page(
   const mine = submitted.find(e => e.uid === iv.id)
 
   const base: IvData = {
-    mailOn: gmailReady(),
+    mailOn: await gmailReady(),
     status: 'request',
     cid: cand.id,
     uid: iv.id,

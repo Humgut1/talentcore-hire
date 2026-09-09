@@ -154,7 +154,7 @@ export async function drawerData(
     ...(cur ? { ivSel: cur.id } : {}),
     ivDetail: detail,
     ivLog: cur ? coordLog(cur.id) : [],
-    mailReady: mailerStatus().email,
+    mailReady: (await mailerStatus()).email,
     sender: p.rec,
   }
 }

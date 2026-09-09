@@ -117,9 +117,9 @@ export const GoogleWriter: CalendarWriter = {
 }
 
 /** 지금 쓸 수 있는 쓰기 부품을 고른다. 권한이 없으면 조용히 NullWriter. */
-export function resolveWriter(): CalendarWriter {
+export async function resolveWriter(): Promise<CalendarWriter> {
   if (!googleConfigured()) return nullWith('unconfigured')
-  const st = googleStatus()
+  const st = await googleStatus()
   if (st.state !== 'connected') return nullWith('not-connected')
   // 읽기 전용 권한만 받은 상태에서는 쓰기가 반드시 실패한다 → 시도하지 않는다.
   const scope = st.scope || ''

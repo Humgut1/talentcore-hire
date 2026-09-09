@@ -40,6 +40,7 @@ import { resolveProvider } from './google'
 import { sendEmail, sendSlack, mailerStatus } from './mailer'
 import { logMail } from './maillog'
 import { orgName } from './core'
+import { appOrigin } from './origin'
 import {
   pickRequest, candConfirm, partConfirm, expiredNotice, declineAlert,
   type IvMailCtx, type Msg,
@@ -69,7 +70,7 @@ export interface IvMailBundle {
   live: boolean       // 진짜로 나가는가(메일 키가 있는가)
   testTo?: string     // 안전장치로 덮어쓸 수신 주소 — 데모에선 전부 여기로 간다
 }
-const BASE = () => process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+const BASE = appOrigin
 
 /** 가예약 만료 시각을 사람이 읽는 말로 — '8/14(금) 10:30' */
 function deadlineLabel(iso?: string): string {
@@ -115,7 +116,7 @@ async function mailCtx(iv: Interview): Promise<IvMailCtx> {
 async function mail(
   iv: { id: string; cid: string }, to: string | undefined, m: Msg, who: string, kind: string,
 ): Promise<boolean> {
-  const st = mailerStatus()
+  const st = await mailerStatus()
   if (!st.email) {
     await log(iv.id, '메일 (미발송)', `${who} — ${m.subject} · 메일 키가 없어 보내지 않았습니다`, 'idle')
     await logMail({
@@ -288,7 +289,7 @@ export async function ivSearch(ivId: string, widen = false): Promise<IvPlanView>
 
   const plan = planFor(iv, provider, TODAY, days)
   const parts = partsOf(iv.id)
-  const w = resolveWriter()
+  const w = await resolveWriter()
   const cfg = configFor(iv.pid)
   const dates = businessDays(TODAY, days)
 
@@ -308,6 +309,7 @@ export async function ivSearch(ivId: string, widen = false): Promise<IvPlanView>
   // 그래서 추천 자리를 발송 로직(pickToSend)으로 그대로 계산해 번호로 넘긴다.
   const rec = pickToSend(plan.slots, pol)
   const recommend = rec.map(r => plan.slots.indexOf(r)).filter(i => i >= 0)
+  const ms = await mailerStatus()
 
   return {
     ok: true, plan, gate: sendGate(iv, plan, pol), source,
@@ -318,8 +320,8 @@ export async function ivSearch(ivId: string, widen = false): Promise<IvPlanView>
       // 이미 보낸 건은 그때 정해진 기한, 아직 안 보낸 건은 '지금 보내면' 기준으로 보여 준다.
       deadline: deadlineLabel(iv.holdUntil
         ?? new Date(demoNow().getTime() + pol.holdH * 3600_000).toISOString()),
-      live: mailerStatus().email,
-      ...(mailerStatus().testTo ? { testTo: mailerStatus().testTo } : {}),
+      live: ms.email,
+      ...(ms.testTo ? { testTo: ms.testTo } : {}),
     },
     labels: plan.slots.map(s => slotLabel(s)),
     roomLabels: plan.slots.map(s => roomLabel(s)),
@@ -344,7 +346,7 @@ async function commitSend(
   const title = `[가예약] ${cand?.nm ?? '후보자'} ${iv.round}차 — ${pos.title}`
 
   // 가예약. 권한이 없으면 hold.ts 가 'sim:' id 를 돌려주고 캘린더는 건드리지 않는다.
-  const writer = resolveWriter()
+  const writer = await resolveWriter()
   const rows = slotRows(iv.id, chosen, holdUntil)
   let held = 0
   for (const row of rows) {
@@ -443,7 +445,7 @@ export async function ivPickSlot(token: string, ord: number): Promise<R & { labe
   const parts = partsOf(iv.id)
   const cand = cands.find(c => c.id === iv.cid)
   const pos = posById(iv.pid)
-  const writer = resolveWriter()
+  const writer = await resolveWriter()
 
   // 안 고른 자리부터 푼다 — 면접관 캘린더를 하루라도 덜 잡아 두는 게 낫다.
   const releaseRow = async (row: IvSlot) => {
@@ -571,7 +573,7 @@ export async function ivRespondPart(
     partNm: part.nm, reason: DECLINE[code ?? 'other'].nm, act: d.act,
   })
   await mail(iv, undefined, alert, `코디네이터 ${posById(iv.pid).rec}`, 'iv-decline')
-  if (mailerStatus().slack) await sendSlack(`${alert.subject}
+  if ((await mailerStatus()).slack) await sendSlack(`${alert.subject}
 ${alert.text}`)
 
   return { ok: true, act: d.act }
@@ -585,7 +587,7 @@ export async function ivSweepHolds(): Promise<{ ok: boolean; released: number; s
   await hydrateData()
   const { interviews } = await import('./iv-store')
   const now = nowIso()
-  const writer = resolveWriter()
+  const writer = await resolveWriter()
   const sb = serverClient()
   const swept: string[] = []
   let released = 0
@@ -622,7 +624,7 @@ export async function ivSweepHolds(): Promise<{ ok: boolean; released: number; s
 
 /** 화면에서 쓰는 요약 — 지금 캘린더에 실제로 쓸 수 있는 상태인가. */
 export async function ivWriterStatus(): Promise<{ state: WriterState; msg: string; real: boolean }> {
-  const w = resolveWriter()
+  const w = await resolveWriter()
   return { state: w.state, msg: writerNote(w.state), real: w.state === 'ready' }
 }
 
@@ -789,7 +791,7 @@ export async function ivAskTimes(token: string, text: string): Promise<R> {
     await sb.from('interviews').update({ s: 'esc', why }).eq('id', iv.id)
     await sb.from('candidates').update({ s: 'esc', why }).eq('id', iv.cid)
   }
-  if (mailerStatus().slack)
+  if ((await mailerStatus()).slack)
     await sendSlack(`[조율] ${cand?.nm ?? '후보자'} — 자리가 모두 마감돼 직접 회신했습니다.\n${body}`)
   return { ok: true }
 }

@@ -27,7 +27,7 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const pos = posById(cand.p)
   const base: Omit<BookData, 'status' | 'slots'> = {
     cid: cand.id,
-    mailOn: gmailReady(),
+    mailOn: await gmailReady(),
     name: cand.nm,
     company: company(cand.role),
     positionTitle: pos.title,

@@ -63,7 +63,7 @@ export async function sendCandMail(a: {
   cid: string; iid?: string; kind: string
   to?: string; subject: string; body: string; byNm?: string
 }): Promise<{ ok: boolean; reason?: string }> {
-  const st = mailerStatus()
+  const st = await mailerStatus()
   if (!st.email) {
     await logMail({ ...a, ok: false, reason: 'not-configured' })
     return { ok: false, reason: 'not-configured' }

@@ -22,6 +22,7 @@ import {
   interviewerMessage, candidateMessage,
 } from './mailer'
 import { serverClient } from './supabase'
+import { appOrigin } from './origin'
 
 export interface SendOutcome {
   key: string
@@ -40,7 +41,7 @@ export interface SendReport {
   note?: string
 }
 
-const BASE = () => process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+const BASE = appOrigin
 
 /* ---------------------------------------------------------
    발송 기록 (reminder_log)
@@ -115,7 +116,7 @@ async function sendOne(cand: Candidate, ev: ReminderEvent): Promise<SendOutcome>
    묶어서 보내기 — 이벤트 목록을 받아 중복을 걸러내고 발송·기록
    --------------------------------------------------------- */
 async function run(pairs: { cand: Candidate; ev: ReminderEvent }[]): Promise<SendReport> {
-  const st = mailerStatus()
+  const st = await mailerStatus()
   if (st.state === 'unconfigured') {
     return {
       ok: false, configured: false, sent: 0, skipped: pairs.length, failed: 0, results: [],
@@ -188,7 +189,7 @@ export async function sendDueReminders(): Promise<SendReport> {
     }
   }
   if (!pairs.length) {
-    return { ok: true, configured: mailerStatus().state === 'configured', sent: 0, skipped: 0, failed: 0, results: [], note: '지금 보낼 리마인드가 없습니다.' }
+    return { ok: true, configured: (await mailerStatus()).state === 'configured', sent: 0, skipped: 0, failed: 0, results: [], note: '지금 보낼 리마인드가 없습니다.' }
   }
   return run(pairs)
 }

@@ -8,6 +8,7 @@ import { inboundState } from '../../lib/inbound'
 export default async function Page({ searchParams }: { searchParams: Promise<{ google?: string }> }) {
   await hydrateData()
   const { google } = await searchParams
-  const gs = googleStatus()
-  return <Screen html={settingsHTML(gs, google, mailerStatus(), inboundState())} />
+  const gs = await googleStatus()
+  const ms = await mailerStatus()
+  return <Screen html={settingsHTML(gs, google, ms, inboundState())} />
 }
