@@ -149,7 +149,7 @@ npm run dev          # → http://localhost:3000
 
 | 키 | 필요 시점 | 비고 |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_ANON_KEY` | 실제 DB 사용 | 공개 키 |
+| `SUPABASE_URL` · `SUPABASE_ANON_KEY` | 실제 DB 사용 | 서버에서만 읽음 (`NEXT_PUBLIC_` 접두사 없음) |
 | `SUPABASE_SERVICE_ROLE_KEY` | 실제 DB 사용 | **서버 전용 비밀값** |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 캘린더 조회 + Gmail 발송 | Calendar API · Gmail API 둘 다 사용 설정 |
 | `GOOGLE_CALENDAR_MAP` | 캘린더 조회 | 면접관 내부 id → 캘린더 이메일 매핑 |
