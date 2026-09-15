@@ -422,6 +422,14 @@ export default function IvPanel({
    자동으로 잡지 않는다. 읽기는 GET(/api/iv/rooms)이라 데모에서도 보이고,
    잡기·놓기·안내는 서버 함수라 데모에서는 막힌다.
    ========================================================= */
+/** '1면접실으로'가 아니라 '1면접실로'. 받침이 없거나 ㄹ이면 '로'. */
+function ro(word: string): string {
+  const ch = word.trim().slice(-1)
+  const code = ch.charCodeAt(0)
+  const jong = code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 : 0
+  return `${word}${jong === 0 || jong === 8 ? '로' : '으로'}`
+}
+
 const ROOM_FAIL: Record<string, string> = {
   'not-configured': 'TalentCore 연결 설정이 없어 면접실을 불러오지 못했습니다.',
   'unauthorized': 'TalentCore 연결 토큰이 맞지 않습니다.',
@@ -453,11 +461,13 @@ function IvRoom({ ivId }: { ivId: string }) {
     return () => { alive = false }
   }, [ivId, tick])
 
-  function act(fn: () => Promise<{ ok: boolean; reason?: string; detail?: string }>, okMsg: string) {
+  type ActR = { ok: boolean; reason?: string; detail?: string; sent?: number; total?: number }
+
+  function act(fn: () => Promise<ActR>, okMsg: string | ((r: ActR) => string)) {
     start(async () => {
-      let r: { ok: boolean; reason?: string; detail?: string }
+      let r: ActR
       try { r = await fn() } catch { r = { ok: false, reason: 'demo' } }
-      setMsg(r.ok ? okMsg
+      setMsg(r.ok ? (typeof okMsg === 'function' ? okMsg(r) : okMsg)
         : r.reason === 'rejected' && r.detail ? r.detail
         : (ROOM_FAIL[r.reason ?? ''] ?? `처리하지 못했습니다 (${r.reason ?? '알 수 없음'})`))
       if (r.ok) setOthers(false)
@@ -524,7 +534,9 @@ function IvRoom({ ivId }: { ivId: string }) {
           <span className="cq-spacer" />
           {view.mode === '대면' && !moved && !past ? (
             <button className="btn" disabled={pending}
-              onClick={() => act(() => ivSendPlace(ivId), '후보자와 면접관에게 장소 안내를 보냈습니다.')}>
+              onClick={() => act(() => ivSendPlace(ivId), r =>
+                r.sent ? `후보자와 면접관에게 장소 안내를 보냈습니다 (${r.sent}통).`
+                  : '메일 키가 없어 한 통도 나가지 않았습니다 — 아래 조율 기록에 내용만 남았습니다.')}>
               <Icon id="i-mail" className="ic-sm" />후보자에게 장소 안내
             </button>
           ) : null}
@@ -558,7 +570,7 @@ function IvRoom({ ivId }: { ivId: string }) {
                 {mine
                   ? <span className="pill ok"><span className="dot" />잡음</span>
                   : <button className="btn" disabled={pending}
-                      onClick={() => act(() => ivBookRoom(ivId, rm.code), `${rm.name}으로 잡았습니다.`)}>
+                      onClick={() => act(() => ivBookRoom(ivId, rm.code), `${ro(rm.name)} 잡았습니다.`)}>
                       이 방으로 잡기
                     </button>}
               </div>

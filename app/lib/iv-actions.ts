@@ -891,8 +891,10 @@ export async function ivReleaseRoom(ivId: string): Promise<R> {
   return { ok: true }
 }
 
-/** 장소 안내 — 채용 담당이 눌렀을 때만 나간다. 후보자 1통 + 면접관 각자 1통. */
-export async function ivSendPlace(ivId: string): Promise<R> {
+/** 장소 안내 — 채용 담당이 눌렀을 때만 나간다. 후보자 1통 + 면접관 각자 1통.
+    메일 키가 없는 환경에서는 한 통도 나가지 않고 기록만 남는다 — 화면이 "보냈다"고 말하지 않게
+    실제로 나간 통수를 돌려준다. */
+export async function ivSendPlace(ivId: string): Promise<R & { sent?: number; total?: number }> {
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -903,12 +905,15 @@ export async function ivSendPlace(ivId: string): Promise<R> {
   const ctx = await mailCtx(iv)
   const cand = cands.find(c => c.id === iv.cid)
   const { candPlace, partPlace } = await import('./iv-mail')
-  await mail(iv, cand?.email, candPlace(ctx, {
+  let sent = 0, total = 0
+  total++
+  if (await mail(iv, cand?.email, candPlace(ctx, {
     when: w.label, place: iv.loc, ...(view.recs?.site.address ? { address: view.recs.site.address } : {}),
-  }), `후보자 ${cand?.nm ?? ''}`, 'iv-place')
+  }), `후보자 ${cand?.nm ?? ''}`, 'iv-place')) sent++
   for (const p of partsOf(iv.id)) {
-    await mail(iv, personById(p.uid || '')?.email, partPlace(ctx, { nm: p.nm, when: w.label, place: iv.loc }),
-      `면접관 ${p.nm}`, 'iv-place-part')
+    total++
+    if (await mail(iv, personById(p.uid || '')?.email, partPlace(ctx, { nm: p.nm, when: w.label, place: iv.loc }),
+      `면접관 ${p.nm}`, 'iv-place-part')) sent++
   }
-  return { ok: true }
+  return { ok: true, sent, total }
 }
