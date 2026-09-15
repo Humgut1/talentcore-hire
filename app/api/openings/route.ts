@@ -69,8 +69,14 @@ export async function POST(req: Request) {
 
   await hydrateData()
 
-  /* 재시도 방어 — 이미 들어온 자리 카드가 하나라도 섞여 있으면 새로 만들지 않는다. */
-  const dup = positions.find(p => (p.openingCodes || []).some(c => codes.includes(c)))
+  /* 재시도 방어 — 이미 들어온 자리 카드가 하나라도 섞여 있으면 새로 만들지 않는다.
+     자리 번호(OP-12-1)는 TalentCore 요청서 번호에서 나오므로 데이터를 다시 만들거나
+     개발/운영 TalentCore 가 같은 Hire 를 쓰면 번호가 겹칠 수 있다. 그래서 번호와 함께
+     요청서 번호·제목까지 같을 때만 '같은 요청의 재전송'으로 본다. */
+  const reqRef = (b.req_ref || '').trim()
+  const dup = positions.find(p =>
+    (p.openingCodes || []).some(c => codes.includes(c)) &&
+    (p.reqRef || '') === reqRef && p.title === title)
   if (dup) {
     return NextResponse.json({
       ok: false, error: 'already-linked',
