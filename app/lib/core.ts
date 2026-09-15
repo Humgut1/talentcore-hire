@@ -319,3 +319,108 @@ export async function fetchStartRule(n = 26): Promise<StartRuleResult> {
     },
   }
 }
+
+/* =========================================================
+   면접실 — 추천 받기 · 잡기 · 놓기 (회의실·온보딩 V1 W5)
+   ---------------------------------------------------------
+   방·층·장비·다른 예약은 TalentCore 것이다. Hire 는 "언제, 몇 명, 대면/화상"만 알려 주고
+   추천을 받아 채용 담당이 고른다. 자동 배정은 하지 않는다 —
+   인원이나 면접 성격(임원 면접, 과제 발표 등)에 따라 맞는 방이 달라서.
+   같은 면접은 ref(면접 id) 하나로 묶인다. 다시 잡으면 방이 바뀌고, 놓으면 풀린다.
+   ========================================================= */
+export interface CoreRoom {
+  code: string
+  name: string
+  floor: number
+  type_label: string
+  capacity: number
+  equipment: string[]
+  reasons: string[]
+  busy?: string                // 이 시간에 이미 있는 예약 한 줄
+}
+export interface CoreRoomBooking {
+  id: number
+  room: string
+  name: string
+  floor: number | null
+  start: string                // 'YYYY-MM-DD HH:MM' — 30분 칸에 맞춰 넓힌 시간
+  end: string
+  label: string                // '1층 1면접실'
+}
+export interface CoreRoomRecs {
+  configured: boolean          // TalentCore 에 건물·회의실이 등록돼 있는가
+  rooms: CoreRoom[]
+  busy: CoreRoom[]
+  booked: CoreRoomBooking | null
+  site: { building: string; address: string }
+  start?: string
+  end?: string
+}
+type CoreFail = { ok: false; reason: 'not-configured' | 'unauthorized' | 'unreachable' | 'bad-response' | 'rejected'; detail?: string }
+
+async function coreJson(path: string, init?: { method?: string; body?: unknown }):
+  Promise<{ ok: true; status: number; body: Record<string, unknown> } | CoreFail> {
+  const { url, token } = conf()
+  if (!url || !token) return { ok: false, reason: 'not-configured' }
+  let res: Response
+  try {
+    res = await fetch(`${url}${path}`, {
+      method: init?.method ?? 'GET',
+      headers: {
+        'X-API-Token': token, Accept: 'application/json',
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(init?.body ? { body: JSON.stringify(init.body) } : {}),
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (e) {
+    return { ok: false, reason: 'unreachable', detail: e instanceof Error ? e.message : String(e) }
+  }
+  if (res.status === 401) return { ok: false, reason: 'unauthorized' }
+  let body: Record<string, unknown>
+  try { body = await res.json() } catch { return { ok: false, reason: 'bad-response', detail: `HTTP ${res.status}` } }
+  return { ok: true, status: res.status, body }
+}
+
+export async function fetchRoomRecs(q: {
+  date: string; start: string; end: string; people: number; mode: 'onsite' | 'video'; ref: string
+}): Promise<{ ok: true; recs: CoreRoomRecs } | CoreFail> {
+  const p = new URLSearchParams({ ...q, people: String(q.people) })
+  const r = await coreJson(`/api/workplace/rooms/recommend?${p}`)
+  if (!r.ok) return r
+  const b = r.body
+  if (b.ok !== true) return { ok: false, reason: 'rejected', detail: String(b.error ?? `HTTP ${r.status}`) }
+  return {
+    ok: true,
+    recs: {
+      configured: b.configured !== false,
+      rooms: (b.rooms as CoreRoom[]) ?? [],
+      busy: (b.busy as CoreRoom[]) ?? [],
+      booked: (b.booked as CoreRoomBooking | null) ?? null,
+      site: (b.site as CoreRoomRecs['site']) ?? { building: '', address: '' },
+      ...(b.start ? { start: String(b.start) } : {}),
+      ...(b.end ? { end: String(b.end) } : {}),
+    },
+  }
+}
+
+export async function bookRoom(a: {
+  room: string; date: string; start: string; end: string; ref: string
+  title: string; people: number; mode: 'onsite' | 'video'; booked_by: string; note?: string
+}): Promise<{ ok: true; booking: CoreRoomBooking } | CoreFail | { ok: false; reason: 'taken'; detail: string; alternatives: CoreRoom[] }> {
+  const r = await coreJson('/api/workplace/rooms/book', { method: 'POST', body: a })
+  if (!r.ok) return r
+  const b = r.body
+  if (b.ok === true && b.booking) return { ok: true, booking: b.booking as CoreRoomBooking }
+  if (r.status === 409)
+    return { ok: false, reason: 'taken', detail: String(b.error ?? ''), alternatives: (b.alternatives as CoreRoom[]) ?? [] }
+  return { ok: false, reason: 'rejected', detail: String(b.error ?? `HTTP ${r.status}`) }
+}
+
+export async function releaseRoom(ref: string): Promise<{ ok: true; cancelled: number } | CoreFail> {
+  const r = await coreJson('/api/workplace/rooms/cancel', { method: 'POST', body: { ref } })
+  if (!r.ok) return r
+  if (r.body.ok !== true) return { ok: false, reason: 'rejected', detail: String(r.body.error ?? '') }
+  return { ok: true, cancelled: Number(r.body.cancelled ?? 0) }
+}

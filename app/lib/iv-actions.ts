@@ -795,3 +795,120 @@ export async function ivAskTimes(token: string, text: string): Promise<R> {
     await sendSlack(`[조율] ${cand?.nm ?? '후보자'} — 자리가 모두 마감돼 직접 회신했습니다.\n${body}`)
   return { ok: true }
 }
+
+/* =========================================================
+   ⑧ 면접실 — TalentCore 에서 추천 받고, 채용 담당이 골라 잡는다 (회의실·온보딩 V1 W5)
+   ---------------------------------------------------------
+   자동 배정은 하지 않는다. 인원·면접 성격에 따라 맞는 방이 달라서 추천까지만.
+   · 대면: 한 번에 방에 있는 사람 = 면접관 + 후보자. 이어서 보는 2차는 면접관이 교대하므로 2명.
+   · 화상: 후보자는 밖에 있다. 면접관이 들어갈 방(1명이면 폰부스도 후보).
+   회사 전 직원이 보는 예약표에 후보자 이름을 올리지 않는다 — 제목은 "면접 · 포지션"만.
+   ========================================================= */
+export interface IvRoomView {
+  ok: boolean
+  reason?: string
+  detail?: string
+  mode: '대면' | '화상'
+  people: number
+  when?: string
+  recs?: import('./core').CoreRoomRecs
+  loc?: string
+}
+
+function roomQuery(iv: Interview) {
+  const stage = stageById(iv.pid, iv.sid)
+  const mode: '대면' | '화상' = (iv.mode ?? stage.mode) === '대면' ? '대면' : '화상'
+  const parts = partsOf(iv.id)
+  const ivCount = iv.kind === 'seq' ? 1 : Math.max(1, parts.length)
+  const people = mode === '대면' ? ivCount + 1 : Math.max(1, parts.length)
+  return { mode, people }
+}
+
+function whenOf(iv: Interview) {
+  if (!iv.date || iv.start == null) return null
+  const end = iv.end ?? iv.start + iv.totalMin
+  return { date: iv.date, start: fmtMin(iv.start), end: fmtMin(end), label: slotLabel({ date: iv.date, start: iv.start, end }) }
+}
+
+export async function ivRoomView(ivId: string): Promise<IvRoomView> {
+  await hydrateData()
+  const iv = ivById(ivId)
+  if (!iv) return { ok: false, reason: 'no-interview', mode: '대면', people: 0 }
+  const { mode, people } = roomQuery(iv)
+  const w = whenOf(iv)
+  if (!w) return { ok: false, reason: 'not-confirmed', mode, people }
+  const { fetchRoomRecs } = await import('./core')
+  const r = await fetchRoomRecs({
+    date: w.date, start: w.start, end: w.end, people, mode: mode === '대면' ? 'onsite' : 'video', ref: iv.id,
+  })
+  if (!r.ok) return { ok: false, reason: r.reason, ...(r.detail ? { detail: r.detail } : {}), mode, people, when: w.label }
+  return { ok: true, mode, people, when: w.label, recs: r.recs, ...(iv.loc ? { loc: iv.loc } : {}) }
+}
+
+export async function ivBookRoom(ivId: string, code: string): Promise<R & { detail?: string; label?: string }> {
+  await hydrateData()
+  const iv = ivById(ivId)
+  if (!iv) return { ok: false, reason: 'no-interview' }
+  const w = whenOf(iv)
+  if (!w) return { ok: false, reason: 'not-confirmed' }
+  const { mode, people } = roomQuery(iv)
+  const pos = posById(iv.pid)
+  const { bookRoom, fetchRoomRecs } = await import('./core')
+  const r = await bookRoom({
+    room: code, date: w.date, start: w.start, end: w.end, ref: iv.id,
+    title: `면접 · ${pos.title}`, people, mode: mode === '대면' ? 'onsite' : 'video',
+    booked_by: pos.rec ? `${pos.rec} (Hire)` : 'Hire',
+    note: `${iv.round}차 ${mode} 면접 · ${partsOf(iv.id).map(p => p.nm).filter(Boolean).join(', ')}`,
+  })
+  if (!r.ok) return { ok: false, reason: r.reason, ...(r.detail ? { detail: r.detail } : {}) }
+
+  // 대면이면 이 방이 곧 후보자가 올 장소다. 화상이면 장소 칸은 접속 링크 몫이라 건드리지 않는다.
+  const site = (await fetchRoomRecs({ date: w.date, start: w.start, end: w.end, people, mode: 'onsite', ref: iv.id }))
+  const building = site.ok ? site.recs.site.building : ''
+  const label = `${building ? building + ' ' : ''}${r.booking.label}`
+  if (mode === '대면') {
+    _patchIv(iv.id, { loc: label })
+    const sb = serverClient()
+    if (sb) await sb.from('interviews').update({ loc: label }).eq('id', iv.id)
+  }
+  await log(iv.id, '면접실 예약', `${label} · ${r.booking.start.slice(11)}–${r.booking.end.slice(11)} (TalentCore 회의실)`, iv.s)
+  return { ok: true, label }
+}
+
+export async function ivReleaseRoom(ivId: string): Promise<R> {
+  await hydrateData()
+  const iv = ivById(ivId)
+  if (!iv) return { ok: false, reason: 'no-interview' }
+  const { releaseRoom } = await import('./core')
+  const r = await releaseRoom(iv.id)
+  if (!r.ok) return { ok: false, reason: r.reason }
+  if (roomQuery(iv).mode === '대면' && iv.loc) {
+    _patchIv(iv.id, { loc: undefined })
+    const sb = serverClient()
+    if (sb) await sb.from('interviews').update({ loc: null }).eq('id', iv.id)
+  }
+  await log(iv.id, '면접실 해제', r.cancelled ? 'TalentCore 회의실 예약을 풀었습니다' : '풀 예약이 없었습니다', iv.s)
+  return { ok: true }
+}
+
+/** 장소 안내 — 채용 담당이 눌렀을 때만 나간다. 후보자 1통 + 면접관 각자 1통. */
+export async function ivSendPlace(ivId: string): Promise<R> {
+  await hydrateData()
+  const iv = ivById(ivId)
+  if (!iv) return { ok: false, reason: 'no-interview' }
+  const w = whenOf(iv)
+  if (!w) return { ok: false, reason: 'not-confirmed' }
+  if (!iv.loc) return { ok: false, reason: 'no-room' }
+  const view = await ivRoomView(ivId)
+  const ctx = await mailCtx(iv)
+  const cand = cands.find(c => c.id === iv.cid)
+  const { candPlace, partPlace } = await import('./iv-mail')
+  await mail(iv, cand?.email, candPlace(ctx, {
+    when: w.label, place: iv.loc, ...(view.recs?.site.address ? { address: view.recs.site.address } : {}),
+  }), `후보자 ${cand?.nm ?? ''}`, 'iv-place')
+  for (const p of partsOf(iv.id)) {
+    await mail(iv, personById(p.uid || '')?.email, partPlace(ctx, { nm: p.nm, when: w.label, place: iv.loc }),
+      `면접관 ${p.nm}`, 'iv-place-part')
+  }
+  return { ok: true }
+}

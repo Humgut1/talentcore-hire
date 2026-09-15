@@ -217,6 +217,41 @@ export function partConfirm(
 }
 
 /* =========================================================
+   ④-b 장소 안내 — 확정 메일의 "장소는 확정 후 별도 안내드립니다"를 지키는 한 통
+   방은 시간이 정해진 뒤 채용 담당이 고르므로, 확정 메일보다 늦게 나간다.
+   후보자에게는 건물·층·방·주소·도착 방법만. 면접관에게는 방만(각자 캘린더에 이미 시간이 있다).
+   ========================================================= */
+export function candPlace(ctx: IvMailCtx, a: { when: string; place: string; address?: string }): Msg {
+  return {
+    subject: `${tag(ctx)}[장소 안내] ${ctx.posTitle} ${ctx.stageNm} · ${a.when}`,
+    text: join([
+      `${ctx.candNm} 님, ${ctx.stageNm} 장소를 안내드립니다.`,
+      '',
+      `  일시 : ${a.when} (한국 시간)`,
+      `  장소 : ${a.place}`,
+      a.address ? `  주소 : ${a.address}` : '',
+      '',
+      `시작 10분 전쯤 도착하셔서 1층 안내데스크에 성함을 말씀해 주시면 면접실로 안내해 드립니다.`,
+      '',
+      closing(ctx),
+      '',
+      SIGN,
+    ]),
+  }
+}
+
+export function partPlace(ctx: IvMailCtx, a: { nm: string; when: string; place: string }): Msg {
+  return {
+    subject: `[면접 장소] ${ctx.candNm} 님 ${ctx.round}차 · ${a.place}`,
+    text: join([
+      `${a.nm} 님, ${ctx.candNm} 님 ${ctx.stageNm}(${a.when}) 장소가 ${a.place}로 잡혔습니다.`,
+      '',
+      SIGN,
+    ]),
+  }
+}
+
+/* =========================================================
    ⑤ 후보자 — 기한이 지나 자동 해제됨
    후보자를 탓하는 문장을 쓰지 않는다. 다음 행동만 알려 준다.
    ========================================================= */

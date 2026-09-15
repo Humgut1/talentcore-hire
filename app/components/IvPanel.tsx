@@ -12,12 +12,12 @@
    여러 후보자에게 한꺼번에 보내는 '함께 보내기'는 보드로 옮겼다 → BulkSend.tsx
    색은 상태에만 쓴다. 버튼은 무채색이고, 인디고는 '내가 고른 것'을 나타낼 때만.
    ========================================================= */
-import { useState, useTransition } from 'react'
+import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Icon } from './IconSprite'
-import { ivSend, ivRespondPart } from '../lib/iv-actions'
+import { ivSend, ivRespondPart, ivBookRoom, ivReleaseRoom, ivSendPlace } from '../lib/iv-actions'
 import { pickRequest } from '../lib/iv-mail'
-import type { IvPlanView } from '../lib/iv-actions'
+import type { IvPlanView, IvRoomView } from '../lib/iv-actions'
 import { DECLINE_LIST } from '../lib/iv-flow'
 import type { DeclineCode } from '../lib/iv-flow'
 import type { CoordRow } from '../lib/iv-view'
@@ -209,6 +209,8 @@ export default function IvPanel({
           <span className="cq-h-sub">후보자가 직접 고른 시간입니다.</span>
         </div>
       ) : null}
+
+      {cur.st === 'confirmed' ? <IvRoom ivId={cur.id} key={'room' + cur.id} /> : null}
 
       {cur.st === 'proposed' ? (
         <div className="sheet cq-box">
@@ -413,7 +415,194 @@ export default function IvPanel({
   )
 }
 
+/* =========================================================
+   면접실 — 확정된 면접에만 붙는다 (회의실·온보딩 V1 W5)
+   ---------------------------------------------------------
+   방은 TalentCore 것이다. 여기서는 추천 3개를 보여 주고 채용 담당이 눌러서 잡는다.
+   자동으로 잡지 않는다. 읽기는 GET(/api/iv/rooms)이라 데모에서도 보이고,
+   잡기·놓기·안내는 서버 함수라 데모에서는 막힌다.
+   ========================================================= */
+const ROOM_FAIL: Record<string, string> = {
+  'not-configured': 'TalentCore 연결 설정이 없어 면접실을 불러오지 못했습니다.',
+  'unauthorized': 'TalentCore 연결 토큰이 맞지 않습니다.',
+  'unreachable': 'TalentCore 에 연결하지 못했습니다. 잠시 뒤 다시 시도하세요.',
+  'bad-response': 'TalentCore 응답을 읽지 못했습니다.',
+  'rejected': 'TalentCore 가 요청을 받지 않았습니다.',
+  'not-confirmed': '면접 시간이 확정된 뒤에 면접실을 잡을 수 있습니다.',
+  'no-interview': '면접 기록을 찾지 못했습니다.',
+  'no-room': '잡은 면접실이 없어 장소 안내를 보낼 수 없습니다.',
+  'taken': '그 사이 다른 예약이 먼저 들어왔습니다. 목록을 새로 불러왔습니다.',
+  'demo': '데모에서는 면접실을 잡거나 놓을 수 없습니다.',
+}
+
+function IvRoom({ ivId }: { ivId: string }) {
+  const router = useRouter()
+  const [view, setView] = useState<IvRoomView | null>(null)
+  const [tick, setTick] = useState(0)
+  const [pending, start] = useTransition()
+  const [msg, setMsg] = useState('')
+  const [others, setOthers] = useState(false)   // 잡은 방이 있을 때 다른 추천 펼치기
+  const [busyOpen, setBusyOpen] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    fetch(`/api/iv/rooms?id=${encodeURIComponent(ivId)}`, { cache: 'no-store' })
+      .then(r => r.json() as Promise<IvRoomView>)
+      .then(v => { if (alive) setView(v) })
+      .catch(() => { if (alive) setView({ ok: false, reason: 'unreachable', mode: '대면', people: 0 }) })
+    return () => { alive = false }
+  }, [ivId, tick])
+
+  function act(fn: () => Promise<{ ok: boolean; reason?: string; detail?: string }>, okMsg: string) {
+    start(async () => {
+      let r: { ok: boolean; reason?: string; detail?: string }
+      try { r = await fn() } catch { r = { ok: false, reason: 'demo' } }
+      setMsg(r.ok ? okMsg
+        : r.reason === 'rejected' && r.detail ? r.detail
+        : (ROOM_FAIL[r.reason ?? ''] ?? `처리하지 못했습니다 (${r.reason ?? '알 수 없음'})`))
+      if (r.ok) setOthers(false)
+      setTick(t => t + 1)
+      router.refresh()
+    })
+  }
+
+  const head = (
+    <div className="cq-sec">
+      면접실
+      {view ? <span className="cq-src">{view.mode} · {view.people}명{view.when ? ` · ${view.when}` : ''}</span> : null}
+      <span className="cq-spacer" />
+      <button className="btn quiet" disabled={pending || !view} onClick={() => { setMsg(''); setTick(t => t + 1) }}>
+        새로 불러오기
+      </button>
+    </div>
+  )
+
+  if (!view) return <div className="sheet cq-box">{head}<div className="cq-none">불러오는 중…</div></div>
+
+  if (!view.ok || !view.recs) {
+    return (
+      <div className="sheet cq-box">
+        {head}
+        <div className="cq-none">
+          {view.reason === 'rejected' && view.detail ? view.detail : (ROOM_FAIL[view.reason ?? ''] ?? '면접실을 불러오지 못했습니다.')}
+        </div>
+      </div>
+    )
+  }
+
+  const { recs } = view
+  if (!recs.configured) {
+    return (
+      <div className="sheet cq-box">
+        {head}
+        <div className="cq-none">TalentCore 에 건물·회의실이 아직 등록되지 않았습니다. 등록하면 추천이 나옵니다.</div>
+      </div>
+    )
+  }
+
+  const bk = recs.booked
+  const hm = (s?: string) => (s ?? '').slice(11, 16)
+  // 면접 시간이 바뀌면 잡아 둔 방의 시간과 어긋난다 — 같은 방이라도 다시 잡아야 한다.
+  const moved = !!bk && (bk.start !== recs.start || bk.end !== recs.end)
+  const widened = recs.start && view.when && !view.when.includes(`${hm(recs.start)}–${hm(recs.end)}`)
+  // 지난 면접은 TalentCore 가 예약을 받지 않는다 — 누를 수 없는 버튼을 늘어놓지 않는다.
+  const now = new Date()
+  const nowStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+  const past = !!recs.start && recs.start < nowStr
+  const showRecs = !past && (!bk || others || moved)
+
+  return (
+    <div className="sheet cq-box">
+      {head}
+      {msg ? <div className="cq-rm-msg">{msg}</div> : null}
+
+      {bk ? (
+        <div className="cq-rm-bk">
+          <span className={'pill ' + (moved ? 'warn' : 'ok')}><span className="dot" />{moved ? '시간 어긋남' : '잡음'}</span>
+          <b>{recs.site.building ? recs.site.building + ' ' : ''}{bk.label}</b>
+          <span className="cq-time">{hm(bk.start)}–{hm(bk.end)}</span>
+          <span className="cq-spacer" />
+          {view.mode === '대면' && !moved && !past ? (
+            <button className="btn" disabled={pending}
+              onClick={() => act(() => ivSendPlace(ivId), '후보자와 면접관에게 장소 안내를 보냈습니다.')}>
+              <Icon id="i-mail" className="ic-sm" />후보자에게 장소 안내
+            </button>
+          ) : null}
+          {!moved && !past ? (
+            <button className="btn quiet" disabled={pending} onClick={() => setOthers(v => !v)}>
+              {others ? '다른 방 접기' : '다른 방으로'}
+            </button>
+          ) : null}
+          <button className="btn quiet" disabled={pending}
+            onClick={() => act(() => ivReleaseRoom(ivId), '면접실 예약을 풀었습니다.')}>
+            놓기
+          </button>
+        </div>
+      ) : null}
+      {past && !bk ? <div className="cq-none">지난 면접이라 면접실을 잡을 수 없습니다.</div> : null}
+      {moved && !past ? <div className="cq-warn"><Icon id="i-alert" className="ic-sm" />면접 시간이 바뀌었습니다 — 아래에서 새 시간으로 다시 잡으세요.</div> : null}
+      {view.mode === '화상' ? <div className="cq-note">화상 면접 — 면접관이 들어갈 방입니다. 후보자에게는 장소를 안내하지 않습니다.</div> : null}
+      {widened && !past ? <div className="cq-note">회의실은 30분 단위라 {hm(recs.start)}–{hm(recs.end)} 으로 잡힙니다.</div> : null}
+
+      {showRecs ? (
+        <div className="cq-rm-list">
+          {recs.rooms.map(rm => {
+            const mine = !!bk && !moved && bk.room === rm.code
+            return (
+              <div className="cq-rm" key={rm.code}>
+                <div className="cq-rm-main">
+                  <b>{rm.name}</b>
+                  <span className="cq-rm-meta">{rm.floor}층 · {rm.type_label} · {rm.capacity}인</span>
+                  <span className="cq-rm-why">{rm.reasons.join(' · ')}</span>
+                </div>
+                {mine
+                  ? <span className="pill ok"><span className="dot" />잡음</span>
+                  : <button className="btn" disabled={pending}
+                      onClick={() => act(() => ivBookRoom(ivId, rm.code), `${rm.name}으로 잡았습니다.`)}>
+                      이 방으로 잡기
+                    </button>}
+              </div>
+            )
+          })}
+          {recs.rooms.length === 0 ? <div className="cq-none">이 시간에 비어 있는 맞는 방이 없습니다.</div> : null}
+        </div>
+      ) : null}
+
+      {showRecs && recs.busy.length ? (
+        <>
+          <button className="cq-rm-tog" onClick={() => setBusyOpen(v => !v)} aria-expanded={busyOpen}>
+            사용 중 {recs.busy.length}곳 {busyOpen ? '접기' : '보기'}
+          </button>
+          {busyOpen ? recs.busy.map(rm => (
+            <div className="cq-rm gone" key={'b' + rm.code}>
+              <div className="cq-rm-main">
+                <b>{rm.name}</b>
+                <span className="cq-rm-meta">{rm.floor}층 · {rm.capacity}인</span>
+                <span className="cq-rm-why">{rm.busy}</span>
+              </div>
+            </div>
+          )) : null}
+        </>
+      ) : null}
+    </div>
+  )
+}
+
 const CSS = `
+.cq-rm-msg { font-size: 12.5px; color: var(--t2); padding: 8px 10px; margin-bottom: 8px;
+  border-radius: var(--r-sm); background: var(--sunken); }
+.cq-rm-bk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; margin-bottom: 8px; }
+.cq-rm-list { display: flex; flex-direction: column; gap: 1px; margin-top: 6px; }
+.cq-rm { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--r-sm); }
+.cq-rm:hover { background: var(--hover); }
+.cq-rm-main { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; flex: 1; font-size: 12.5px; }
+.cq-rm-main b { font-weight: 600; }
+.cq-rm-meta { font-size: 11.5px; color: var(--t3); }
+.cq-rm-why { font-size: 11px; color: var(--t4); }
+.cq-rm.gone b { color: var(--t3); font-weight: 500; }
+.cq-rm-tog { border: 0; background: none; font: inherit; font-size: 11.5px; color: var(--t3);
+  cursor: pointer; padding: 6px 10px; margin-top: 4px; }
+.cq-rm-tog:hover { color: var(--t1); }
 .cq-wrap { display: block; }
 .cq-detail { min-width: 0; }
 .cq-empty { background: var(--sunken); border-radius: var(--r-xl); padding: 34px; text-align: center;
