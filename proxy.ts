@@ -13,9 +13,10 @@ export default async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl
   const role = await readTicket(req.cookies.get(GATE_COOKIE)?.value)
 
-  /* 이미 표가 있는 사람이 로그인 화면에 오면 되돌려 보낸다.
-     (브라우저가 기억한 /login 을 눌렀을 때 빈 화면을 보지 않게) */
-  if (pathname === '/login' && role) {
+  /* 이미 full 표가 있는 사람이 로그인 화면에 오면 되돌려 보낸다.
+     (브라우저가 기억한 /login 을 눌렀을 때 빈 화면을 보지 않게)
+     데모 표는 보내지 않는다 — 데모 띠의 "비밀번호로 들어가기"가 여기로 온다. */
+  if (pathname === '/login' && role === 'full') {
     return NextResponse.redirect(new URL('/', req.url))
   }
 
