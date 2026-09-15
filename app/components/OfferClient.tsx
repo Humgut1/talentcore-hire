@@ -31,6 +31,14 @@ const REASON: Record<string, string> = {
   'not-approved': '승인이 끝나야 발송할 수 있습니다.',
   'not-sent': '아직 후보자에게 나가지 않은 오퍼입니다.',
   'need-reason': '거절 사유를 골라야 저장됩니다.',
+  'bad-start': '입사일은 TalentCore 입사 가능일(월·수, 공휴일 제외) 중에서 골라야 합니다.',
+}
+
+const WD = ['일', '월', '화', '수', '목', '금', '토']
+/* 2026-09-21 → 2026.09.21 (월) */
+const dayLabel = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`)
+  return isNaN(d.getTime()) ? iso : `${iso.replace(/-/g, '.')} (${WD[d.getDay()]})`
 }
 /* DB 미설정·오퍼 표 없음은 '실패'가 아니다.
    화면(메모리)에는 반영되고 저장만 안 된 상태 — 데모에서는 이게 정상이다. */
@@ -63,6 +71,9 @@ export default function OfferClient(
   const [memo, setMemo] = useState('')
   const [code, setCode] = useState<DeclineCode | ''>('')
   const [dMemo, setDMemo] = useState('')
+
+  /* 입사 가능일은 TalentCore 가 정한다. 연결이 없으면 예전처럼 날짜를 직접 고른다. */
+  const rule = seats?.startRule ?? null
 
   const cur = currentApprover(offer)
   const held = isHeld(offer)
@@ -192,11 +203,30 @@ export default function OfferClient(
               onChange={e => setSign(e.target.value.replace(/[^0-9]/g, ''))} disabled={busy} />
           </label>
           <label className="field" style={{ marginBottom: 0 }}>
-            <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>입사 예정일</div>
-            <input className="in sm mono" type="date" style={{ width: 150 }} value={start}
-              onChange={e => setStart(e.target.value)} disabled={busy} />
+            <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>
+              입사 예정일{rule?.label ? ` (${rule.label}만)` : ''}
+            </div>
+            {rule ? (
+              <select className="in sm mono" style={{ width: 170 }} value={start}
+                onChange={e => setStart(e.target.value)} disabled={busy}>
+                <option value="">미정</option>
+                {start && !rule.dates.includes(start)
+                  ? <option value={start}>{dayLabel(start)} · 규칙 밖</option> : null}
+                {rule.dates.map(d => <option key={d} value={d}>{dayLabel(d)}</option>)}
+              </select>
+            ) : (
+              <input className="in sm mono" type="date" style={{ width: 150 }} value={start}
+                onChange={e => setStart(e.target.value)} disabled={busy} />
+            )}
           </label>
         </div>
+
+        {rule && start && rule.orientation.start ? (
+          <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 8 }}>
+            첫날 {rule.orientation.start}~{rule.orientation.end}{' '}
+            {rule.orientation.roomName || rule.orientation.room} 오리엔테이션 — TalentCore 에서 자동으로 잡힙니다
+          </div>
+        ) : null}
 
         {seatBlock}
 

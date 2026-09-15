@@ -248,11 +248,74 @@ export async function pushHire(p: HirePush): Promise<PushResult> {
   }
   if (res.status === 401) return { ok: false, reason: 'unauthorized' }
 
-  let body: { ok?: boolean; id?: number; opening_code?: string | null; error?: string; detail?: string } = {}
+  let body: {
+    ok?: boolean; id?: number; opening_code?: string | null; error?: string; detail?: string
+    next_dates?: string[]
+  } = {}
   try { body = await res.json() } catch { /* 본문이 없을 수도 있다 */ }
 
-  if (!res.ok || body.ok !== true)
-    return { ok: false, reason: 'rejected', detail: body.detail || body.error || `HTTP ${res.status}` }
+  if (!res.ok || body.ok !== true) {
+    /* 입사일 규칙에 걸리면(422) 가까운 입사일을 같이 보여 줘야 바로 고칠 수 있다. */
+    const next = body.next_dates?.length ? ` — 가까운 입사일 ${body.next_dates.join(', ')}` : ''
+    return { ok: false, reason: 'rejected', detail: (body.detail || body.error || `HTTP ${res.status}`) + next }
+  }
 
   return { ok: true, id: body.id ?? 0, openingCode: body.opening_code ?? null }
+}
+
+/* =========================================================
+   입사 가능일 — 당겨오기 (회의실·온보딩 V1 W3)
+   ---------------------------------------------------------
+   입사 요일(월·수)·공휴일·첫날 오리엔테이션 시간은 TalentCore 가 정한다.
+   Hire 는 오퍼에서 이 목록 안에서만 입사일을 고르게 한다. 규칙을 Hire 에
+   따로 적어 두면 TalentCore 에서 요일을 바꾸는 순간 두 곳이 어긋난다.
+   보낼 때(/api/hires) TalentCore 가 한 번 더 검사하므로 여기는 '안내'다.
+   ========================================================= */
+
+export interface StartRule {
+  dates: string[]             // YYYY-MM-DD, 가까운 순
+  label: string               // "월·수"
+  orientation: { room: string; roomName: string; start: string; end: string }
+}
+
+export type StartRuleResult =
+  | { ok: true; rule: StartRule }
+  | { ok: false; reason: 'not-configured' | 'unauthorized' | 'unreachable' | 'bad-response'; detail?: string }
+
+/** 오늘부터 입사 가능일 n개(기본 26개 ≈ 석 달). */
+export async function fetchStartRule(n = 26): Promise<StartRuleResult> {
+  const { url, token } = conf()
+  if (!url || !token) return { ok: false, reason: 'not-configured' }
+
+  let res: Response
+  try {
+    res = await fetch(`${url}/api/workplace/start-dates?n=${n}`, {
+      headers: { 'X-API-Token': token, Accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (e) {
+    return { ok: false, reason: 'unreachable', detail: e instanceof Error ? e.message : String(e) }
+  }
+  if (res.status === 401) return { ok: false, reason: 'unauthorized' }
+  if (!res.ok) return { ok: false, reason: 'bad-response', detail: `HTTP ${res.status}` }
+
+  let body: unknown
+  try { body = await res.json() } catch { return { ok: false, reason: 'bad-response', detail: 'JSON 아님' } }
+  const d = body as {
+    ok?: boolean; dates?: { date: string }[]; weekdays_label?: string
+    orientation?: { room?: string; room_name?: string; start?: string; end?: string }
+  }
+  if (!d || d.ok !== true || !Array.isArray(d.dates))
+    return { ok: false, reason: 'bad-response', detail: '입사 가능일 모양이 다릅니다' }
+
+  const o = d.orientation ?? {}
+  return {
+    ok: true,
+    rule: {
+      dates: d.dates.map(x => x.date),
+      label: d.weekdays_label ?? '',
+      orientation: { room: o.room ?? '', roomName: o.room_name ?? '', start: o.start ?? '', end: o.end ?? '' },
+    },
+  }
 }

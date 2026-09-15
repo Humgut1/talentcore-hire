@@ -38,7 +38,7 @@ import { sendCandMail } from './maillog'
 import { tplByCode } from './cand-mail'
 import { rejectMailDraft, type StageLite } from './decision'
 import { syncDirectory, lastSyncedAt, type SyncReport } from './directory'
-import { coreState, coreLabel, fetchSeats, pushHire, type CoreSeat } from './core'
+import { coreState, coreLabel, fetchSeats, fetchStartRule, pushHire, type CoreSeat, type StartRule } from './core'
 
 const TODAY_ISO = '2026-08-12' // 데모 기준일 (daysSince 계산 일관성 유지)
 
@@ -283,6 +283,13 @@ export async function saveOfferDraft(
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
   if (o.st !== 'draft') return { ok: false, reason: 'not-draft' }
+  /* 입사일은 TalentCore 입사 가능일(월·수, 공휴일 제외) 안에서만. 규칙이 생기기 전에
+     잡힌 날을 그대로 두는 건 허용한다. TalentCore 에 닿지 못하면 막지 않는다 —
+     수락 후 넘길 때 TalentCore 가 한 번 더 검사한다. */
+  if (patch.start && patch.start !== o.start && coreState() === 'configured') {
+    const r = await fetchStartRule(52)
+    if (r.ok && !r.rule.dates.includes(patch.start)) return { ok: false, reason: 'bad-start' }
+  }
   return saveOffer({
     ...o, ...patch,
     start: patch.start || undefined,
@@ -496,13 +503,15 @@ function seatsOfPosition(seats: CoreSeat[], codes?: string[]): CoreSeat[] {
   return seats.filter(s => codes.includes(s.code))
 }
 
-/* 처우안 화면이 쓸 자리 목록 — "남은 자리 2 · 진행 중 오퍼 3" 을 여기서 만든다. */
+/* 처우안 화면이 쓸 TalentCore 정보 — "남은 자리 2 · 진행 중 오퍼 3" 과
+   입사 가능일(월·수)을 여기서 만든다. 입사일은 요청서와 무관해서 no-req 여도 채운다. */
 export interface SeatView {
   state: 'ok' | 'not-configured' | 'no-req' | 'error'
   seats: CoreSeat[]
   open: number
   pending: number     // 이 공고에서 아직 수락 전인 오퍼 수
   detail?: string
+  startRule?: StartRule | null
 }
 
 export async function listSeats(pid: string): Promise<SeatView> {
@@ -516,14 +525,17 @@ export async function listSeats(pid: string): Promise<SeatView> {
 
   if (coreState() !== 'configured')
     return { state: 'not-configured', seats: [], open: 0, pending }
-  if (!pos.reqRef)
-    return { state: 'no-req', seats: [], open: 0, pending }
 
-  const r = await fetchSeats(pos.reqRef)
-  if (!r.ok) return { state: 'error', seats: [], open: 0, pending, detail: r.detail ?? r.reason }
+  const [r, sr] = await Promise.all([
+    pos.reqRef ? fetchSeats(pos.reqRef) : Promise.resolve(null),
+    fetchStartRule(52),
+  ])
+  const startRule = sr.ok ? sr.rule : null
+  if (!r) return { state: 'no-req', seats: [], open: 0, pending, startRule }
+  if (!r.ok) return { state: 'error', seats: [], open: 0, pending, detail: r.detail ?? r.reason, startRule }
 
   const mine = seatsOfPosition(r.seats, pos.openingCodes)
-  return { state: 'ok', seats: mine, open: mine.filter(s => s.open).length, pending }
+  return { state: 'ok', seats: mine, open: mine.filter(s => s.open).length, pending, startRule }
 }
 
 /* =========================================================
