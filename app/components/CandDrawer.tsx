@@ -562,8 +562,8 @@ function MailTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void }) 
               <button className="dw-ml-h" onClick={() => setOpen(open === m.id ? '' : m.id)}>
                 <i className={'dw-ml-dot' + (m.ok ? ' ok' : '')} />
                 <b>{m.subject}</b>
-                <em>{kindLabel(m.kind)} · {m.at}
-                  {m.ok ? '' : ` · 미발송${m.reason ? ` (${m.reason})` : ''}`}</em>
+                <em>{kindLabel(m.kind)} · {atLabel(m.at)}
+                  {m.ok ? '' : ` · 미발송${m.reason === 'not-configured' ? ' (메일 키 없음)' : m.reason ? ` (${m.reason})` : ''}`}</em>
                 <span>{open === m.id ? '접기' : '펼치기'}</span>
               </button>
               {open === m.id ? <pre className="dw-ml-b">{m.body}</pre> : null}
