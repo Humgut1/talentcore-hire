@@ -41,6 +41,20 @@ export interface GateSession {
   urole?: AppRole
   nm?: string
   pid?: string        // Hire 명부 사람 id — 면접관 본인 확인에 쓴다
+  exp: number         // 이 표가 언제까지 유효한가 (ms)
+}
+
+/* 로그인 유지 기간 — TalentCore 계정으로 들어온 사람의 표.
+   이 표는 '브라우저를 닫아도 남는' 기간이다. 7일 동안 한 번도 안 들어오면 다시 로그인.
+   대신 쓰는 동안에는 지나갈 때마다 기간을 다시 7일로 미뤄 준다(아래 shouldSlide).
+   → 매일 쓰는 사람은 로그인 화면을 다시 볼 일이 없고,
+     두고 간 컴퓨터의 표는 일주일 뒤 저절로 죽는다. */
+export const USER_DAYS = 7
+
+/** 표를 새로 발급해 줄 때가 됐는가 — 하루 넘게 쓴 표만 갱신한다(요청마다 쓰지 않게). */
+export function shouldSlide(exp: number, now = Date.now()): boolean {
+  const left = exp - now
+  return left > 0 && left < (USER_DAYS - 1) * 86_400_000
 }
 
 /** 표에 찍는 도장. 없으면 표를 만들 수도 읽을 수도 없다(= 전부 잠긴다). */
@@ -124,11 +138,11 @@ export async function readSession(raw: string | undefined | null): Promise<GateS
   let diff = 0
   for (let i = 0; i < want.length; i++) diff |= sig.charCodeAt(i) ^ want.charCodeAt(i)
   if (diff !== 0) return null
-  if (who === null) return { role: role as GateRole }
+  if (who === null) return { role: role as GateRole, exp }
   try {
     const j = JSON.parse(b64d(who)) as { u?: string; r?: string; n?: string; p?: string }
     if (!j.u || !APP_ROLES.includes(j.r as AppRole)) return null
-    return { role: 'full', uid: j.u, urole: j.r as AppRole, nm: j.n || '', pid: j.p || undefined }
+    return { role: 'full', uid: j.u, urole: j.r as AppRole, nm: j.n || '', pid: j.p || undefined, exp }
   } catch {
     return null
   }

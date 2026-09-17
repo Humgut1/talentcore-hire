@@ -7,11 +7,32 @@
    Next 16 에서 이 파일의 이름은 proxy.ts 다(예전 이름은 middleware.ts).
    ========================================================= */
 import { NextResponse, type NextRequest } from 'next/server'
-import { GATE_COOKIE, isOpenPath, isWriteAttempt, readTicket } from './app/lib/gate'
+import {
+  GATE_COOKIE, USER_DAYS, isOpenPath, isWriteAttempt, issueUserTicket, readSession, shouldSlide,
+  type AppRole, type GateSession,
+} from './app/lib/gate'
+
+/* 쓰는 동안에는 로그인 기간을 다시 미뤄 준다.
+   표 안에 만료 시각이 적혀 있으니, 하루 넘게 쓴 표면 같은 내용으로 새로 발급한다.
+   (비밀번호로 들어온 표·데모 표는 건드리지 않는다 — 각자 기간이 따로 있다.) */
+async function slide(res: NextResponse, s: GateSession): Promise<NextResponse> {
+  if (!s.uid || !s.urole || !shouldSlide(s.exp)) return res
+  res.cookies.set(GATE_COOKIE, await issueUserTicket(
+    { uid: s.uid, urole: s.urole as AppRole, nm: s.nm || '', pid: s.pid }, USER_DAYS,
+  ), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: USER_DAYS * 86_400,
+  })
+  return res
+}
 
 export default async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl
-  const role = await readTicket(req.cookies.get(GATE_COOKIE)?.value)
+  const sess = await readSession(req.cookies.get(GATE_COOKIE)?.value)
+  const role = sess?.role ?? null
 
   /* 이미 full 표가 있는 사람이 로그인 화면에 오면 되돌려 보낸다.
      (브라우저가 기억한 /login 을 눌렀을 때 빈 화면을 보지 않게)
@@ -38,7 +59,7 @@ export default async function proxy(req: NextRequest) {
     return new NextResponse('데모에서는 저장·수정이 잠겨 있습니다', { status: 403 })
   }
 
-  return NextResponse.next()
+  return slide(NextResponse.next(), sess!)
 }
 
 export const config = {

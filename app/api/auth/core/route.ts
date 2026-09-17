@@ -5,14 +5,15 @@
    3) Hire 사용자 명단에 적는다 — 승인 대기면 들여보내지 않는다
    4) 승인된 사람에게만 표(쿠키)를 준다 */
 import { NextResponse, type NextRequest } from 'next/server'
-import { GATE_COOKIE, issueUserTicket, APP_ROLES, type AppRole } from '../../../lib/gate'
+import { GATE_COOKIE, USER_DAYS, issueUserTicket, APP_ROLES, type AppRole } from '../../../lib/gate'
 import { hydrateData } from '../../../lib/db'
 import { loginUpsert, type CoreUser } from '../../../lib/users'
 
 export const dynamic = 'force-dynamic'
 
 const SSO_COOKIE = 'hire_sso'
-const USER_DAYS = 1
+/* 로그인 유지 기간은 gate.ts 의 USER_DAYS 하나로 둔다 — 문지기가 기간을 미뤄 주므로
+   두 곳에 적으면 발급 기간과 연장 기간이 어긋난다. */
 
 function back(req: Request, q: string) {
   const res = NextResponse.redirect(new URL('/login?sso=' + q, req.url))
