@@ -27,7 +27,7 @@ import {
   type SearchOutcome,
 } from './schedule'
 import {
-  mtgView, mtgLabel, suggestAttendees, attendeePool, mtgKind, MTG_DUR,
+  mtgView, mtgLabel, suggestAttendees, attendeePool, mtgKind, finalGate, MTG_DUR,
   type MtgView, type PoolRow,
 } from './meetings'
 import { personKeyOf, gradeOf } from './pool'
@@ -680,15 +680,34 @@ function byTag(pid: string, by?: string): string {
   return by ? ` · 판정 ${actorLabel(posById(pid), by)}` : ''
 }
 
+/* 지금 로그인한 사람의 Hire 역할. 비밀번호 관리자·데모는 undefined(= 역할 제한 없음). */
+async function myRole(): Promise<string | undefined> {
+  const s = await currentSession()
+  return s?.uid ? s.urole : undefined
+}
+
+/** 최종 면접 판정 잠금 — 사용자 요청 4. 막혀 있으면 사유 코드, 아니면 null. */
+async function finalBlock(pid: string, stId: string): Promise<'need-debrief' | 'need-recruiter' | null> {
+  const g = finalGate(pid, stId, await myRole())
+  return g.block === 'debrief' ? 'need-debrief' : g.block === 'recruiter' ? 'need-recruiter' : null
+}
+
 /* 합격 — 다음 단계로 보낸다. */
 export async function advanceCand(
   cid: string, by?: string,
-): Promise<{ ok: boolean; reason?: string; to?: string; offerMade?: boolean }> {
+): Promise<{
+  ok: boolean; reason?: string; to?: string; offerMade?: boolean
+  mtg?: { nm: string; v: string }[]
+}> {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
   const cur = stageById(c.p, c.st)
   if (cur.rail) return { ok: false, reason: 'closed' }
+
+  /* 최종 면접은 디브리프 뒤에, 채용 담당자가 누른다. */
+  const blocked = await finalBlock(c.p, c.st)
+  if (blocked) return { ok: false, reason: blocked }
 
   const line = stagesOf(c.p).filter(s => !s.rail)
   const next = line[line.findIndex(s => s.id === c.st) + 1]
@@ -713,7 +732,12 @@ export async function advanceCand(
       ? `평가 ${ev.length}건 · ${VERDICT_LABEL[verdictOf(ev)]}${offerMade ? ' · 처우안 초안 자동 생성' : ''}`
       : `평가 없이 진행${offerMade ? ' · 처우안 초안 자동 생성' : ''}`) + byTag(c.p, by),
   })
-  return { ...r, to: next.nm, offerMade }
+
+  /* 카드가 움직이면 킥오프·디브리프 트리거가 바뀐다 — 그 자리에서 참석자·시간을 채운다.
+     실패해도 판정은 그대로 둔다. 미팅 때문에 카드가 안 움직이는 게 더 나쁘다. */
+  let mtg: { nm: string; v: string }[] = []
+  try { mtg = (await autoSetupMeetings(c.p)).set } catch { mtg = [] }
+  return { ...r, to: next.nm, offerMade, ...(mtg.length ? { mtg } : {}) }
 }
 
 /* 보류 — 단계는 그대로 두고 '사람이 봐야 하는 건'으로 올린다.
@@ -748,6 +772,13 @@ export async function rejectCand(
   const cur = stageById(c.p, c.st)
   if (cur.rail) return { ok: false, reason: 'closed' }
   if (!code || !REJECT_REASONS.some(r => r.v === code)) return { ok: false, reason: 'need-reason' }
+
+  /* 최종 면접 불합격도 디브리프 뒤에. 단 '후보자가 이탈'은 우리 판단이 아니라 막지 않는다 —
+     이미 떠난 사람을 회의까지 기다리게 하면 카드가 거짓말을 한다. */
+  if (rejectDef(code as RejectCode).side === 'us') {
+    const blocked = await finalBlock(c.p, c.st)
+    if (blocked) return { ok: false, reason: blocked }
+  }
 
   const rail = stagesOf(c.p).find(s => s.kind === 'reject')
   if (!rail) return { ok: false, reason: 'no-rail' }
@@ -1321,15 +1352,14 @@ export async function searchMeetingSlots(
 /** 시간 확정 — v 에 '{날짜} {시각} 예정' 을 적는다.
     이 문자열을 meetings.ts 가 다시 읽어 '확정됨'으로 판단하므로, 형식을 바꾸면
     미팅이 영원히 미확정으로 보인다(라벨 생성은 mtgLabel 하나로 모아둔 이유). */
-export async function confirmMeeting(
-  pid: string, mid: string, date: string, start: number,
+async function setMeetingTime(
+  pid: string, mid: string, date: string, start: number, autoPick: boolean,
 ): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
-  await hydrateData()
   const m = findMeeting(pid, mid)
   if (!m) return { ok: false, reason: 'no-meeting' }
   if (!(m.who || []).length) return { ok: false, reason: 'no-attendee' }
 
-  const v = mtgLabel(date, start)
+  const v = mtgLabel(date, start, autoPick)
   _patchMeeting(pid, mid, { v, act: undefined })
   const after = mtgView(pid, { ...m, v, act: undefined })
   _patchMeeting(pid, mid, { s: after.s, ag: after.ag, act: after.act })
@@ -1337,6 +1367,98 @@ export async function confirmMeeting(
     v, s: after.s, ag: after.ag, act: after.act ?? null,
   })
   return { ok: true, view: mtgView(pid, findMeeting(pid, mid)!) }
+}
+
+export async function confirmMeeting(
+  pid: string, mid: string, date: string, start: number,
+): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
+  await hydrateData()
+  return setMeetingTime(pid, mid, date, start, false)
+}
+
+/* ---------------------------------------------------------
+   미팅 날짜 자동 세팅 (사용자 요청 4)
+   ---------------------------------------------------------
+   "Debrief 미팅 날짜 자동 세팅 검토 / 킥오프 미팅도 동일하게."
+
+   사람이 기억해서 잡는 미팅은 잡히지 않는다(Ashby 가 디브리프를 자동으로
+   밀어 넣는 이유). 그래서 트리거가 켜지는 순간 — 카드가 움직이는 그 자리에서 —
+   ① 참석자를 기본값으로 채우고 ② 전원이 비는 첫 30분에 넣는다.
+
+   자동으로 잡은 시간에는 라벨에 '(자동)' 을 남긴다. 화면이 "바꿀 수 있습니다"를
+   같이 띄우기 위해서다 — 시스템이 밀어 넣은 시간을 사람이 정한 시간처럼
+   보여 주면, 아무도 안 바꾸고 아무도 안 온다.
+
+   못 하는 경우(EA 참석자·빈 자리 없음)는 억지로 넣지 않고 그대로 남긴다.
+   미팅 바가 이미 '무엇이 막혀 있는지'를 말해 준다.
+   --------------------------------------------------------- */
+export interface AutoMtgReport {
+  set: { nm: string; v: string }[]
+  stuck: { nm: string; why: string }[]
+}
+
+/** 한 건을 자동으로 채운다. 결과는 세 가지 — 잡았다 / 막혔다 / 손댈 것 없다. */
+async function autoOne(
+  pid: string, mid: string,
+): Promise<{ nm: string; v?: string; why?: string } | null> {
+  const m = findMeeting(pid, mid)
+  if (!m) return null
+  const kind = mtgKind(m.nm)
+  if (kind === 'other') return null         // 규칙이 없는 미팅은 손대지 않는다
+  let v = mtgView(pid, m)
+  if (!v.fired) return null                 // 아직 필요해지지 않았다
+  if (v.phase === 'set' || v.phase === 'done') return null  // 이미 잡혔다
+
+  /* ① 참석자 */
+  if (v.phase === 'attendees') {
+    const sug = suggestAttendees(pid, kind)
+    if (!sug.length) return { nm: m.nm, why: '부를 사람을 찾지 못했습니다' }
+    const a = await assignMeeting(pid, mid, sug)
+    if (!a.ok || !a.view) return { nm: m.nm, why: '참석자를 저장하지 못했습니다' }
+    v = a.view
+  }
+
+  /* ② 시간 — EA 가 끼면 자동 탐색에서 빠진다(인터뷰와 같은 규칙) */
+  if (v.phase === 'manual') return { nm: m.nm, why: `EA 조율 대상 · ${v.ea.join(', ')}` }
+  if (v.phase !== 'time') return null
+
+  let slot = (await searchMeetingSlots(pid, mid, false)).slots?.[0]
+  /* 좁은 기간에 자리가 없으면 한 번 넓혀 본다 — 사람이 [시간 찾기]에서 하는 것과 같다. */
+  if (!slot) slot = (await searchMeetingSlots(pid, mid, true)).slots?.[0]
+  if (!slot) return { nm: m.nm, why: '전원이 비는 30분을 찾지 못했습니다' }
+
+  const r = await setMeetingTime(pid, mid, slot.date, slot.start, true)
+  return r.ok && r.view ? { nm: m.nm, v: r.view.v } : { nm: m.nm, why: '시간을 저장하지 못했습니다' }
+}
+
+export async function autoSetupMeetings(pid: string): Promise<AutoMtgReport> {
+  await hydrateData()
+  const out: AutoMtgReport = { set: [], stuck: [] }
+  for (const m of meetings[pid] || []) {
+    const r = await autoOne(pid, m.id)
+    if (!r) continue
+    if (r.v) out.set.push({ nm: r.nm, v: r.v })
+    else out.stuck.push({ nm: r.nm, why: r.why ?? '알 수 없는 이유' })
+  }
+  return out
+}
+
+/** 이미 잡힌 시간을 버리고 다시 자동으로 잡는다 — 공고 설정의 [시간 다시 잡기].
+    참석자를 바꾸면 전에 잡은 자리가 그 사람들에게는 맞지 않는다. */
+export async function reautoMeeting(
+  pid: string, mid: string,
+): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
+  await hydrateData()
+  const m = findMeeting(pid, mid)
+  if (!m) return { ok: false, reason: 'no-meeting' }
+  if (/완료/.test(m.v)) return { ok: false, reason: 'done' }   // 지난 미팅은 건드리지 않는다
+
+  _patchMeeting(pid, mid, { v: '', act: undefined })
+  await updateMeeting(mid, { v: '' })
+  const r = await autoOne(pid, mid)
+  const view = mtgView(pid, findMeeting(pid, mid)!)
+  if (r?.why) return { ok: false, reason: r.why, view }
+  return { ok: true, view }
 }
 
 

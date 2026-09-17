@@ -7,6 +7,7 @@ import DecisionClient from '../../../components/DecisionClient'
 import StageComments from '../../../components/StageComments'
 import EvalPanel from '../../../components/EvalPanel'
 import { evalGate } from '../../../lib/evalgate'
+import { finalGate } from '../../../lib/meetings'
 import { currentSession, evalViewer } from '../../../lib/session'
 import { hydrateData } from '../../../lib/db'
 import { candidateHeadHTML, candidateFootHTML } from '../../../lib/render'
@@ -35,6 +36,9 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const ivs = (cur.ivs || []).map(uid => ({ uid, nm: personById(uid)?.nm ?? '면접관' }))
   const view = decisionFor(cur, stagesOf(c.p), ev, ivs)
   const cm = commentsFor(c.id)
+  /* 최종 면접은 디브리프 뒤에, 채용 담당자가 누른다(사용자 요청 4). */
+  const fg = finalGate(c.p, c.st, sess?.uid ? sess.urole : undefined)
+  const lock = fg.block ? { block: fg.block, msg: fg.msg ?? '' } : null
 
   /* 면접 평가 — 이력서를 옆에 펴 둔 채 쓴다(H5). 평가 받는 단계에서만. */
   const gate = evalGate(c.id, evalViewer(sess))
@@ -52,6 +56,7 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
       <DecisionClient
         view={view} cid={c.id} cand={c.nm} rj={c.rj}
         pos={posById(c.p).title} sender={actor}
+        lock={lock}
         {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
       />
       {showEval && gate ? (

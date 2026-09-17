@@ -16,6 +16,7 @@ import {
 import { decisionFor, rejectDef, SIDE_LABEL, type DecisionView, type RejectCode } from './decision'
 import { otherApps } from './pool'
 import { evalGate, visibleEvals, type EvalGate } from './evalgate'
+import { finalGate, type FinalBlock } from './meetings'
 import { docsOf, docUrl, type CandDoc } from './docs'
 import { mailsOf, type MailRow } from './maillog'
 import { mailerStatus } from './mailer'
@@ -40,6 +41,8 @@ export interface DrawerData {
   /* 끝난 카드 */
   rj?: { code: RejectCode; l: string; d: string; side: string; memo?: string; exStage?: string; decided?: string }
   decision: DecisionView
+  /* 최종 면접 판정 잠금 (사용자 요청 4) — 막혀 있을 때만 값이 있다. */
+  lock: { block: FinalBlock; msg: string } | null
   comments: { cur: CommentView[]; prior: { st: string; c: CommentView }[] }
   timeline: TLItem[]
   evals: EvalItem[]
@@ -70,7 +73,7 @@ export interface DrawerData {
  * @param wide 자리 탐색 범위를 넓힐지
  */
 export async function drawerData(
-  cid: string, sel?: string, wide = false, viewer?: string | null,
+  cid: string, sel?: string, wide = false, viewer?: string | null, urole?: string,
 ): Promise<DrawerData | null> {
   const c = cands.find(x => x.id === cid)
   if (!c) return null
@@ -133,6 +136,7 @@ export async function drawerData(
       },
     } : {}),
     decision: decisionFor(sg, stagesOf(c.p), stageEv, ivs),
+    lock: (g => g.block ? { block: g.block, msg: g.msg ?? '' } : null)(finalGate(c.p, c.st, urole)),
     comments: commentsFor(cid),
     timeline: tl,
     evals: visibleEvals(cid),

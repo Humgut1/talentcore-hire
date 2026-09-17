@@ -420,6 +420,7 @@ function EvalTab({ d }: { d: DrawerData }) {
         cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       <DecisionClient
         view={d.decision} cid={d.cid} cand={d.nm} pos={d.pos.title} sender={d.sender}
+        lock={d.lock}
         {...(d.rj ? { rj: d.rj.code } : {})}
         {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
       />

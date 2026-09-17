@@ -26,7 +26,10 @@ export default async function Page({
      아직 자리가 없는 후보자를 줄에 세운다. 둘 다 사람이 눌러 줄 일이 아니다. */
   await ivBoardOpen()
 
-  const d = c ? await drawerData(c, iv, ivw === '1', evalViewer(await currentSession())) : null
+  const sess = await currentSession()
+  const d = c
+    ? await drawerData(c, iv, ivw === '1', evalViewer(sess), sess?.uid ? sess.urole : undefined)
+    : null
 
   return (
     <>

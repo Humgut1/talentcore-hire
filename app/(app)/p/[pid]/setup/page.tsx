@@ -1,7 +1,9 @@
 import StageEditor from '../../../../components/StageEditor'
 import AutoRules, { type SlaRow } from '../../../../components/AutoRules'
+import MtgSetup from '../../../../components/MtgSetup'
 import { hydrateData } from '../../../../lib/db'
 import { stagesOf, posById, people, cands, auto } from '../../../../lib/data'
+import { mtgViews, attendeePool } from '../../../../lib/meetings'
 
 /* 공고 설정 = 전형 단계 + 공개 정보 + 자동화.
    예전에는 자동화가 따로 탭이었는데, 둘 다 "이 공고를 어떻게 굴릴지" 라서 한 화면에 둔다. */
@@ -32,6 +34,8 @@ export default async function Page({ params }: { params: Promise<{ pid: string }
       position={position}
     >
       <AutoRules pid={pid} initialAuto={auto[pid] || auto.p1} slaRows={slaRows} />
+      {/* 내부 미팅 참석자 — 킥오프·디브리프에 누가 들어오는지도 '이 공고를 어떻게 굴릴지'다. */}
+      <MtgSetup pid={pid} mtgs={mtgViews(pid)} pool={attendeePool(pid)} />
     </StageEditor>
   )
 }

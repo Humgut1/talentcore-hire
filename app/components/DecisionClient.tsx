@@ -72,6 +72,8 @@ const REASON: Record<string, string> = {
   'not-rejected': '불합격 상태가 아닙니다.',
   'offer-declined': '후보자가 오퍼를 거절한 건은 되돌릴 수 없습니다. 후보자의 답이기 때문입니다.',
   'need-comment': '이 단계의 판정 코멘트를 먼저 남겨 주세요.',
+  'need-debrief': '최종 합격·불합격은 디브리프 미팅 뒤에 처리합니다. 공고 화면의 미팅 바를 확인해 주세요.',
+  'need-recruiter': '최종 판정은 채용 담당자가 기록합니다. 의견은 판정 코멘트에 남겨 주세요.',
 }
 /* DB 미설정·새 칸 없음은 '실패'가 아니다 — 화면에는 반영되고 저장만 안 된 상태. */
 const softFail = (r?: string) =>
@@ -82,13 +84,16 @@ const hint: React.CSSProperties = { fontSize: 11.5, color: 'var(--t3)', marginTo
 const line: React.CSSProperties = { fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }
 
 export default function DecisionClient({
-  view, cid, cand, pos, sender, rj, comment,
+  view, cid, cand, pos, sender, rj, comment, lock,
 }: {
   view: DecisionView; cid: string; cand: string; pos: string; sender: string
   /* 이 단계의 마지막 판정 코멘트. 없으면 넘기기·보류·불합격(우리 판단)을 막는다. */
   comment?: string
   /* 이미 종료된 카드의 사유 — 종료 문구를 '우리가 거절'과 '후보자 이탈'로 갈라 쓴다. */
   rj?: RejectCode
+  /* 최종 면접 판정 잠금 (사용자 요청 4) — 디브리프 전이거나, 누를 사람이 아닐 때.
+     보류와 '후보자 이탈'은 잠기지 않는다. 서버(actions.ts)에서도 같은 규칙으로 막는다. */
+  lock?: { block: string; msg: string } | null
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -230,11 +235,18 @@ export default function DecisionClient({
             위 판정 코멘트를 먼저 남겨야 넘기거나 보류·불합격할 수 있습니다. 후보자 이탈 기록은 예외입니다.
           </div>
         ) : null}
+        {lock ? (
+          <div className="dc-lock">
+            <b>{lock.block === 'recruiter' ? '판정은 채용 담당자가' : '디브리프 미팅 뒤에'}</b>
+            <span>{lock.msg}</span>
+            <i>보류와 후보자 이탈 기록은 지금도 할 수 있습니다.</i>
+          </div>
+        ) : null}
         {view.notes.map((n, i) => (
           <div key={i} style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 6 }}>{n}</div>
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn solid" disabled={busy || !view.next || noComment}
+          <button className="btn solid" disabled={busy || !view.next || noComment || !!lock}
             onClick={() => setOpen(open === 'pass' ? '' : 'pass')}>
             <Icon id="i-check-sq" className="ic-sm" />다음 단계로
           </button>
@@ -320,12 +332,17 @@ export default function DecisionClient({
         placeholder="덧붙일 내용 (선택) — 구체적일수록 다음 채용에서 쓸모가 있습니다"
         value={rMemo} onChange={e => setRMemo(e.target.value)} disabled={busy} />
 
+      {lock && side === 'us' ? (
+        <div style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 10 }}>{lock.msg}</div>
+      ) : null}
+
       <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 12 }}>통보 메일</div>
       <MailPick name="dc-rj" opts={RJ_MAIL} v={rjMail} set={setRjMail} busy={busy} />
       {draft ? <MailPv d={draft} /> : null}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-        <button className="btn" disabled={busy || !code || (side === 'us' && noComment)}
+        <button className="btn"
+          disabled={busy || !code || (side === 'us' && (noComment || !!lock))}
           onClick={() => run(() => rejectAndNotify(cid, code, rMemo, rjMail, sender),
             r => '전형을 종료로 기록했습니다' + mailTail(r.mail))}>
           {(side === 'them' ? '이탈로 기록' : '불합격 기록') + (rjMail ? ' + 통보' : '')}

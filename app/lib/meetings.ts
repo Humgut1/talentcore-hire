@@ -17,10 +17,9 @@
    나머지(슬롯 탐색·확정)는 기존 스케줄 엔진(schedule.ts)이 그대로 한다.
 
    트리거를 이렇게 잡은 이유:
-   · 킥오프 = <첫 인터뷰 단계에 처음으로 사람이 도달했을 때>.
-     기능 설계서의 "1차 최초 합격자"를 '1차를 통과한 사람'으로 읽으면 킥오프가
-     1차보다 뒤에 열린다 — 기준을 맞추는 미팅이 기준이 쓰인 뒤에 열리는 셈이라
-     열 이유가 없어진다. 그래서 '1차에 올라온 사람'으로 읽는다.
+   · 킥오프 = <그 공고에서 1차 면접 합격자가 처음 나왔을 때> (사용자 규칙).
+     빈 공고에 사람을 모으면 얘기할 재료가 없다. 첫 합격자가 나오면
+     '이 정도 사람으로 갈 것인가'를 맞출 재료가 생긴다.
    · 디브리프 = <마지막 인터뷰 단계를 끝낸 사람이 처음 생겼을 때>. 공고당 1회.
      확정한 뒤에 또 끝낸 사람이 생기면 '함께 다룰지'만 알린다(미팅을 더 만들지 않는다).
 
@@ -92,19 +91,23 @@ export const mtgKind = (nm: string): MtgKind =>
    --------------------------------------------------------- */
 interface Fire { fired: boolean; by?: string; on?: string }
 
-/** 킥오프: 첫 인터뷰 단계에 도달한 사람이 처음 생긴 시점. */
+/** 킥오프: 1차 면접을 통과한 사람이 처음 생긴 시점.
+    사용자 규칙 — "그 포지션에서 1차 합격자가 최초 발생했을 때만".
+    도달(1차에 올라옴)이 아니라 통과(1차를 넘김)로 읽는다: 한 명도 못 넘긴 공고에
+    사람을 모아 놓으면 얘기할 재료가 없다. 첫 합격자가 나오면 '이런 사람으로 갈 것인가'를
+    맞출 재료가 생긴다. */
 function fireKickoff(pid: string): Fire {
   const line = ivLine(pid)
   if (!line.length) return { fired: false }
   const first = line[0]
-  const at = idxOf(pid, first.id)
-  /* 지금 1차에 있는 사람뿐 아니라 이미 지나간 사람도 센다 —
-     첫 사람이 벌써 2차로 넘어갔다고 킥오프가 사라지면 안 된다. */
+  const after = idxOf(pid, first.id) + 1
+  /* 지금 2차에 있는 사람뿐 아니라 이미 더 간 사람·오퍼까지 센다 —
+     첫 합격자가 벌써 앞서 갔다고 킥오프가 사라지면 안 된다. */
   const hit = cands
-    .filter(c => c.p === pid && idxOf(pid, c.st) >= at)
+    .filter(c => c.p === pid && idxOf(pid, c.st) >= after)
     .sort((a, b) => (a.en < b.en ? -1 : 1))[0]
   if (!hit) return { fired: false }
-  return { fired: true, by: `${hit.nm} · ${first.nm} 도달`, on: hit.en }
+  return { fired: true, by: `${hit.nm} · ${first.nm} 합격`, on: hit.en }
 }
 
 /** 디브리프: 마지막 인터뷰 단계를 끝낸 사람이 처음 생긴 시점. */
@@ -219,7 +222,7 @@ export function mtgView(pid: string, m: Meeting): MtgView {
   if (!f.fired)
     return {
       ...base, phase: 'pending', s: 'idle', fired: false, ag: '—',
-      v: kind === 'kickoff' ? '1차 진출자 발생 시 자동 개설' : '최종 면접 완료 시 자동 개설',
+      v: kind === 'kickoff' ? '1차 합격자 발생 시 자동 개설' : '최종 면접 완료 시 자동 개설',
     }
 
   const sinceD = f.on ? daysSince(f.on) : undefined
@@ -239,10 +242,12 @@ export function mtgView(pid: string, m: Meeting): MtgView {
     const more = kind === 'debrief' ? laterFinishers(pid, t.date) : []
     const note = more.length
       ? `확정 뒤 완료자 ${more.length}명 (${more.join(', ')}) — 함께 다룰지 확인`
-      : undefined
+      : /\(자동\)/.test(m.v)
+        ? '시간은 참석자 일정이 비는 첫 자리로 자동으로 잡혔습니다 — 바꿀 수 있습니다'
+        : undefined
     return {
-      ...base, phase: 'set', s: note ? 'late' : 'done', fired: true, by: f.by, ag: '—',
-      v: m.v, note, act: note ? ['참석자 추가 검토'] : undefined,
+      ...base, phase: 'set', s: more.length ? 'late' : 'done', fired: true, by: f.by, ag: '—',
+      v: m.v, note, act: more.length ? ['참석자 추가 검토'] : undefined,
     }
   }
 
@@ -264,9 +269,78 @@ export function mtgViews(pid: string): MtgView[] {
   return (meetings[pid] || []).map(m => mtgView(pid, m))
 }
 
-/** 확정 라벨 — 미팅 바와 DB 에 같은 문자열이 들어간다. */
-export const mtgLabel = (date: string, min: number): string =>
-  `${md(date)} ${pad(Math.floor(min / 60))}:${pad(min % 60)} 예정`
+/** 확정 라벨 — 미팅 바와 DB 에 같은 문자열이 들어간다.
+    auto=true 면 뒤에 표식을 붙인다. 사람이 고른 시간과 시스템이 밀어 넣은 시간은
+    같은 값이어도 뜻이 다르다 — 자동으로 잡힌 건 바꿔도 된다고 말해줘야 한다. */
+export const mtgLabel = (date: string, min: number, auto = false): string =>
+  `${md(date)} ${pad(Math.floor(min / 60))}:${pad(min % 60)} 예정${auto ? ' (자동)' : ''}`
+
+/** 이 시간이 자동으로 잡힌 것인가 */
+export const isAutoSet = (v: string): boolean => /\(자동\)/.test(v)
+
+/* ---------------------------------------------------------
+   최종 면접의 합격·불합격은 디브리프 뒤에 (사용자 규칙)
+   ---------------------------------------------------------
+   "2차 면접 합격 여부는 Debrief 미팅 이후 채용 담당자가 ATS 에서 처리."
+   면접관·HM 은 코멘트로 의견을 남기고, 최종 판정은 모여서 얘기한 뒤
+   채용 담당자가 한 번에 누른다. 그래야 카드가 회의 전에 먼저 움직이지 않는다.
+
+   막는 건 <마지막 면접 단계>뿐이다. 그 앞 단계는 그대로 각자 판정한다.
+   보류와 '후보자가 이탈'은 막지 않는다 — 회의를 기다릴 일이 아니다.
+   --------------------------------------------------------- */
+const TODAY_ISO = (): string =>
+  `${TODAY.getFullYear()}-${pad(TODAY.getMonth() + 1)}-${pad(TODAY.getDate())}`
+
+export type FinalBlock = 'debrief' | 'recruiter'
+
+export interface FinalGate {
+  /** 이 단계가 그 공고의 마지막 면접 단계인가 */
+  isFinal: boolean
+  /** 막혀 있으면 이유, 아니면 null */
+  block: FinalBlock | null
+  /** 화면에 그대로 쓰는 한 줄 */
+  msg?: string
+  /** 디브리프 미팅 상태(있으면) */
+  debrief?: MtgView
+}
+
+/** 최종 면접 단계인지 + 지금 누를 수 있는지. urole 은 H2 역할('' = 비밀번호 관리자). */
+export function finalGate(pid: string, stId: string, urole?: string): FinalGate {
+  const line = ivLine(pid)
+  const last = line[line.length - 1]
+  if (!last || last.id !== stId) return { isFinal: false, block: null }
+
+  const db = mtgViews(pid).find(v => v.kind === 'debrief')
+  const ready = !!db && (db.phase === 'set' || db.phase === 'done')
+  if (!ready) {
+    const where = !db ? '이 공고에 디브리프 미팅이 없습니다'
+      : db.phase === 'attendees' ? '디브리프 참석자가 아직 정해지지 않았습니다'
+        : db.phase === 'manual' ? '디브리프가 EA 조율 대상입니다'
+          : db.phase === 'pending' ? '디브리프는 최종 면접이 끝나면 열립니다'
+            : '디브리프 시간이 아직 확정되지 않았습니다'
+    return {
+      isFinal: true, block: 'debrief',
+      msg: `최종 합격·불합격은 디브리프 미팅 뒤에 처리합니다 — ${where}.`,
+      ...(db ? { debrief: db } : {}),
+    }
+  }
+  if (db && db.phase === 'set' && parseMtgTime(db.v) && parseMtgTime(db.v)!.date > TODAY_ISO()) {
+    return {
+      isFinal: true, block: 'debrief',
+      msg: `디브리프가 ${db.v.replace(' (자동)', '')} 입니다. 회의 뒤에 처리해 주세요.`,
+      debrief: db,
+    }
+  }
+  /* 회의는 끝났다. 이제 누를 사람이 정해져 있다 — 채용 담당자(리크루터·HR Admin). */
+  if (urole === 'hm' || urole === 'interviewer') {
+    return {
+      isFinal: true, block: 'recruiter',
+      msg: '최종 판정은 채용 담당자가 기록합니다. 의견은 위 판정 코멘트에 남겨 주세요.',
+      ...(db ? { debrief: db } : {}),
+    }
+  }
+  return { isFinal: true, block: null, ...(db ? { debrief: db } : {}) }
+}
 
 /* ---------------------------------------------------------
    다른 화면이 미팅을 읽는 창구
