@@ -11,7 +11,8 @@ import { cands, posById, stageById, personById, demoNow } from '../../../lib/dat
 import { orgName } from '../../../lib/core'
 import { interviews, partsOf, slotsOf } from '../../../lib/iv-store'
 import { fmtMin, seatTaken } from '../../../lib/schedule'
-import { gmailReady } from '../../../lib/google'
+import { mailerStatus } from '../../../lib/mailer'
+import { confirmState } from '../../../lib/iv-view'
 
 const DOW = ['일', '월', '화', '수', '목', '금', '토']
 const dayLabel = (date: string) => {
@@ -32,7 +33,7 @@ export default async function Page({ params }: { params: Promise<{ token: string
   const org = await orgName()
   const base: Omit<PickData, 'status'> = {
     token,
-    mailOn: await gmailReady(),
+    mailOn: (await mailerStatus()).email,
     name: cand?.nm ?? '',
     ...(org ? { company: org } : {}),
     positionTitle: pos.title,
@@ -47,11 +48,17 @@ export default async function Page({ params }: { params: Promise<{ token: string
   }
 
   // 이미 고른 링크를 다시 연 경우 — 확정 화면을 그대로 보여 준다.
+  // 직접 지정한 시간도 여기로 온다 — 슬롯이 아니라 면접 기록의 시각을 본다.
   if (iv.st === 'confirmed' || iv.st === 'done') {
     const picked = slotsOf(iv.id).find(s => s.st === 'picked')
+    const t = iv.date && iv.start != null
+      ? { date: iv.date, start: iv.start, end: iv.end ?? iv.start + iv.totalMin }
+      : picked
+    const rep = confirmState(iv.id).reply?.kind
     return <PickClient data={{
       ...base, status: 'booked',
-      ...(picked ? { bookedLabel: `${dayLabel(picked.date)} ${fmtMin(picked.start)}–${fmtMin(picked.end)}` } : {}),
+      ...(t ? { bookedLabel: `${dayLabel(t.date)} ${fmtMin(t.start)}–${fmtMin(t.end)}` } : {}),
+      ...(rep && iv.st === 'confirmed' ? { reply: rep } : iv.st === 'done' ? { reply: 'attend' as const } : {}),
     }} />
   }
 

@@ -155,7 +155,7 @@ export function pickReminder(
    ③ 후보자 — 확정 안내
    이 한 통에 필요한 게 전부 있어야 한다. 다시 물어보게 만들면 진 것이다.
    ========================================================= */
-export function candConfirm(ctx: IvMailCtx, a: { when: string }): Msg {
+export function candConfirm(ctx: IvMailCtx, a: { when: string; link?: string }): Msg {
   return {
     subject: `${tag(ctx)}[확정] ${ctx.posTitle} ${ctx.stageNm} · ${a.when}`,
     text: join([
@@ -170,8 +170,8 @@ export function candConfirm(ctx: IvMailCtx, a: { when: string }): Msg {
       `안내`,
       ...prepLines(ctx),
       '',
-      `캘린더 초대를 함께 보내드렸습니다. 수락해 주시면 일정이 잡힙니다.`,
-      `부득이하게 참석이 어려워지시면 가능한 한 빨리 이 메일에 회신해 주세요.`,
+      a.link ? `참석 여부를 아래 링크에서 알려 주세요. 일정 변경이 필요하시면 같은 화면에서 요청하실 수 있습니다.` : `부득이하게 참석이 어려워지시면 가능한 한 빨리 이 메일에 회신해 주세요.`,
+      a.link ? `  ${a.link}` : '',
       '',
       closing(ctx),
       '',

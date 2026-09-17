@@ -10,7 +10,7 @@
    같은 화면으로 보여야 하기 때문이다.
    ========================================================= */
 import { useState } from 'react'
-import { ivPickSlot, ivAskTimes } from '../lib/iv-actions'
+import { ivPickSlot, ivAskTimes, ivCandReply } from '../lib/iv-actions'
 import { BOOK_CSS } from './BookClient'
 
 export interface PickSlot { ord: number; day: string; label: string }
@@ -34,6 +34,8 @@ export interface PickData {
      연결 전에는 "보내드렸어요"가 거짓말이 된다 — 후보자는 오지 않는 메일을
      기다리다 면접을 놓친다. 그래서 안내 문구를 사실에 맞춰 바꾼다. */
   mailOn?: boolean
+  /* 확정 뒤 이미 보낸 회신(참석 확인 / 일정 변경 요청). 다시 열어도 같은 답이 보여야 한다. */
+  reply?: 'attend' | 'change'
 }
 
 export default function PickClient({ data }: { data: PickData }) {
@@ -46,6 +48,8 @@ export default function PickClient({ data }: { data: PickData }) {
   const [gone, setGone] = useState<number[]>([])
   const [ask, setAsk] = useState('')
   const [asked, setAsked] = useState(false)
+  const [reply, setReply] = useState<'attend' | 'change' | null>(data.reply ?? null)
+  const [changing, setChanging] = useState(false)
 
   const slots = (data.slots || []).filter(s => !gone.includes(s.ord))
   const chosen = slots.find(s => s.ord === picked) || null
@@ -88,6 +92,18 @@ export default function PickClient({ data }: { data: PickData }) {
     else setErr('보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
   }
 
+  async function sendReply(kind: 'attend' | 'change') {
+    if (!data.token || busy) return
+    if (kind === 'change' && !ask.trim()) return
+    setBusy(true); setErr('')
+    const r = await ivCandReply(data.token, kind, kind === 'change' ? ask : undefined)
+    setBusy(false)
+    if (r.ok) { setReply(kind); setChanging(false); return }
+    setErr(r.reason === 'not-confirmed'
+      ? '일정이 다시 조율되고 있습니다. 담당자의 안내를 기다려 주세요.'
+      : '보내지 못했습니다. 잠시 뒤 다시 시도해 주세요.')
+  }
+
   /* 고르는 사이에 자리가 다 나간 경우도 '마감' 화면으로 넘긴다.
      빈 목록만 남겨 두는 건 후보자를 막다른 골목에 세우는 것과 같다. */
   const full = data.status === 'full' || (data.status === 'choose' && slots.length === 0)
@@ -122,7 +138,7 @@ export default function PickClient({ data }: { data: PickData }) {
             </svg>
           </span>
           <span className="bk-wm">Cadence</span>
-          <span className="bk-wm-sub">면접 시간 선택</span>
+          <span className="bk-wm-sub">{data.status === 'booked' ? '면접 일정' : '면접 시간 선택'}</span>
         </div>
 
         {done ? (
@@ -141,13 +157,49 @@ export default function PickClient({ data }: { data: PickData }) {
           </div>
         ) : data.status === 'booked' ? (
           <div className="bk-body">
-            {okMark}
-            <h1 className="bk-h1">이미 시간이 확정되었어요</h1>
-            <p className="bk-lead">{data.name} 님의 {data.stageName} 일정이 확정된 상태입니다.</p>
+            {reply === 'change' ? waitMark : okMark}
+            <h1 className="bk-h1">{reply === 'change' ? '일정 변경 요청을 받았어요' : reply === 'attend' ? '참석을 확인했어요' : '면접 일정이 확정되었어요'}</h1>
+            <p className="bk-lead">
+              {reply === 'change'
+                ? '담당자가 확인한 뒤 새 시간을 안내드릴게요.'
+                : reply === 'attend'
+                  ? `${data.name} 님, 아래 시간에 뵙겠습니다.`
+                  : `${data.name} 님, 아래 시간에 참석 가능하신지 알려 주세요.`}
+            </p>
             {data.bookedLabel ? (
-              <div className="bk-confirm"><div className="bk-confirm-day">{data.bookedLabel}</div></div>
+              <div className="bk-confirm">
+                <div className="bk-confirm-day">{data.bookedLabel}</div>
+                <div className="bk-confirm-meta">{[data.company, data.positionTitle, data.stageName, data.mode ?? '화상'].filter(Boolean).join(' · ')}</div>
+              </div>
             ) : null}
-            <p className="bk-note">변경이 필요하시면 담당자에게 회신해 주세요.</p>
+            {changing ? (
+              <textarea
+                className="pk-ask" rows={3} value={ask} maxLength={500}
+                onChange={e => setAsk(e.target.value)}
+                placeholder="예) 그날은 어렵습니다. 다음 주 화·수 오후 가능합니다" />
+            ) : null}
+            {err ? <p className="pk-err">{err}</p> : null}
+            {reply === 'change' ? null : (
+              <div className="bk-foot">
+                {changing ? (
+                  <>
+                    <button className="bk-cta" disabled={!ask.trim() || busy} onClick={() => sendReply('change')}>
+                      {busy ? '보내는 중…' : '일정 변경 요청 보내기'}
+                    </button>
+                    <button className="pk-sub" onClick={() => setChanging(false)}>취소</button>
+                  </>
+                ) : (
+                  <>
+                    {reply === 'attend' ? null : (
+                      <button className="bk-cta" disabled={busy} onClick={() => sendReply('attend')}>
+                        {busy ? '보내는 중…' : '참석하겠습니다'}
+                      </button>
+                    )}
+                    <button className="pk-sub" onClick={() => setChanging(true)}>일정 변경 요청</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ) : data.status === 'expired' ? (
           <div className="bk-body">
@@ -258,6 +310,12 @@ export default function PickClient({ data }: { data: PickData }) {
 }
 
 const EXTRA = `
+.pk-sub{
+  width:100%; margin-top:8px; padding:12px 16px; border-radius:var(--r-lg, 10px);
+  background:var(--canvas, #fff); color:var(--t1, #17171c); font-size:13px; font-weight:600;
+  box-shadow:inset 0 0 0 1px var(--line-firm, #dedee4);
+}
+.pk-sub:hover{ background:var(--sunken, #f6f6f8); }
 .pk-ask{
   width:100%; margin-top:16px; padding:11px 13px; border-radius:var(--r-md, 8px);
   border:0; box-shadow:inset 0 0 0 1px var(--line-firm, #dedee4);

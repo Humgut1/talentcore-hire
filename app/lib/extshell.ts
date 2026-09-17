@@ -3,7 +3,7 @@
    ---------------------------------------------------------
    면접관·후보자가 계정 없이 여는 링크 화면은 리크루터 셸(사이드바)을 덮고
    전체화면 카드 하나로 뜬다. 그 카드의 스타일을 여기 한 곳에 둔다.
-   링크가 4장(①시간 확정 ②브리핑 ③평가 제출 ④가용시간)이라, 같은 CSS 를
+   링크가 3장(①시간 확정 ③평가 제출 ④가용시간)이라, 같은 CSS 를
    네 번 복사하면 한 곳만 고쳐도 나머지 세 장이 어긋난다.
 
    디자인 규칙은 내부 화면과 같다 — 색은 상태에만(확정 녹색·불가 버밀리온),
@@ -217,34 +217,6 @@ export const EXT_CSS = `
   .ivp-root{ padding:32px 14px 22px; }
   .ivp-slots{ grid-template-columns:1fr; }
 }
-
-/* ---------- ② 브리핑 전용 ---------- */
-.ivp-cov{ margin-top:8px; display:flex; flex-direction:column; gap:6px; }
-.ivp-cov-row{
-  display:flex; align-items:baseline; gap:9px; padding:7px 10px;
-  border-radius:var(--r-md, 8px); background:var(--canvas, #fff);
-  box-shadow:inset 0 0 0 1px var(--line, #ececf0); font-size:12.5px;
-}
-.ivp-cov-l{ flex:1; min-width:0; color:var(--t2, #55555f); }
-.ivp-cov-v{ flex:none; font-weight:620; font-size:11.5px; }
-.ivp-cov-v.pos{ color:var(--done, #0a9459); }
-.ivp-cov-v.neg{ color:var(--esc, #d92d20); }
-.ivp-cov-v.none{ color:var(--t4, #a8a8b2); font-weight:500; }
-.ivp-mine{
-  margin-top:8px; padding:11px 13px; border-radius:var(--r-md, 8px);
-  background:var(--canvas, #fff); box-shadow:inset 0 0 0 1.5px var(--brand, #5b53d6);
-}
-.ivp-mine-h{ font-size:11.5px; font-weight:700; color:var(--brand-deep, #4a43bd); margin-bottom:6px; }
-/* 남이 맡은 항목 — 참고용이라 테두리·색을 뺀다. 인디고는 '내 것'에만. */
-.ivp-mine.other{ box-shadow:inset 0 0 0 1px var(--line, #ececf0); background:var(--sunken, #f6f6f8); }
-.ivp-mine.other .ivp-mine-h{ color:var(--t2, #55555f); }
-.ivp-qs{ margin:0; padding-left:16px; color:var(--t2, #55555f); font-size:12.5px; line-height:1.75; }
-.ivp-qs li + li{ margin-top:2px; }
-.ivp-split{ display:flex; flex-direction:column; gap:5px; margin-top:8px; }
-.ivp-split-row{ display:flex; gap:9px; align-items:baseline; font-size:12.5px; }
-.ivp-split-nm{ flex:none; width:62px; font-weight:600; }
-.ivp-split-nm.me{ color:var(--brand-deep, #4a43bd); }
-.ivp-split-at{ flex:1; min-width:0; color:var(--t2, #55555f); }
 
 /* ---------- ④ 가용시간 전용 ---------- */
 .ivp-cal{ margin-top:14px; overflow-x:auto; }

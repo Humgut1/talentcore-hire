@@ -86,6 +86,9 @@ export function offsetLabel(min: number): string {
   return min % 60 === 0 ? `${min / 60}시간 전` : `${min}분 전`
 }
 
+/** 후보자 참석 확인 메일 — 면접 24시간 전. */
+export const CAND_CHECK_MIN = 1440
+
 /* 확정된 면접에 대한 전체 리마인드 이벤트(발송 시점 순). */
 export function remindersFor(cand: Candidate): ReminderEvent[] {
   const stage: Stage = stageById(cand.p, cand.st)
@@ -100,9 +103,6 @@ export function remindersFor(cand: Candidate): ReminderEvent[] {
     const st = stateAt(at)
     const ol = offsetLabel(off)
     const atLabel = `${mdLabel(at.date)} ${fmtMin(at.min)}`
-    // 후보자
-    out.push({ who: '후보자', role: 'candidate', channel: '이메일', offsetLabel: ol, atDate: at.date, atMin: at.min, atLabel, state: st,
-               key: `${cand.id}:${off}:c`, cid: cand.id, offset: off })
     // 면접관들
     ;(stage.ivs || []).forEach(uid => {
       const p = personById(uid)
@@ -111,6 +111,15 @@ export function remindersFor(cand: Candidate): ReminderEvent[] {
                  key: `${cand.id}:${off}:i:${uid}`, cid: cand.id, uid, offset: off })
     })
   })
+  // 후보자는 시간 알림을 여러 번 받지 않는다 — 하루 전에 한 번, 참석 여부를 묻는다.
+  // (면접관 하루 전 브리핑을 없애고 대신 둔 것. 못 오는 걸 전날 알면 면접관 시간을 살린다.)
+  {
+    const off = CAND_CHECK_MIN
+    const at = shift(ct, off)
+    out.push({ who: '후보자', role: 'candidate', channel: '이메일', offsetLabel: '참석 확인',
+               atDate: at.date, atMin: at.min, atLabel: `${mdLabel(at.date)} ${fmtMin(at.min)}`, state: stateAt(at),
+               key: `${cand.id}:${off}:c`, cid: cand.id, offset: off })
+  }
   return out.sort((a, b) => (a.atDate < b.atDate ? -1 : a.atDate > b.atDate ? 1 : a.atMin - b.atMin))
 }
 

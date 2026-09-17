@@ -22,6 +22,7 @@ import {
   interviewerMessage, candidateMessage,
 } from './mailer'
 import { serverClient } from './supabase'
+import { interviews } from './iv-store'
 import { appOrigin } from './origin'
 
 export interface SendOutcome {
@@ -77,10 +78,13 @@ async function sendOne(cand: Candidate, ev: ReminderEvent): Promise<SendOutcome>
   const dur = stage.dur || 60
 
   if (ev.role === 'candidate') {
+    // 확정된 면접의 열쇠 — 후보자가 링크에서 참석/변경을 누른다.
+    const token = interviews.find(v => v.cid === cand.id && v.st === 'confirmed' && v.token)?.token
     const msg = candidateMessage({
       candName: cand.nm, positionTitle: pos.title, stageName: stage.nm,
       when, dur, mode, offsetLabel: ev.offsetLabel,
-      recruiter: personById(pos.rec)?.nm,
+      recruiter: pos.rec,
+      ...(token ? { link: `${BASE()}/pick/${token}` } : {}),
     })
     const r = await sendEmail(cand.email, msg.subject, msg.text)
     return {

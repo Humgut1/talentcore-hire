@@ -33,7 +33,10 @@ export interface CoordRow {
   sentAt?: string; holdUntil?: string; holdLeft?: string
   token?: string           // 후보자 선택 링크 /pick/<token>
   fixed?: string            // 확정된 자리
-  days: number              // 이 단계에서 며칠째
+  manual?: boolean          // 채용 담당이 직접 지정한 시간인가 (후보자가 고른 게 아니라)
+  /** 확정 뒤 후보자 회신 — 참석 확인 / 일정 변경 요청. 없으면 아직 답이 없다. */
+  reply?: { kind: 'attend' | 'change'; at: string; memo?: string }
+  days: number             // 이 단계에서 며칠째
   need: boolean             // 사람이 손대야 하는가
 }
 
@@ -47,6 +50,29 @@ export function holdLeft(iso?: string, now = demoNow()): string | undefined {
 }
 
 const RESP: Record<string, string> = { none: '대기', accepted: '수락', declined: '불가' }
+
+/* 조율 기록 이름 — 확정·회신은 따로 칸을 두지 않고 기록 한 줄로 남긴다.
+   마지막 확정 뒤에 온 회신만 유효하다(시간을 바꾸면 다시 물어야 하므로). */
+export const EV_PICK = '후보자 선택'
+export const EV_MANUAL = '일정 직접 지정'
+export const EV_ATTEND = '후보자 참석 확인'
+export const EV_CHANGE = '후보자 일정 변경 요청'
+
+export function confirmState(iid: string): Pick<CoordRow, 'manual' | 'reply'> {
+  const evs = eventsOf(iid)
+  let i = evs.length - 1
+  while (i >= 0 && evs[i].b !== EV_PICK && evs[i].b !== EV_MANUAL) i--
+  const out: Pick<CoordRow, 'manual' | 'reply'> = {}
+  if (i >= 0 && evs[i].b === EV_MANUAL) out.manual = true
+  for (let k = evs.length - 1; k > i; k--) {
+    const e = evs[k]
+    if (e.b === EV_ATTEND || e.b === EV_CHANGE) {
+      out.reply = { kind: e.b === EV_ATTEND ? 'attend' : 'change', at: e.at, ...(e.p ? { memo: e.p } : {}) }
+      break
+    }
+  }
+  return out
+}
 
 function rowOf(iv: Interview): CoordRow {
   const cand = cands.find(c => c.id === iv.cid)
@@ -81,7 +107,11 @@ function rowOf(iv: Interview): CoordRow {
     ...(iv.token ? { token: iv.token } : {}),
     ...(iv.sentAt ? { sentAt: iv.sentAt } : {}),
     ...(iv.holdUntil ? { holdUntil: iv.holdUntil, holdLeft: holdLeft(iv.holdUntil) } : {}),
-    ...(picked ? { fixed: picked.label } : {}),
+    ...(picked ? { fixed: picked.label }
+      : iv.st === 'confirmed' && iv.date && iv.start != null
+        ? { fixed: `${dayLabel(iv.date)} ${fmtMin(iv.start)}–${fmtMin(iv.end ?? iv.start + iv.totalMin)}` }
+        : {}),
+    ...(iv.st === 'confirmed' ? confirmState(iv.id) : {}),
     days: cand?.d ?? 0,
     // 사람이 손대야 하는 줄: 아직 안 보냈거나(searching), 면접관이 불가라 했거나(esc),
     // 가예약이 풀렸거나(late). 보낸 뒤 조용히 기다리는 건은 손댈 것이 없다.

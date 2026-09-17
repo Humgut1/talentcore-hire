@@ -15,7 +15,7 @@
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Icon } from './IconSprite'
-import { ivSend, ivRespondPart, ivBookRoom, ivReleaseRoom, ivSendPlace } from '../lib/iv-actions'
+import { ivSend, ivRespondPart, ivBookRoom, ivReleaseRoom, ivSendPlace, ivSetTime } from '../lib/iv-actions'
 import { pickRequest } from '../lib/iv-mail'
 import type { IvPlanView, IvRoomView } from '../lib/iv-actions'
 import { DECLINE_LIST } from '../lib/iv-flow'
@@ -91,6 +91,7 @@ export default function IvPanel({
   const [decl, setDecl] = useState<number | null>(null)       // 불가 처리 중인 면접관 ord
   const [msg, setMsg] = useState('')
   const [mailOpen, setMailOpen] = useState(false)
+  const [retime, setRetime] = useState(false)                 // 확정된 면접 시간 바꾸기 펼침
 
   const cur = rows.find(r => r.id === sel) || null
   const plan = detail?.plan
@@ -99,7 +100,6 @@ export default function IvPanel({
   // 기본 체크는 서버가 계산해 준 추천 자리 — 아무것도 안 고르고 보내도 같은 게 나간다.
   const chosen = picks ?? detail?.recommend ?? []
 
-  const go = (id: string) => { setPicks(null); setMsg(''); nav(id) }
   const toggle = (i: number) => setPicks(() =>
     chosen.includes(i) ? chosen.filter(x => x !== i) : [...chosen, i].sort((a, b) => a - b))
 
@@ -206,8 +206,25 @@ export default function IvPanel({
         <div className="sheet cq-fixed">
           <span className="pill ok"><span className="dot" />확정</span>
           <b>{cur.fixed}</b>
-          <span className="cq-h-sub">후보자가 직접 고른 시간입니다.</span>
+          <span className="cq-h-sub">{cur.manual ? '직접 지정한 시간' : '후보자가 고른 시간'}</span>
+          <span className="cq-spacer" />
+          {cur.reply?.kind === 'attend'
+            ? <span className="pill ok">후보자 참석 확인 · {cur.reply.at}</span>
+            : cur.reply?.kind === 'change'
+              ? <span className="pill bad">후보자 일정 변경 요청 · {cur.reply.at}</span>
+              : <span className="pill">후보자 회신 대기</span>}
+          <button className="btn quiet" onClick={() => setRetime(v => !v)} aria-expanded={retime}>
+            <Icon id="i-clock" className="ic-sm" />{retime ? '닫기' : '시간 바꾸기'}
+          </button>
+          {cur.reply?.kind === 'change' && cur.reply.memo
+            ? <div className="cq-reply">{cur.reply.memo}</div> : null}
         </div>
+      ) : null}
+
+      {cur.st !== 'done' && (cur.st !== 'confirmed' || retime) ? (
+        <ManualTime key={'mt' + cur.id + cur.st} ivId={cur.id} totalMin={cur.totalMin}
+          confirmed={cur.st === 'confirmed'}
+          onDone={label => { setRetime(false); setMsg(`${label} 로 확정했습니다 — 후보자·면접관에게 확정 메일을 보냈습니다.`); router.refresh() }} />
       ) : null}
 
       {cur.st === 'confirmed' ? <IvRoom ivId={cur.id} key={'room' + cur.id} /> : null}
@@ -412,6 +429,63 @@ export default function IvPanel({
       {modals}
       <style>{CSS}</style>
     </>
+  )
+}
+
+/* =========================================================
+   직접 시간 지정 — 후보자에게 고르게 하지 않고 바로 확정
+   ---------------------------------------------------------
+   전화로 맞춘 시간, 임원이 먼저 정한 시간처럼 사람이 이미 정한 경우.
+   끝 시각은 시작을 바꾸면 면접 길이만큼 따라 움직인다(직접 고칠 수도 있다).
+   같은 면접관의 다른 확정 면접과 겹치면 한 번 묻고, 그래도 진행할 수 있다.
+   ========================================================= */
+const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+
+function ManualTime({ ivId, totalMin, confirmed, onDone }: {
+  ivId: string; totalMin: number; confirmed: boolean; onDone: (label: string) => void
+}) {
+  const [date, setDate] = useState('')
+  const [st, setSt] = useState('14:00')
+  const [en, setEn] = useState(fmt(14 * 60 + totalMin))
+  const [clash, setClash] = useState('')
+  const [err, setErr] = useState('')
+  const [pending, start] = useTransition()
+  const bad = !date || !st || !en || toMin(en) <= toMin(st)
+
+  const save = (force: boolean) => start(async () => {
+    setErr('')
+    const r = await ivSetTime(ivId, date, toMin(st), toMin(en), force)
+    if (r.ok) { setClash(''); onDone(r.label ?? ''); return }
+    if (r.reason === 'clash') { setClash(r.clash ?? '면접관'); return }
+    setErr(r.reason === 'bad-time' ? '날짜와 시간을 확인하세요.' : `저장하지 못했습니다 (${r.reason ?? '알 수 없음'})`)
+  })
+
+  return (
+    <div className="sheet cq-box">
+      <div className="cq-sec">
+        {confirmed ? '시간 바꾸기' : '직접 시간 지정'}
+        <span className="cq-src">{confirmed
+          ? '바꾸면 후보자·면접관에게 새 확정 메일이 나가고, 후보자 참석 확인을 다시 받습니다'
+          : '이미 맞춘 시간이 있으면 자리 보내기 없이 바로 확정합니다'}</span>
+      </div>
+      <div className="cq-mt">
+        <label><span>날짜</span><input type="date" className="in sm mono" value={date} onChange={e => { setDate(e.target.value); setClash('') }} /></label>
+        <label><span>시작</span><input type="time" className="in sm mono" step={600} value={st}
+          onChange={e => { const v = e.target.value; setSt(v); setClash(''); if (v) setEn(fmt(Math.min(1439, toMin(v) + totalMin))) }} /></label>
+        <label><span>끝</span><input type="time" className="in sm mono" step={600} value={en} onChange={e => { setEn(e.target.value); setClash('') }} /></label>
+        <button className="btn solid" disabled={pending || bad} onClick={() => save(false)}>
+          <Icon id="i-check-circle" className="ic-sm" />이 시간으로 확정
+        </button>
+      </div>
+      {clash ? (
+        <div className="cq-warn">
+          <Icon id="i-alert" className="ic-sm" />{clash} 님이 이 시간에 다른 확정 면접이 있습니다.
+          <span className="cq-spacer" />
+          <button className="btn" disabled={pending} onClick={() => save(true)}>그래도 확정</button>
+        </div>
+      ) : null}
+      {err ? <div className="cq-block"><Icon id="i-alert" className="ic-sm" />{err}</div> : null}
+    </div>
   )
 }
 
@@ -634,7 +708,13 @@ const CSS = `
 .cq-p.bad em { color: var(--esc); font-weight: 600; }
 .cq-note { margin-top: 9px; font-size: 11.5px; color: var(--t3); }
 .cq-msg { padding: 11px 16px; font-size: 12.5px; color: var(--t2); }
-.cq-fixed { padding: 13px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cq-fixed { padding: 13px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.cq-reply { flex-basis: 100%; padding: 9px 11px; border-radius: 8px; background: var(--sunken); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; }
+.cq-mt { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.cq-mt label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--t3); }
+.cq-mt .in { height: 32px; min-width: 0; }
+.cq-mt label:first-child .in { width: 150px; }
+.cq-mt label .in[type=time] { width: 104px; }
 .cq-sec { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 700;
   color: var(--t2); margin-bottom: 10px; }
 .cq-src { font-weight: 500; color: var(--t4); }

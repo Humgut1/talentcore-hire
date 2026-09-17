@@ -156,7 +156,23 @@ export function candidateMessage(a: {
   candName: string; positionTitle: string
   stageName: string; when: string; dur: number; mode: string
   offsetLabel: string; recruiter?: string
+  /** 참석 확인 링크(/pick/<token>). 있으면 '참석 / 일정 변경 요청'을 묻는 메일이 된다. */
+  link?: string
 }): ReminderMessage {
+  if (a.link) return {
+    subject: `[참석 확인] ${a.positionTitle} · ${a.stageName} · ${a.when}`,
+    text: [
+      `${a.candName} 님, 안녕하세요. ${a.positionTitle} ${a.stageName} 일정을 다시 안내드립니다.`,
+      '',
+      `· 시간 : ${a.when} · ${a.dur}분 · ${a.mode}`,
+      '',
+      '참석 가능 여부를 아래 링크에서 눌러 주세요. 어려우시면 같은 화면에서 일정 변경을 요청하실 수 있습니다.',
+      `  ${a.link}`,
+      '',
+      a.recruiter ? `담당 ${a.recruiter}` : '',
+      '— Cadence',
+    ].join('\n'),
+  }
   return {
     subject: `[면접 ${a.offsetLabel}] ${a.positionTitle} · ${a.stageName}`,
     text: [

@@ -18,7 +18,7 @@ import { randomBytes } from 'crypto'
 import { serverClient } from './supabase'
 import { hydrateData } from './db'
 import {
-  cands, posById, stageById, personById, TODAY, DEFAULT_POLICY, demoNow,
+  cands, posById, stageById, personById, personByName, TODAY, DEFAULT_POLICY, demoNow,
   type IvPolicy,
 } from './data'
 import {
@@ -45,6 +45,7 @@ import {
   pickRequest, candConfirm, partConfirm, expiredNotice, declineAlert,
   type IvMailCtx, type Msg,
 } from './iv-mail'
+import { EV_MANUAL, EV_ATTEND, EV_CHANGE } from './iv-view'
 
 type R = { ok: boolean; reason?: string }
 const nowIso = () => demoNow().toISOString()
@@ -520,7 +521,7 @@ export async function ivPickSlot(token: string, ord: number): Promise<R & { labe
   // 확정 안내. 후보자에게 1통, 면접관에게 각자 자기 구간으로 1통씩.
   // 이어서 보는 2차는 사람마다 시작 시각이 다르므로 한 통으로 묶으면 안 된다.
   const ctx = await mailCtx(iv)
-  await mail(iv, cand?.email, candConfirm(ctx, { when: label }), `후보자 ${cand?.nm ?? ''}`, 'iv-confirm')
+  await mail(iv, cand?.email, candConfirm(ctx, { when: label, link: `${BASE()}/pick/${iv.token}` }), `후보자 ${cand?.nm ?? ''}`, 'iv-confirm')
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i]
     const myStart = res.picked.start + p.offMin
@@ -916,4 +917,139 @@ export async function ivSendPlace(ivId: string): Promise<R & { sent?: number; to
       `면접관 ${p.nm}`, 'iv-place-part')) sent++
   }
   return { ok: true, sent, total }
+}
+
+/* =========================================================
+   ⑨ 직접 시간 지정 — 후보자에게 고르게 하지 않고 채용 담당이 바로 확정한다
+   ---------------------------------------------------------
+   전화로 이미 맞춘 시간, 임원 일정처럼 사람이 먼저 정한 경우가 많다.
+   · 보내 둔 자리(가예약)가 있으면 전부 푼다 — 후보자 링크에 옛 자리가 남으면 안 된다.
+   · 같은 면접관이 그 시각에 다른 확정 면접이 있으면 한 번 묻는다(force 로 무시 가능).
+   · 확정하면 후보자에게 확정 메일(참석 확인 / 일정 변경 요청 링크 포함),
+     면접관에게 각자 자기 구간으로 한 통씩.
+   ========================================================= */
+export async function ivSetTime(
+  ivId: string, date: string, start: number, end: number, force = false,
+): Promise<R & { label?: string; clash?: string }> {
+  await hydrateData()
+  const iv = ivById(ivId)
+  if (!iv) return { ok: false, reason: 'no-interview' }
+  if (iv.st === 'canceled' || iv.st === 'done') return { ok: false, reason: 'closed' }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(start >= 0 && end > start && end <= 1440))
+    return { ok: false, reason: 'bad-time' }
+
+  const parts = partsOf(iv.id)
+  // 이어서 보는 2차는 사람마다 구간이 다르다 — 전체 길이를 면접관 수로 나누지 않고
+  // 원래 비율(offMin·dur)을 새 길이에 맞춰 늘리거나 줄인다.
+  const total = end - start
+  const scale = iv.totalMin > 0 ? total / iv.totalMin : 1
+  const spans = parts.map(p => ({
+    uid: p.uid,
+    start: start + Math.round(p.offMin * scale),
+    end: start + Math.round((p.offMin + p.dur) * scale),
+  }))
+  const clash = seatTaken(iv.id, date, spans)
+  if (clash && !force) return { ok: false, reason: 'clash', clash }
+
+  const cand = cands.find(c => c.id === iv.cid)
+  const pos = posById(iv.pid)
+  const writer = await resolveWriter()
+
+  // 보내 둔 자리와 이전 확정 일정을 푼다.
+  for (const s of slotsOf(iv.id).filter(x => x.st === 'offered' || x.st === 'picked')) {
+    const ids = s.holdIds || []
+    for (let i = 0; i < ids.length; i++) {
+      const uid = parts[i]?.uid
+      if (uid && ids[i]) await writer.release(uid, ids[i])
+    }
+  }
+  for (const p of parts) if (p.uid && p.evId) await writer.release(p.uid, p.evId)
+
+  const title = `${cand?.nm ?? '후보자'} ${iv.round}차 면접 — ${pos.title}`
+  const guests = [cand?.email].filter(Boolean) as string[]
+  const evIds: (string | null)[] = []
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    evIds.push(p.uid ? await writer.book(p.uid, date, spans[i].start, spans[i].end, title, guests) : null)
+  }
+
+  const label = slotLabel({ date, start, end })
+  const token = iv.token || randomBytes(16).toString('hex')
+  const why = `${label} 확정 (직접 지정)`
+  _patchIv(iv.id, { st: 'confirmed', s: 'done', date, start, end, token, why, totalMin: total, holdUntil: undefined })
+  _setIvSlots(iv.id, slotsOf(iv.id).map(s =>
+    s.st === 'offered' || s.st === 'picked' ? { ...s, st: 'dropped' as const } : s))
+  parts.forEach((p, i) => {
+    _patchIvPart(iv.id, p.ord, {
+      offMin: spans[i].start - start, dur: spans[i].end - spans[i].start,
+      ...(evIds[i] ? { evId: evIds[i]! } : {}),
+    })
+  })
+
+  const sb = serverClient()
+  if (sb) {
+    await sb.from('interview_slots').update({ st: 'dropped' })
+      .eq('interview_id', iv.id).in('st', ['offered', 'picked'])
+    await sb.from('interviews').update({
+      st: 'confirmed', s: 'done', sched_date: date, sched_start: start, sched_end: end,
+      total_min: total, hold_until: null, pick_token: token, why,
+    }).eq('id', iv.id)
+    for (let i = 0; i < parts.length; i++) {
+      await sb.from('interview_parts').update({
+        off_min: spans[i].start - start, dur: spans[i].end - spans[i].start,
+        ...(evIds[i] ? { cal_event_id: evIds[i] } : {}),
+      }).eq('interview_id', iv.id).eq('ord', parts[i].ord)
+    }
+    await sb.from('candidates').update({ s: 'done', why, act: null }).eq('id', iv.cid)
+  }
+  const c = cands.find(x => x.id === iv.cid)
+  if (c) { c.s = 'done'; c.why = why }
+  await log(iv.id, EV_MANUAL, `${label}${clash ? ` · ${clash} 님 일정과 겹침(확인 후 진행)` : ''}`, 'done')
+
+  const ctx = await mailCtx(iv)
+  await mail(iv, cand?.email, candConfirm(ctx, { when: label, link: `${BASE()}/pick/${token}` }),
+    `후보자 ${cand?.nm ?? ''}`, 'iv-confirm')
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i]
+    const myWhen = slotLabel({ date, start: spans[i].start, end: spans[i].end })
+    await mail(iv, personById(p.uid || '')?.email,
+      partConfirm(ctx, { when: label, myWhen, ord: i, link: `${BASE()}/iv/${iv.cid}/${p.uid ?? ''}` }),
+      `면접관 ${p.nm}`, 'iv-confirm-part')
+  }
+  return { ok: true, label }
+}
+
+/* =========================================================
+   ⑩ 후보자 회신 — 확정 메일·하루 전 확인 메일의 링크에서 누른다
+   참석 확인은 기록만, 일정 변경 요청은 담당자가 손대야 하므로 카드를 붉게 올린다.
+   ========================================================= */
+export async function ivCandReply(token: string, kind: 'attend' | 'change', text?: string): Promise<R> {
+  await hydrateData()
+  const iv = interviews.find(v => v.token === token)
+  if (!iv) return { ok: false, reason: 'bad-token' }
+  if (iv.st !== 'confirmed') return { ok: false, reason: 'not-confirmed' }
+  const cand = cands.find(c => c.id === iv.cid)
+  const body = (text || '').trim().slice(0, 500)
+
+  if (kind === 'attend') {
+    await log(iv.id, EV_ATTEND, '', 'done', cand?.nm)
+    return { ok: true }
+  }
+  if (!body) return { ok: false, reason: 'empty' }
+  const why = '후보자가 일정 변경을 요청했습니다 — 새 시간을 직접 지정하세요.'
+  _patchIv(iv.id, { s: 'esc', why })
+  await log(iv.id, EV_CHANGE, body, 'esc', cand?.nm)
+  const sb = serverClient()
+  if (sb) {
+    await sb.from('interviews').update({ s: 'esc', why }).eq('id', iv.id)
+    await sb.from('candidates').update({ s: 'esc', why }).eq('id', iv.cid)
+  }
+  const ctx = await mailCtx(iv)
+  await mail(iv, personByName(posById(iv.pid).rec)?.email, {
+    subject: `[일정 변경 요청] ${cand?.nm ?? '후보자'} · ${ctx.posTitle} ${ctx.stageNm}`,
+    text: `${cand?.nm ?? '후보자'} 님이 확정된 면접 일정 변경을 요청했습니다.\n\n${body}\n\n후보자 화면: ${BASE()}/c/${iv.cid}`,
+  }, `채용 담당 ${posById(iv.pid).rec}`, 'iv-change')
+  if ((await mailerStatus()).slack)
+    await sendSlack(`[일정 변경 요청] ${cand?.nm ?? '후보자'} — ${ctx.posTitle}\n${body}`)
+  return { ok: true }
 }
