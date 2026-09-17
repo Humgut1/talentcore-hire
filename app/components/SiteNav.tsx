@@ -41,7 +41,7 @@ export default function SiteNav({ open }: { open: number }) {
       {/* '지원하기'라고 쓰지 않는다 — 어느 자리에 지원하는지 정하지 않은 채
           누르는 버튼이라 거짓말이 된다. 대신 지금 몇 자리가 열려 있는지 말한다. */}
       <Link href="/careers" className="s-btn">
-        열려 있는 자리 <b>{open}</b>
+        열려 있는 공고 <b>{open}</b>
       </Link>
     </nav>
   )

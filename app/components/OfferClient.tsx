@@ -101,8 +101,8 @@ export default function OfferClient(
       const h = r.handoff
       if (h?.sent) {
         setMsg(`${done} · TalentCore 입사 예정자로 넘겼습니다`
-          + (h.seatCode ? ` (자리 ${h.seatCode})` : ' (정원 밖)')
-          + (h.closedPosition ? ' · 마지막 자리가 차서 공고를 닫았습니다' : ''))
+          + (h.seatCode ? ` (포지션 ${h.seatCode})` : ' (정원 밖)')
+          + (h.closedPosition ? ' · 마지막 포지션이 차서 공고를 닫았습니다' : ''))
       } else if (h && h.reason !== 'not-configured') {
         setMsg(done)
         setErr(`수락은 기록했지만 TalentCore 로 넘기지 못했습니다 — ${h.detail ?? h.reason}. `
@@ -128,11 +128,11 @@ export default function OfferClient(
 
   const seatBlock = !seats || seats.state === 'not-configured' || seats.state === 'no-req' ? null : (
     <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
-      <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 6 }}>어느 자리에 앉히나</div>
+      <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 6 }}>어느 포지션에 앉히나</div>
 
       {seats.state === 'error' ? (
         <div style={{ fontSize: 11.5, color: 'var(--late)' }}>
-          TalentCore 자리 대장을 읽지 못했습니다 ({seats.detail}). 자리 없이 진행하면
+          TalentCore 포지션 대장을 읽지 못했습니다 ({seats.detail}). 포지션 없이 진행하면
           합격자가 <b>정원 밖</b>으로 넘어갑니다.
         </div>
       ) : (
@@ -140,7 +140,7 @@ export default function OfferClient(
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <select className="in sm" style={{ width: 320 }} value={seat} disabled={busy}
               onChange={e => setSeat(e.target.value)}>
-              <option value="">— 자리 고르지 않음 (정원 밖) —</option>
+              <option value="">— 포지션 고르지 않음 (정원 밖) —</option>
               {seatOpts.map(s => (
                 <option key={s.code} value={s.code}>
                   {s.code} · {s.level_label}
@@ -149,27 +149,27 @@ export default function OfferClient(
               ))}
             </select>
             <span style={{ fontSize: 11.5, color: tight ? 'var(--late)' : 'var(--t3)' }}>
-              남은 자리 <b>{seats.open}</b> · 진행 중 오퍼 <b>{seats.pending}</b>
+              남은 포지션 <b>{seats.open}</b> · 진행 중 오퍼 <b>{seats.pending}</b>
             </span>
           </div>
 
           {seats.open === 0 && !seat ? (
             <div style={{ fontSize: 11.5, color: 'var(--esc)', marginTop: 6 }}>
-              빈 자리가 없습니다. 이대로 수락되면 <b>정원 밖</b>으로 넘어갑니다 —
-              TalentCore 에서 자리를 늘리는 결재를 먼저 올리세요.
+              빈 포지션이 없습니다. 이대로 수락되면 <b>정원 밖</b>으로 넘어갑니다 —
+              TalentCore 에서 헤드카운트를 늘리는 결재를 먼저 올리세요.
             </div>
           ) : tight ? (
             <div style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 6 }}>
-              진행 중인 오퍼가 남은 자리보다 많습니다. 전원이 수락하면
-              뒤에 수락한 사람은 <b>자리를 받지 못합니다</b>.
+              진행 중인 오퍼가 남은 포지션보다 많습니다. 전원이 수락하면
+              뒤에 수락한 사람은 <b>포지션을 받지 못합니다</b>.
             </div>
           ) : chosen && draftBase && chosen.band[1] && draftBase > chosen.band[1] ? (
             <div style={{ fontSize: 11.5, color: 'var(--esc)', marginTop: 6 }}>
-              이 자리의 밴드 상한 {chosen.band[1].toLocaleString()}만원을 넘습니다.
+              이 포지션의 밴드 상한 {chosen.band[1].toLocaleString()}만원을 넘습니다.
             </div>
           ) : (
             <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 6 }}>
-              자리는 <b>후보자가 수락할 때</b> 잡힙니다. 지금 골라 두면 수락 즉시
+              포지션은 <b>후보자가 수락할 때</b> 잡힙니다. 지금 골라 두면 수락 즉시
               그 카드로 TalentCore 에 넘어갑니다.
             </div>
           )}

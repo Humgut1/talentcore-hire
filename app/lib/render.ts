@@ -398,7 +398,7 @@ export function dashboardHTML() {
     '<div class="h-row"><h1>대시보드</h1>' +
     '<div class="spacer"><div class="seg"><button>30일</button><button class="on">90일</button><button>연간</button></div>' +
     `<button class="btn">${ico('i-download', 'ic-sm')}내보내기</button></div></div>` +
-    `<div class="meta"><i>${ico('i-shield', 'ic-sm')}접근 범위 <b>리크루터 — 담당 포지션만</b></i></div></header>` +
+    `<div class="meta"><i>${ico('i-shield', 'ic-sm')}접근 범위 <b>리크루터 — 담당 공고만</b></i></div></header>` +
     '<div class="stage">' +
     '<div class="grid g4">' +
     kpi('i-user', '진행 중 후보자', String(k.live), '명', `누적 지원 ${cands.length}명`, '') +
@@ -471,12 +471,12 @@ export function exportHTML() {
     `<div class="crumb">${ico('i-download', 'ic-sm')}운영</div>` +
     `<div class="h-row"><h1>데이터 내보내기</h1><span class="pill">${total}개 컬럼</span>` +
     `<div class="spacer"><button class="btn br">${ico('i-download', 'ic-sm')}.xlsx 다운로드</button></div></div>` +
-    `<div class="meta"><i>${ico('i-info', 'ic-sm')}1행 = 후보자 1명 × 포지션 1건. 모든 값은 <b>이벤트 발생 시점에 자동 기록</b>됩니다.</i></div></header>` +
+    `<div class="meta"><i>${ico('i-info', 'ic-sm')}1행 = 후보자 1명 × 공고 1건. 모든 값은 <b>이벤트 발생 시점에 자동 기록</b>됩니다.</i></div></header>` +
     '<div class="stage"><div style="display:grid;grid-template-columns:320px minmax(0,1fr);gap:26px;align-items:start">' +
     '<div><div class="sec-h"><h3>필터</h3></div><div class="sheet" style="padding:16px 18px">' +
     field('기간', '<select class="sel"><option>최근 90일</option><option>최근 30일</option><option>전체</option></select>') +
     field('부문', '<select class="sel"><option>전체</option><option>플랫폼본부</option></select>') +
-    field('포지션', '<select class="sel"><option>전체</option><option>백엔드 엔지니어 (시니어)</option></select>') +
+    field('공고', '<select class="sel"><option>전체</option><option>백엔드 엔지니어 (시니어)</option></select>') +
     field('리크루터', '<select class="sel"><option>전체</option><option>정수민</option></select>') +
     field('최종 결과', '<select class="sel"><option>전체</option><option>입사</option><option>불합격</option></select>') +
     '</div></div>' +
@@ -590,7 +590,7 @@ export function settingsHTML(
     grp('L-5 연동',
       /* TalentCore 는 '받는 문'이다. Hire 쪽에서 누를 버튼이 없고,
          토큰이 있느냐 없느냐만 보여 준다(설정은 TalentCore 화면에서 한다). */
-      r('i-link', 'TalentCore (HRIS)', '승인된 자리를 공고로 받아 옵니다',
+      r('i-link', 'TalentCore (HRIS)', '승인된 포지션을 공고로 받아 옵니다',
         core === 'configured'
           ? `<span class="pill ok">${ico('i-check-circle', 'ic-sm')}받는 문 열림</span>`
           : '<span class="pill">미설정</span>') +
@@ -1185,7 +1185,7 @@ export function myHomeHTML(uid?: string) {
 
   return '<header class="top">' +
     `<div class="crumb">${ico('i-star', 'ic-sm')}내 화면</div>` +
-    `<div class="h-row"><h1>내 포지션</h1><span class="pill">${mine.length}건</span>` +
+    `<div class="h-row"><h1>내 공고</h1><span class="pill">${mine.length}건</span>` +
     (esced ? `<span class="pill bad">${ico('i-alert', 'ic-sm')}사람 대기 ${esced}건</span>` : '') +
     `<div class="spacer"><a class="btn br" href="/positions/new">${ico('i-plus', 'ic-sm')}공고 생성</a></div></div>` +
     `<div class="meta"><i>${ico('i-user', 'ic-sm')}<b>${esc(who.nm)}</b> · ${esc(who.tt)}</i>` +

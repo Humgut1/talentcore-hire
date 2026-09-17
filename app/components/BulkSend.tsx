@@ -20,7 +20,7 @@ const FAIL: Record<string, string> = {
   'no-interview': '면접 기록을 찾지 못했습니다.',
   'no-interviewer': '면접관이 지정되지 않았습니다 — 공고 단계 설정에서 먼저 지정하세요.',
   'coordinator': '비서를 통해 잡는 분이 포함돼 있어 자동 발송을 막았습니다.',
-  'empty': '가능한 자리를 찾지 못했습니다.',
+  'empty': '가능한 빈 시간을 찾지 못했습니다.',
   'week-cap': '주간 상한을 넘어 막혔습니다.',
   'senior-ack': '고위 면접관 확인이 먼저 필요합니다.',
 }
@@ -77,19 +77,19 @@ export default function BulkSend({
         <b>{ack ? '실장(L8)급 이상 면접관이 포함돼 있습니다' : `후보자 ${cids.length}명에게 함께 보내기`}</b>
         <p>
           {ack
-            ? `${seniors.join(' · ')} 님은 실장(L8)급 이상입니다. 실장급 이상 면접관은 보내기 전에 한 번 확인받습니다 — 보내는 순간 그분들 캘린더에 자리가 모두 가예약으로 잡히고, 후보자가 고를 때까지 48시간 묶여 있습니다.`
-            : '한 무리에게 같은 자리를 함께 냅니다 — 먼저 고른 분이 가져갑니다. 후보자 화면에는 다른 지원자가 드러나지 않고, 나간 자리는 그냥 목록에서 사라집니다.'}
+            ? `${seniors.join(' · ')} 님은 실장(L8)급 이상입니다. 실장급 이상 면접관은 보내기 전에 한 번 확인받습니다 — 보내는 순간 그분들 캘린더에 시간이 모두 가예약으로 잡히고, 후보자가 고를 때까지 48시간 묶여 있습니다.`
+            : '한 무리에게 같은 시간을 함께 냅니다 — 먼저 고른 분이 가져갑니다. 후보자 화면에는 다른 지원자가 드러나지 않고, 나간 시간은 그냥 목록에서 사라집니다.'}
         </p>
 
         {groups === null ? (
-          <div className="bs-wait">자리를 훑는 중입니다…</div>
+          <div className="bs-wait">빈 시간을 훑는 중입니다…</div>
         ) : (
           <div className="bs-list">
             {groups.map(g => (
               <div className={'bs-g' + (g.gate.ok ? '' : ' bad')} key={g.key}>
                 <div className="bs-g-h">
                   <b>{g.posTitle} · {g.stageNm}</b>
-                  <span className="bs-g-n">{g.cands.length}명 · 자리 {g.gate.seats}개</span>
+                  <span className="bs-g-n">{g.cands.length}명 · 시간 {g.gate.seats}개</span>
                 </div>
                 <div className="bs-g-c">{g.cands.join(' · ')}</div>
                 <div className={'bs-g-m' + (g.gate.ok ? '' : ' bad')}>{g.gate.msg}</div>

@@ -132,9 +132,9 @@ export async function resolveWriter(): Promise<CalendarWriter> {
 export function writerNote(state: WriterState): string {
   switch (state) {
     case 'ready': return '면접관 캘린더에 실제로 가예약합니다.'
-    case 'scope-missing': return '구글 계정은 연결됐지만 읽기 권한만 있습니다 — 쓰기 권한을 다시 승인하면 실제 가예약이 잡힙니다. 그때까지는 Cadence 안에서만 자리를 잡아 둡니다.'
-    case 'not-connected': return '구글 계정 연결 전입니다 — 지금은 Cadence 안에서만 자리를 잡아 둡니다.'
-    default: return '구글 연동이 설정되지 않았습니다 — 지금은 Cadence 안에서만 자리를 잡아 둡니다.'
+    case 'scope-missing': return '구글 계정은 연결됐지만 읽기 권한만 있습니다 — 쓰기 권한을 다시 승인하면 실제 가예약이 잡힙니다. 그때까지는 Cadence 안에서만 시간을 잡아 둡니다.'
+    case 'not-connected': return '구글 계정 연결 전입니다 — 지금은 Cadence 안에서만 시간을 잡아 둡니다.'
+    default: return '구글 연동이 설정되지 않았습니다 — 지금은 Cadence 안에서만 시간을 잡아 둡니다.'
   }
 }
 /** 실제 캘린더에 쓰고 있는가(화면에서 배지 하나로 구분할 때). */

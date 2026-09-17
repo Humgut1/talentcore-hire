@@ -42,9 +42,9 @@ export function sendGate(iv: Interview, plan: IvPlan, pol: IvPolicy): SendGate {
   const warn: string[] = []
   const un = plan.slots.filter(s => s.note === 'unknown').length
   if (plan.slots.length && !plan.enough)
-    warn.push(`보낼 자리가 ${plan.slots.length}개뿐입니다(권장 ${pol.slotMin}개).`)
+    warn.push(`보낼 시간이 ${plan.slots.length}개뿐입니다(권장 ${pol.slotMin}개).`)
   if (un)
-    warn.push(`직전·직후 일정의 성격을 알 수 없어 이동시간을 빼고 잡은 자리가 ${un}건 섞여 있습니다. 확인하고 보내세요.`)
+    warn.push(`직전·직후 일정의 성격을 알 수 없어 이동시간을 빼고 잡은 시간이 ${un}건 섞여 있습니다. 확인하고 보내세요.`)
   if (plan.capWarn.length && !plan.capBlock)
     warn.push(`${plan.capWarn.join('·')} 님은 그 주에 이미 면접이 ${pol.weekCap}건 잡혀 있습니다.`)
 
@@ -55,7 +55,7 @@ export function sendGate(iv: Interview, plan: IvPlan, pol: IvPolicy): SendGate {
              msg: `${(plan.eaNames || []).join('·')} 님은 비서를 통해 잡는 분입니다 — 코디네이터가 직접 조율합니다.` }
   if (plan.kind === 'empty')
     return { ok: false, block: 'empty', warn,
-             msg: `${plan.scanned}일을 훑었지만 가능한 자리가 없습니다 — 탐색 범위를 넓히거나 수동으로 조율하세요.` }
+             msg: `${plan.scanned}일을 훑었지만 가능한 빈 시간이 없습니다 — 탐색 범위를 넓히거나 수동으로 조율하세요.` }
   if (plan.capBlock && plan.capWarn.length)
     return { ok: false, block: 'week-cap', warn,
              msg: `${plan.capWarn.join('·')} 님이 주간 상한(${pol.weekCap}건)을 넘습니다.` }
@@ -63,7 +63,7 @@ export function sendGate(iv: Interview, plan: IvPlan, pol: IvPolicy): SendGate {
     return { ok: false, block: 'senior-ack', warn, ack: plan.seniorNames,
              msg: `${plan.seniorNames.join('·')} 님이 포함돼 있습니다. 이대로 보낼까요?` }
 
-  return { ok: true, warn, msg: `자리 ${plan.slots.length}개를 후보자와 면접관에게 함께 보냅니다.` }
+  return { ok: true, warn, msg: `시간 ${plan.slots.length}개를 후보자와 면접관에게 함께 보냅니다.` }
 }
 
 /** 발송할 자리를 고른다 — 화면에서 안 고르면 앞에서부터 권장 개수만큼. */
@@ -135,16 +135,16 @@ export function bulkGate(nCand: number, seats: number, blocked: string[] = []): 
     return { ok: false, block: 'blocked', msg: '보낼 후보자를 고르세요.', warn, seats, want }
   if (!seats)
     return { ok: false, block: 'empty', seats, want, warn,
-             msg: '가능한 자리가 없습니다 — 범위를 넓혀 다시 찾으세요.' }
+             msg: '가능한 빈 시간이 없습니다 — 범위를 넓혀 다시 찾으세요.' }
   if (seats < nCand)
     return { ok: false, block: 'short', seats, want, warn,
-             msg: `자리 ${seats}개 · 후보자 ${nCand}명 — ${nCand - seats}명은 자리를 못 잡습니다. ` +
-                  '범위를 넓혀 자리를 더 찾은 뒤에 보내세요.' }
+             msg: `시간 ${seats}개 · 후보자 ${nCand}명 — ${nCand - seats}명은 시간을 못 잡습니다. ` +
+                  '범위를 넓혀 빈 시간을 더 찾은 뒤에 보내세요.' }
   if (seats < want)
-    warn.push(`자리 ${seats}개 · 후보자 ${nCand}명 — 권장은 ${want}개입니다. ` +
+    warn.push(`시간 ${seats}개 · 후보자 ${nCand}명 — 권장은 ${want}개입니다. ` +
               '뒤에 고르는 분은 선택지가 한두 개뿐일 수 있습니다.')
   return { ok: true, seats, want, warn,
-           msg: `후보자 ${nCand}명에게 같은 자리 ${seats}개를 함께 보냅니다 — 먼저 고른 분이 가져갑니다.` }
+           msg: `후보자 ${nCand}명에게 같은 시간 ${seats}개를 함께 보냅니다 — 먼저 고른 분이 가져갑니다.` }
 }
 
 /** 보낼 자리 → DB 에 넣을 슬롯 줄. */
@@ -198,7 +198,7 @@ export function isExpired(iv: Interview, nowIso: string): boolean {
 }
 export const EXPIRE_PATCH: Partial<Interview> = {
   st: 'searching', s: 'late',
-  why: '가예약 48시간이 지나 자리를 풀었습니다 — 다시 잡아야 합니다.',
+  why: '가예약 48시간이 지나 시간을 풀었습니다 — 다시 잡아야 합니다.',
 }
 
 /* ---- 기록 한 줄 만들기 ---- */

@@ -213,7 +213,7 @@ export default function ReviewQueue(
 
                 {cur.jd ? (
                   <div style={{ marginTop: 12, padding: '10px 12px', background: 'var(--sunken)', borderRadius: 'var(--r-lg)', fontSize: 12, color: 'var(--t2)', lineHeight: 1.6 }}>
-                    <b style={{ fontSize: 11, color: 'var(--t4)', display: 'block', marginBottom: 3 }}>이 자리가 찾는 사람</b>
+                    <b style={{ fontSize: 11, color: 'var(--t4)', display: 'block', marginBottom: 3 }}>이 공고가 찾는 사람</b>
                     {cur.jd}
                   </div>
                 ) : null}

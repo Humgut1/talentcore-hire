@@ -47,7 +47,7 @@ export default function ApplyForm({ pid, title, steps, company }: Props) {
         </div>
         <h1>지원이 접수되었습니다</h1>
         <p>
-          {title} 포지션 지원이 정상적으로 접수되었습니다.
+          {title} 공고 지원이 정상적으로 접수되었습니다.
           입력하신 메일 주소로 접수 확인 메일을 보내드렸습니다.
         </p>
         <p>
@@ -125,7 +125,7 @@ export default function ApplyForm({ pid, title, steps, company }: Props) {
           <label htmlFor="a-role">한 줄 이력</label>
           <input id="a-role" name="role" type="text" maxLength={60}
                  placeholder="예) 커머스 백엔드 6년 · 결제 시스템" />
-          <span className="s-hint">비워 두시면 지원하신 포지션명으로 남습니다.</span>
+          <span className="s-hint">비워 두시면 지원하신 공고명으로 남습니다.</span>
         </div>
 
         <div className="s-f">
@@ -154,7 +154,7 @@ export default function ApplyForm({ pid, title, steps, company }: Props) {
         <div className="s-f">
           <label htmlFor="a-note">지원 동기 · 하고 싶은 말</label>
           <textarea id="a-note" name="note" maxLength={1000}
-                    placeholder="이 포지션에 지원하신 이유나, 이력서에 담기 어려웠던 이야기를 자유롭게 적어 주세요." />
+                    placeholder="이 공고에 지원하신 이유나, 이력서에 담기 어려웠던 이야기를 자유롭게 적어 주세요." />
         </div>
 
         <div className="s-consent">

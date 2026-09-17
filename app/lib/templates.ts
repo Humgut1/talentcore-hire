@@ -58,7 +58,7 @@ export const TEMPLATES: PipelineTemplate[] = [
   {
     id: 'exec',
     nm: '임원 면접 포함',
-    why: '과제 → 실무 → 임원. 시니어·리더급처럼 결정권자가 직접 보는 자리에 씁니다.',
+    why: '과제 → 실무 → 임원. 시니어·리더급처럼 결정권자가 직접 보는 포지션에 씁니다.',
     body: [
       APPLY,
       { nm: '서류 검토', kind: 'screen', sla: 3, dur: 0, mode: '—' },
@@ -71,7 +71,7 @@ export const TEMPLATES: PipelineTemplate[] = [
   {
     id: 'lean',
     nm: '간소',
-    why: '서류 → 실무 면접 한 번. 계약직·인턴처럼 빨리 채워야 하는 자리에 씁니다.',
+    why: '서류 → 실무 면접 한 번. 계약직·인턴처럼 빨리 채워야 하는 포지션에 씁니다.',
     body: [
       APPLY,
       { nm: '서류 검토', kind: 'screen', sla: 3, dur: 0, mode: '—' },

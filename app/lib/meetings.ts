@@ -243,7 +243,7 @@ export function mtgView(pid: string, m: Meeting): MtgView {
     const note = more.length
       ? `확정 뒤 완료자 ${more.length}명 (${more.join(', ')}) — 함께 다룰지 확인`
       : /\(자동\)/.test(m.v)
-        ? '시간은 참석자 일정이 비는 첫 자리로 자동으로 잡혔습니다 — 바꿀 수 있습니다'
+        ? '참석자 전원이 비는 첫 시간으로 자동으로 잡혔습니다 — 바꿀 수 있습니다'
         : undefined
     return {
       ...base, phase: 'set', s: more.length ? 'late' : 'done', fired: true, by: f.by, ag: '—',

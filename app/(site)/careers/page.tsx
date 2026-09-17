@@ -38,7 +38,7 @@ export default async function CareersPage() {
           <p>{co}는 사람을 뽑고, 맞이하고, 함께 일하는 과정을 다시 설계합니다.</p>
 
           <div className="s-bar">
-            <div><b>{posts.length}</b>열려 있는 자리</div>
+            <div><b>{posts.length}</b>열려 있는 공고</div>
             {STATS.map(s => (
               <div key={s.k}><b>{s.v}</b>{s.k}</div>
             ))}

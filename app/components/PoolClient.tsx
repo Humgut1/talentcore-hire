@@ -105,9 +105,9 @@ export default function PoolClient(
       <div className="pl-lead">
         <Icon id="i-info" className="ic-sm" />
         <span>
-          <b>{posTitle}</b> 자리에 다시 부를 만한 과거 지원자입니다.
+          <b>{posTitle}</b> 공고에 다시 부를 만한 과거 지원자입니다.
           {wide
-            ? ' 직무가 겹치지 않는 사람까지 보고 있습니다 — 자리 성격이 바뀌었을 때만 쓰세요.'
+            ? ' 직무가 겹치지 않는 사람까지 보고 있습니다 — 공고 성격이 바뀌었을 때만 쓰세요.'
             : ' 지금은 직무가 겹치는 사람만 보고 있습니다.'}
           {' '}불합격 {COOL_D}일이 지나지 않은 사람은 잠겨 있습니다.
         </span>

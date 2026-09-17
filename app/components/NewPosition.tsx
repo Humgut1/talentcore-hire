@@ -159,7 +159,7 @@ export default function NewPosition(
                 <label>JD (직무 소개)</label>
                 <textarea
                   className="ta" value={jd}
-                  placeholder="이 자리가 무엇을 하는 자리인지 두세 줄로 적어 주세요. 지원 링크와 안내 메일에 그대로 쓰입니다."
+                  placeholder="어떤 일을 하는 공고인지 두세 줄로 적어 주세요. 지원 링크와 안내 메일에 그대로 쓰입니다."
                   onChange={e => setJd(e.target.value)}
                 />
               </div>

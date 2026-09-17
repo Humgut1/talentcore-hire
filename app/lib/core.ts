@@ -193,7 +193,7 @@ export async function fetchSeats(reqRef: string): Promise<SeatResult> {
   try { body = await res.json() } catch { return { ok: false, reason: 'bad-response', detail: 'JSON 아님' } }
   const d = body as { ok?: boolean; seats?: CoreSeat[]; open?: number }
   if (!d || d.ok !== true || !Array.isArray(d.seats))
-    return { ok: false, reason: 'bad-response', detail: '자리 대장 모양이 다릅니다' }
+    return { ok: false, reason: 'bad-response', detail: '포지션 대장 모양이 다릅니다' }
 
   return { ok: true, seats: d.seats, open: d.open ?? d.seats.filter(s => s.open).length }
 }

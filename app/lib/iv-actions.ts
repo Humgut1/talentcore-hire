@@ -178,7 +178,7 @@ export async function ivEnsure(cid: string, round?: number): Promise<{ ok: boole
     id, cid, pid: cand.p, sid: stage.id, round: rnd,
     kind: seq ? 'seq' : 'solo',
     totalMin: parts.reduce((m, p) => Math.max(m, p.offMin + p.dur), 0),
-    st: 'searching', s: 'idle', why: '자리를 찾는 중입니다.',
+    st: 'searching', s: 'idle', why: '빈 시간을 찾는 중입니다.',
   }
   _addIv(iv, parts)
 
@@ -247,7 +247,7 @@ export async function ivIdsOfCands(
     if (!ivOf(cid, round)) await ivEnsure(cid)
     const v = ivOf(cid, round)
     if (!v) { skip.push({ nm: c.nm, why: '면접을 세우지 못함' }); continue }
-    if (v.st === 'confirmed' || v.st === 'done') { skip.push({ nm: c.nm, why: '이미 자리가 정해짐' }); continue }
+    if (v.st === 'confirmed' || v.st === 'done') { skip.push({ nm: c.nm, why: '이미 시간이 정해짐' }); continue }
     if (v.st === 'canceled') { skip.push({ nm: c.nm, why: '취소된 면접' }); continue }
     ids.push(v.id)
   }
@@ -366,7 +366,7 @@ async function commitSend(
   const patch: Partial<Interview> = {
     st: 'proposed', s: 'idle', sentAt: nowIso(),
     holdUntil, token,
-    why: `자리 ${rows.length}개를 보냈습니다 — 후보자 응답 대기.`,
+    why: `시간 ${rows.length}개를 보냈습니다 — 후보자 응답 대기.`,
   }
   _setIvSlots(iv.id, rows)
   _patchIv(iv.id, patch)
@@ -473,7 +473,7 @@ export async function ivPickSlot(token: string, ord: number): Promise<R & { labe
     const sbT = serverClient()
     if (sbT) await sbT.from('interview_slots').update({ st: 'dropped' })
       .eq('interview_id', iv.id).eq('ord', ord)
-    await log(iv.id, '자리 마감',
+    await log(iv.id, '시간 마감',
       `${slotLabel(res.picked as unknown as { date: string; start: number; end: number })} — ` +
       '다른 일정이 먼저 확정돼 후보자 목록에서 내렸습니다.', iv.s)
     return { ok: false, reason: 'taken' }
@@ -611,10 +611,10 @@ export async function ivSweepHolds(): Promise<{ ok: boolean; released: number; s
         st: 'searching', s: 'late', hold_until: null, why: EXPIRE_PATCH.why,
       }).eq('id', iv.id)
       await sb.from('candidates').update({
-        s: 'late', why: EXPIRE_PATCH.why, act: ['다시 자리 찾기'],
+        s: 'late', why: EXPIRE_PATCH.why, act: ['다시 시간 찾기'],
       }).eq('id', iv.cid)
     }
-    await log(iv.id, '가예약 만료', '48시간 안에 응답이 없어 잡아 둔 자리를 풀었습니다.', 'late')
+    await log(iv.id, '가예약 만료', '48시간 안에 응답이 없어 잡아 둔 시간을 풀었습니다.', 'late')
     // 후보자가 가장 불안한 순간이다 — 조용히 넘어가면 '떨어졌나' 하고 생각한다.
     await mail(iv, cands.find(c => c.id === iv.cid)?.email,
       expiredNotice(await mailCtx(iv)), `후보자 ${cands.find(c => c.id === iv.cid)?.nm ?? ''}`, 'iv-expired')
@@ -763,7 +763,7 @@ export async function ivSendBulk(
       if (r.ok) sent++
     }
     await Promise.all(g.ivs.map(iv => log(iv.id, '벌크 발송',
-      `같은 자리 ${g.pool.length}개를 후보자 ${g.ivs.length}명에게 함께 보냈습니다 — 먼저 고른 분이 가져갑니다.`,
+      `같은 시간 ${g.pool.length}개를 후보자 ${g.ivs.length}명에게 함께 보냈습니다 — 먼저 고른 분이 가져갑니다.`,
       'idle')))
   }
   return { ok: true, sent }
@@ -793,7 +793,7 @@ export async function ivAskTimes(token: string, text: string): Promise<R> {
     await sb.from('candidates').update({ s: 'esc', why }).eq('id', iv.cid)
   }
   if ((await mailerStatus()).slack)
-    await sendSlack(`[조율] ${cand?.nm ?? '후보자'} — 자리가 모두 마감돼 직접 회신했습니다.\n${body}`)
+    await sendSlack(`[조율] ${cand?.nm ?? '후보자'} — 가능한 시간이 모두 마감돼 직접 회신했습니다.\n${body}`)
   return { ok: true }
 }
 

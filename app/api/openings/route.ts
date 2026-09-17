@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   const codes = (b.openings || [])
     .map(o => String(o.code || '').trim())
     .filter(Boolean)
-  if (!codes.length) return bad('openings 가 비어 있습니다 — 보낼 자리를 하나 이상 골라야 합니다')
+  if (!codes.length) return bad('openings 가 비어 있습니다 — 보낼 포지션을 하나 이상 골라야 합니다')
 
   await hydrateData()
 
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   if (dup) {
     return NextResponse.json({
       ok: false, error: 'already-linked',
-      message: `이 자리는 이미 공고 ${dup.id}(${dup.title})로 넘어와 있습니다`,
+      message: `이 포지션은 이미 공고 ${dup.id}(${dup.title})로 넘어와 있습니다`,
       position_id: dup.id,
     }, { status: 409 })
   }
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
      JD 머리에 한 줄로 남긴다 — 리크루터가 실제로 보는 자리가 거기다. */
   const head = [
     b.req_ref ? `TalentCore 요청 ${b.req_ref}` : null,
-    codes.length > 1 ? `자리 ${codes.length}장 (${codes.join(', ')})` : `자리 ${codes[0]}`,
+    codes.length > 1 ? `포지션 ${codes.length}장 (${codes.join(', ')})` : `포지션 ${codes[0]}`,
     b.hire_type || null,
     b.target_start ? `희망 입사일 ${b.target_start}` : null,
   ].filter(Boolean).join(' · ')

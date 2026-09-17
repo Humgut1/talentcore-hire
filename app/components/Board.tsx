@@ -771,7 +771,7 @@ export default function Board(
                   {!mBusy && mSlots && mSlots.length > 0 && (
                     <>
                       <div className="sched-lead">
-                        영업일 {mScan}일 범위에서 <b>{mSlots.length}개</b> 자리를 찾았습니다.
+                        영업일 {mScan}일 범위에서 빈 시간 <b>{mSlots.length}개</b>를 찾았습니다.
                       </div>
                       <div className="slots">
                         {mSlots.map((x, i) => (
@@ -878,7 +878,7 @@ export default function Board(
                 <>
                   <p className="ask-p">
                     선택한 <b>{sel.length}명</b>을 각자 서 있는 단계의 <b>다음 단계</b>로 보냅니다.
-                    단계마다 서 있는 자리가 다르면 각자 다른 단계로 갑니다.
+                    서 있는 단계가 사람마다 다르면 각자 다른 단계로 갑니다.
                     오퍼 단계로 넘어가는 분은 처우안 초안이 함께 만들어집니다.
                   </p>
                   <div className="field">

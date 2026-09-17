@@ -59,7 +59,7 @@ const dayLabel = (date: string) => {
 }
 
 const ST_NM: Record<string, string> = {
-  draft: '준비', searching: '자리 찾는 중', proposed: '응답 대기',
+  draft: '준비', searching: '빈 시간 찾는 중', proposed: '응답 대기',
   confirmed: '확정', done: '완료', canceled: '취소',
 }
 const PILL: Record<string, string> = { idle: '', esc: 'bad', late: 'warn', done: 'ok' }
@@ -67,10 +67,10 @@ const FAIL: Record<string, string> = {
   'no-interview': '면접 기록을 찾지 못했습니다.',
   'no-interviewer': '면접관이 지정되지 않았습니다 — 공고 단계 설정에서 먼저 지정하세요.',
   'coordinator': '비서를 통해 잡는 분이 포함돼 있어 자동 발송을 막았습니다.',
-  'empty': '가능한 자리를 찾지 못했습니다.',
+  'empty': '가능한 빈 시간을 찾지 못했습니다.',
   'week-cap': '주간 상한을 넘어 막혔습니다.',
   'senior-ack': '고위 면접관 확인이 먼저 필요합니다.',
-  'no-slot': '보낼 자리를 고르지 않았습니다.',
+  'no-slot': '보낼 시간을 고르지 않았습니다.',
 }
 
 export default function IvPanel({
@@ -113,7 +113,7 @@ export default function IvPanel({
   }
   const send = (withAck: boolean) => {
     setAck(false)
-    run(() => ivSend(cur!.id, chosen, withAck), `자리 ${chosen.length}개를 보냈습니다.`)
+    run(() => ivSend(cur!.id, chosen, withAck), `시간 ${chosen.length}개를 보냈습니다.`)
   }
 
   /* ---------- 주간 격자 ----------
@@ -232,7 +232,7 @@ export default function IvPanel({
       {cur.st === 'proposed' ? (
         <div className="sheet cq-box">
           <div className="cq-sec">
-            보낸 자리 {cur.slots.length}개
+            보낸 시간 {cur.slots.length}개
             {cur.slots.some(s => s.taken)
               ? <span className="cq-sec-x">
                   {cur.slots.filter(s => s.taken).length}개는 다른 일정이 먼저 확정돼 후보자 화면에서 내려갔습니다
@@ -275,7 +275,7 @@ export default function IvPanel({
       {detail && cur.st !== 'confirmed' ? (
         <div className="sheet cq-box">
           <div className="cq-sec">
-            찾은 자리 {slots.length}개
+            찾은 빈 시간 {slots.length}개
             <span className="cq-src">
               {detail.source === 'google' ? '구글 캘린더 실시간' : '수동 가용시간'} · {plan?.scanned ?? 0}일 훑음
             </span>
@@ -308,7 +308,7 @@ export default function IvPanel({
                 {s.note === 'unknown' ? <em className="cq-unk">앞뒤 확인 필요</em> : null}
               </button>
             ))}
-            {slots.length === 0 ? <div className="cq-none">가능한 자리가 없습니다.</div> : null}
+            {slots.length === 0 ? <div className="cq-none">가능한 빈 시간이 없습니다.</div> : null}
           </div>
 
           {/* 나갈 메일을 보내기 전에 그대로 보여 준다 — 발송과 같은 함수(pickRequest)를
@@ -382,7 +382,7 @@ export default function IvPanel({
             <b>{gate.ack.join(' · ')} 님은 실장(L8)급 이상입니다</b>
             <p>
               실장급 이상 면접관은 보내기 전에 한 번 확인받습니다. 보내는 순간
-              그분들 캘린더에 자리 {chosen.length}개가 모두 가예약으로 잡히고,
+              그분들 캘린더에 시간 {chosen.length}개가 모두 가예약으로 잡히고,
               후보자가 하나를 고를 때까지 48시간 동안 묶여 있습니다.
             </p>
             <div className="cq-dlg-f">
@@ -466,7 +466,7 @@ function ManualTime({ ivId, totalMin, confirmed, onDone }: {
         {confirmed ? '시간 바꾸기' : '직접 시간 지정'}
         <span className="cq-src">{confirmed
           ? '바꾸면 후보자·면접관에게 새 확정 메일이 나가고, 후보자 참석 확인을 다시 받습니다'
-          : '이미 맞춘 시간이 있으면 자리 보내기 없이 바로 확정합니다'}</span>
+          : '이미 맞춘 시간이 있으면 시간 보내기 없이 바로 확정합니다'}</span>
       </div>
       <div className="cq-mt">
         <label><span>날짜</span><input type="date" className="in sm mono" value={date} onChange={e => { setDate(e.target.value); setClash('') }} /></label>

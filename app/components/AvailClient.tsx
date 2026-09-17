@@ -214,7 +214,7 @@ export default function AvailClient({ data }: { data: AvailGrid }) {
 
           <div className={`ivp-count${cap.thin ? ' thin' : ''}`}>
             {cap.fits === 0
-              ? '지금 상태로는 60분짜리 면접을 넣을 자리가 없습니다.'
+              ? '지금 상태로는 60분짜리 면접을 넣을 빈 시간이 없습니다.'
               : <>고르신 시간 <b>{cap.hours.toFixed(1)}시간</b> · 60분 면접을 최대 <b>{cap.fits}건</b>까지 넣을 수 있습니다.
                 {cap.thin ? ' 3건 미만이면 일정을 잡다가 막히는 경우가 많습니다.' : ''}</>}
           </div>

@@ -44,7 +44,7 @@ const docLabel = (v: string) => DOC_KINDS.find(k => k.v === v)?.l ?? '기타'
 
 /* 조율이 자동으로 보낸 메일도 같은 기록에 쌓인다 — 사람이 쓴 것과 섞이되, 무엇이었는지는 보인다. */
 const KIND_L: Record<string, string> = {
-  'iv-pick': '면접 자리 안내', 'iv-confirm': '면접 확정 안내',
+  'iv-pick': '면접 시간 안내', 'iv-confirm': '면접 확정 안내',
   'iv-confirm-part': '면접관 확정 안내', 'iv-decline': '면접관 불가 알림',
   'iv-expired': '가예약 만료 안내',
 }
@@ -468,7 +468,7 @@ function EvalTab({ d }: { d: DrawerData }) {
 function IvTab({ d, goIv }: { d: DrawerData; goIv: (id: string, w?: boolean) => void }) {
   if (!d.ivRows.length) return (
     <div className="dw-none">
-      아직 면접이 없습니다. 이 후보자를 면접 단계로 옮기면 자리가 자동으로 세워집니다.
+      아직 면접이 없습니다. 이 후보자를 면접 단계로 옮기면 면접이 자동으로 세워집니다.
     </div>
   )
   return (
@@ -499,7 +499,7 @@ function OfferTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void })
       <b>아직 처우안이 없습니다</b>
       <p>
         지금 만들면 공고의 급여 밴드 가운데 값으로 초안이 잡히고, 하이어링 매니저가 승인 줄의 첫 칸에 들어갑니다.
-        금액·직급·자리는 만든 뒤에 고칠 수 있습니다.
+        금액·직급·포지션은 만든 뒤에 고칠 수 있습니다.
       </p>
       <button className="btn solid" disabled={pending} onClick={() => start(async () => {
         const r = await createOffer(d.cid)

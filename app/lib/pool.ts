@@ -40,7 +40,7 @@ export const GRADE_LABEL: Record<PoolGrade, string> = {
 }
 export const GRADE_DESC: Record<PoolGrade, string> = {
   gold: '우리가 원했는데 놓친 사람. 조건이 바뀌면 가장 먼저 연락할 명단입니다.',
-  silver: '면접까지 갔고 크게 걸린 것이 없던 사람. 자리가 맞으면 다시 볼 만합니다.',
+  silver: '면접까지 갔고 크게 걸린 것이 없던 사람. 맞는 공고가 있으면 다시 볼 만합니다.',
   other: '서류에서 갈렸거나 판단 근거가 적은 사람. 참고용입니다.',
 }
 
