@@ -15,6 +15,7 @@ import { REJECT_REASONS, rejectDef, rejectMailDraft, type RejectCode } from '../
 import { MAIL_TPLS, tplByCode } from '../lib/cand-mail'
 import { mtgViews, type MtgView } from '../lib/meetings'
 import BulkSend from './BulkSend'
+import { sendDoc } from '../lib/doc-upload'
 
 const STATUS_KEYS: Status[] = ['esc', 'late', 'idle', 'done']
 
@@ -47,10 +48,13 @@ export default function Board(
 
   /* ---- 후보자 추가 모달 ---- */
   const [addStage, setAddStage] = useState<string | null>(null) // null=닫힘
-  const emptyForm = { nm: '', yr: '', role: '', src: SRC_OPTS[0] }
+  const emptyForm = { nm: '', yr: '', role: '', src: SRC_OPTS[0], email: '', phone: '' }
   const [form, setForm] = useState(emptyForm)
+  /* 추천·발굴한 사람의 이력서를 추가하면서 바로 올린다. 파일은 폼 상태에 넣지 않는다(직렬화 안 됨). */
+  const [addFile, setAddFile] = useState<File | null>(null)
   function openAdd(stageId?: string) {
     setForm(emptyForm)
+    setAddFile(null)
     setAddStage(stageId ?? cols[0]?.id ?? 's1')
   }
   /* 다른 화면(진행 매트릭스)의 [후보자 추가] 는 ?add=1 로 넘어온다 — 열고 주소는 지운다. */
@@ -73,12 +77,24 @@ export default function Board(
       id: crypto.randomUUID(), nm, p: PID, st: addStage, s: 'idle', d: 0,
       ap: '2026-08-12', en: '2026-08-12', why,
       src: form.src, yr: Number(form.yr) || 0, role: form.role.trim() || '—',
+      ...(form.email.trim() ? { email: form.email.trim() } : {}),
+      ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
     }
     setList(l => [...l, nc])
+    const file = addFile
     void addCandidate({
       id: nc.id, pid: PID, nm: nc.nm, st: nc.st, s: nc.s,
       yr: nc.yr, role: nc.role, src: nc.src, why: nc.why,
-    })
+      email: form.email, phone: form.phone,
+    }).then(async r => {
+      if (!file) return
+      if (!r.ok) { pushToast(`<b>${nm}</b> 저장에 실패해 이력서를 올리지 못했습니다`); return }
+      const u = await sendDoc({ cid: nc.id, kind: 'resume', file })
+      pushToast(u.ok ? `<b>${nm}</b> 이력서를 올렸습니다`
+        : u.reason === 'too-big' ? '이력서가 20MB 를 넘어 올리지 못했습니다'
+        : `<b>${nm}</b> 이력서를 올리지 못했습니다 — 서랍에서 다시 올려 주세요`)
+      router.refresh()
+    }).catch(() => {})
     setAddStage(null)
     pushToast(`<b>${nm}</b> 후보자를 <b>${sg.nm}</b> 단계에 추가했습니다`)
   }
@@ -564,6 +580,23 @@ export default function Board(
               </div>
               <div className="row2">
                 <div className="field">
+                  <label>전화번호</label>
+                  <input className="in" type="tel" inputMode="tel" value={form.phone}
+                    placeholder="010-0000-0000"
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div className="field">
+                  <label>이메일</label>
+                  <input className="in" type="email" value={form.email}
+                    placeholder="name@example.com"
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                </div>
+              </div>
+              <div className="desc" style={{ marginTop: -6, marginBottom: 12 }}>
+                이름과 전화번호가 같은 지원건이 있으면 후보자 화면에 이전 지원 이력으로 표시됩니다.
+              </div>
+              <div className="row2">
+                <div className="field">
                   <label>경력 연차</label>
                   <input className="in" type="number" min={0} value={form.yr}
                     placeholder="예) 7"
@@ -582,6 +615,15 @@ export default function Board(
                 <input className="in" value={form.role}
                   placeholder="예) 백엔드 엔지니어 · 카카오"
                   onChange={e => setForm(f => ({ ...f, role: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>이력서</label>
+                <input className="in" type="file"
+                  accept=".pdf,.doc,.docx,.hwp,.hwpx,.ppt,.pptx,.png,.jpg,.jpeg"
+                  onChange={e => setAddFile(e.target.files?.[0] ?? null)} />
+                <div className="desc">
+                  {addFile ? `${addFile.name} · 추가하면 바로 올라갑니다` : 'PDF·워드·한글 등 20MB 까지. 비워 두고 나중에 서랍에서 올려도 됩니다.'}
+                </div>
               </div>
               <div className="field">
                 <label>시작 단계</label>

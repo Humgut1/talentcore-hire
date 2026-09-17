@@ -14,7 +14,7 @@ import {
   offerOf, md, daysSince, type TLItem, type EvalItem,
 } from './data'
 import { decisionFor, rejectDef, SIDE_LABEL, type DecisionView, type RejectCode } from './decision'
-import { dupFor, otherApps } from './pool'
+import { otherApps } from './pool'
 import { docsOf, docUrl, type CandDoc } from './docs'
 import { mailsOf, type MailRow } from './maillog'
 import { mailerStatus } from './mailer'
@@ -48,7 +48,6 @@ export interface DrawerData {
   docs: (CandDoc & { url?: string })[]
   mails: MailRow[]
   others: OtherApp[]
-  dup?: { title: string; note: string; n: number }
   offer: Offer | null
   seats: SeatView | null
   /* 면접(조율) — 이 후보자의 회차들. sel 이 지금 펼쳐 보고 있는 회차. */
@@ -112,9 +111,6 @@ export async function drawerData(
     ...(trail[cid] || []).map(t => ({ t: t.at, b: t.b, p: t.p, s: t.s })),
   ]
 
-  const dups = dupFor(cid)
-  const dupOne = dups[0]
-  const dupOther = dupOne ? (dupOne.a.id === cid ? dupOne.b : dupOne.a) : null
 
   const rjDef = c.rj ? rejectDef(c.rj) : null
 
@@ -145,9 +141,6 @@ export async function drawerData(
         live: x.st !== 's0',
       }
     }),
-    ...(dupOther ? {
-      dup: { title: posById(dupOther.p).title, note: dupOne.note, n: dups.length },
-    } : {}),
     offer: (offerOf(cid) as Offer | undefined) ?? null,
     seats,
     ivRows: rows,

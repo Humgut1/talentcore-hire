@@ -24,7 +24,7 @@ import { mtgViews, inboxAll } from './meetings'
 import type { GoogleStatus } from './google'
 import type { MailerStatus } from './mailer'
 import { reviewQueue } from './review'
-import { dupFor, otherApps } from './pool'
+import { otherApps } from './pool'
 import { docKindLabel, sizeLabel, type CandDoc } from './docs'
 import { mailKindLabel } from './cand-mail'
 import { appOrigin } from './origin'
@@ -177,24 +177,22 @@ export function candidateHeadHTML(cid: string) {
     `<i>${ico('i-clock', 'ic-sm')}현 단계 <b>${c.d}d</b></i>` +
     `<i>${ico('i-link', 'ic-sm')}출처 <b>${esc(c.src)}</b></i>` +
     `<i>${ico('i-briefcase', 'ic-sm')}<b>${esc(c.role)}</b> · ${c.yr}년차</i></div>` +
-    dupBannerHTML(cid) +
+    priorBannerHTML(c) +
     '</header>'
 }
 
-/* 같은 사람일 수 있다는 신호를 판정 패널 위에 둔다.
-   떨어뜨리거나 오퍼를 낸 뒤에 "사실 같은 사람이었다"를 알면 되돌릴 것이 없다.
-   색은 쓰지 않는다 — 아직 사실이 아니라 '확인해 달라'라서, 경고처럼 보이면 오히려 안 누른다. */
-function dupBannerHTML(cid: string) {
-  const d = dupFor(cid)
-  if (!d.length) return ''
-  const one = d[0]
-  const other = one.a.id === cid ? one.b : one.a
+/* 이전 지원 이력 — 이름·전화번호가 같은 지원건이 있으면 머리에 한 줄로 알린다.
+   조치 버튼은 두지 않는다(사용자 확정). 목록은 오른쪽 "이전 지원 이력" 칸에 있다. */
+function priorBannerHTML(c: Candidate) {
+  const os = otherApps(c)
+  if (!os.length) return ''
+  const last = os[0]
   return '<div class="c-dup">' + ico('i-copy', 'ic-sm') +
-    '<div><b>같은 사람의 지원건일 수 있습니다</b>' +
-    `<span>${esc(posById(other.p).title)} 지원건 · ${esc(one.note)}` +
-    (d.length > 1 ? ` · 외 ${d.length - 1}건` : '') + '</span></div>' +
-    `<a class="btn sm" href="/pool?t=dup">${ico('i-copy', 'ic-sm')}확인하기</a></div>`
+    `<div><b>이전 지원 이력 ${os.length}건</b>` +
+    `<span>최근 ${esc(md(last.ap))} · ${esc(posById(last.p).title)} · ${esc(appResult(last))} — 이름·전화번호 일치</span></div></div>`
 }
+const appResult = (x: Candidate) =>
+  x.st !== 's0' ? stageById(x.p, x.st).nm + ' 진행 중' : (x.rj ? rejectDef(x.rj).l : '종료')
 
 export function candidateFootHTML(cid: string, docs: CandDoc[] = [], mails: MailRow[] = []) {
   const c = cands.find(x => x.id === cid)
@@ -228,7 +226,7 @@ export function candidateFootHTML(cid: string, docs: CandDoc[] = [], mails: Mail
     : ''
 
   return '<div class="stage" style="padding-top:18px">' + rjBox +
-    '<div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:start">' +
+    '<div class="split" style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:26px;align-items:start">' +
     '<div>' +
     '<div class="sec-h"><h3>전형 타임라인</h3><span class="hint">모든 값은 이벤트 발생 시점에 자동 기록됩니다</span></div>' +
     '<div class="sheet" style="padding:18px 20px"><div class="tl">' +
@@ -273,13 +271,11 @@ export function candidateFootHTML(cid: string, docs: CandDoc[] = [], mails: Mail
     '</div></div>'
 }
 
-/* 이 사람의 다른 지원 이력. 병합이 끝난 것만 보여 준다(추측은 위 배너가 맡는다).
-   과거 지원건을 지우지 않기 때문에 생기는 화면이다 — 지금 보고 있는 지원건과
-   그 사람의 전체 기록은 다른 것이라서, 옆에 나란히 놓아 둔다. */
+/* 이전 지원 이력 — 이름·전화번호가 같은 다른 지원건. 보여 주기만 한다. */
 function otherAppsHTML(c: Candidate) {
   const os = otherApps(c)
   if (!os.length) return ''
-  return `<div class="sec-h" style="margin-top:20px"><h3>다른 지원 내역</h3><span class="n">${os.length}건</span></div>` +
+  return `<div class="sec-h" style="margin-top:20px"><h3>이전 지원 이력</h3><span class="n">${os.length}건</span></div>` +
     '<div class="sheet"><div class="c-apps">' +
     os.map(x => {
       const st = stageById(x.p, x.st)

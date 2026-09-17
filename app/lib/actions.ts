@@ -71,6 +71,8 @@ export async function persistCand(
 export interface NewCandidate {
   id: string; pid: string; nm: string; st: string
   s: string; yr: number; role: string; src: string; why: string
+  email?: string
+  phone?: string
 }
 export async function addCandidate(
   c: NewCandidate,
@@ -81,6 +83,13 @@ export async function addCandidate(
     id: c.id, position_id: c.pid, nm: c.nm, st: c.st, s: c.s,
     d: 0, ap: TODAY_ISO, en: TODAY_ISO, why: c.why,
     src: c.src, yr: c.yr, role: c.role, act: null,
+    email: c.email?.trim() || null, phone: c.phone?.trim() || null,
+  })
+  if (!error) _addCand({
+    id: c.id, nm: c.nm, p: c.pid, st: c.st, s: c.s as Candidate['s'], d: 0, ap: TODAY_ISO, en: TODAY_ISO,
+    why: c.why, src: c.src, yr: c.yr, role: c.role,
+    ...(c.email?.trim() ? { email: c.email.trim() } : {}),
+    ...(c.phone?.trim() ? { phone: c.phone.trim() } : {}),
   })
   return error ? { ok: false, reason: error.message } : { ok: true }
 }
@@ -1292,44 +1301,6 @@ export async function recallToPosition(
     : { ok: true, id, nm: src.nm }
 }
 
-/** 같은 사람으로 묶기 — 지원건은 둘 다 그대로 남는다.
-    어느 쪽을 '대표'로 삼을지는 묻지 않는다 — 지원건을 지우지 않기 때문에
-    사람 눈에 보이는 차이가 없고, 의미 없는 선택을 물으면 손만 느려진다.
-    먼저 들어온 지원건을 열쇠로 쓴다(그 사람을 처음 만난 기록). */
-export async function mergeCandidates(
-  aId: string, bId: string,
-): Promise<{ ok: boolean; reason?: string }> {
-  await hydrateData()
-  const x = cands.find(c => c.id === aId)
-  const y = cands.find(c => c.id === bId)
-  if (!x || !y) return { ok: false, reason: 'no-candidate' }
-  const [a, b] = x.ap <= y.ap ? [x, y] : [y, x]
-  const pk = personKeyOf(a)
-  const e1 = await setPersonKey(a.id, pk)
-  const e2 = await setPersonKey(b.id, pk)
-  const line = (y: typeof a) => ({
-    at: nowLabel(), b: '중복 정리 — 같은 사람으로 묶음',
-    p: `${posById(y.p).title} 지원건(${y.role})과 동일 인물로 확인`, s: 'done',
-  })
-  await pushTrail(a.id, line(b))
-  await pushTrail(b.id, line(a))
-  const err = e1 ?? e2
-  return err ? { ok: false, reason: err } : { ok: true }
-}
-
-/** 동명이인으로 확정 — 각자 자기 id 를 열쇠로 가지면 다시 묻지 않는다. */
-export async function dismissDuplicate(
-  aId: string, bId: string,
-): Promise<{ ok: boolean; reason?: string }> {
-  await hydrateData()
-  const a = cands.find(c => c.id === aId)
-  const b = cands.find(c => c.id === bId)
-  if (!a || !b) return { ok: false, reason: 'no-candidate' }
-  const e1 = a.pk ? undefined : await setPersonKey(a.id, a.id)
-  const e2 = b.pk ? undefined : await setPersonKey(b.id, b.id)
-  const err = e1 ?? e2
-  return err ? { ok: false, reason: err } : { ok: true }
-}
 
 /* =========================================================
    직원 명부 (T4) — TalentCore 에서 당겨오기 · Hire 칸 고치기

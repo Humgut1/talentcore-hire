@@ -100,6 +100,9 @@ export async function submitApplication(
   if (!(resume instanceof File) || resume.size === 0) {
     return { ok: false, field: 'resume', error: '이력서 파일을 첨부해 주세요.' }
   }
+  if (resume.size > 3.8 * 1024 * 1024) {
+    return { ok: false, field: 'resume', error: '이력서 파일은 3.8MB 까지 올릴 수 있습니다.' }
+  }
 
   /* 같은 공고에 이미 진행 중인 지원건이 있으면 새로 만들지 않는다.
      떨어졌던 사람이 다시 지원하는 것은 막지 않는다 — 그건 정상적인 재지원이다. */

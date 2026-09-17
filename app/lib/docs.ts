@@ -67,36 +67,60 @@ export async function docUrl(path: string, seconds = 300): Promise<string | null
 }
 
 /** 파일 한 개 저장. 경로는 후보자별로 나눠 둔다. */
-export async function putDoc(a: {
-  cid: string; kind: DocKind; file: File; byNm?: string
+export const DOC_MAX = 20 * 1024 * 1024
+
+/* 파일 본문은 서버를 거치지 않는다 — Next 서버 함수는 요청 본문이 1MB(Vercel 은 4.5MB)에서 잘려
+   흔한 PDF 이력서도 튕긴다. 서버는 "여기에 올려라" 서명 주소만 만들고, 브라우저가 저장소로 바로 보낸다. */
+export async function signDoc(a: { cid: string; kind: DocKind; name: string; size: number }):
+  Promise<{ ok: true; path: string; url: string } | { ok: false; reason: string }> {
+  const sb = serverClient()
+  if (!sb) return { ok: false, reason: 'not-configured' }
+  if (!a.cid || !a.size) return { ok: false, reason: 'no-file' }
+  if (a.size > DOC_MAX) return { ok: false, reason: 'too-big' }
+  /* 저장소 키는 ASCII 만 받는다 — '배준영_이력서.pdf' 를 그대로 쓰면 Invalid key 로 튕긴다.
+     보여 줄 이름(nm)은 원본 그대로 두고 키만 확장자를 살린 안전한 문자열로 새로 짓는다. */
+  const dot = a.name.lastIndexOf('.')
+  const ext = dot > 0 ? a.name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  const stem = (dot > 0 ? a.name.slice(0, dot) : a.name).replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40)
+  const path = `${a.cid}/${Date.now()}_${(stem || a.kind) + (ext ? '.' + ext : '')}`
+  const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(path)
+  if (error || !data) return { ok: false, reason: error?.message ?? 'sign-failed' }
+  return { ok: true, path, url: data.signedUrl }
+}
+
+/** 브라우저가 올리기를 마친 뒤 목록에 적는다. 실제로 올라간 파일인지 저장소에서 확인한다. */
+export async function recordDoc(a: {
+  cid: string; kind: DocKind; nm: string; path: string; size: number; mime?: string | null; byNm?: string
 }): Promise<{ ok: boolean; reason?: string }> {
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
-  /* 저장소 키는 ASCII 만 받는다 — '배준영_이력서.pdf' 를 그대로 쓰면 Invalid key 로 튕긴다.
-     한글 이름은 채용에서 오히려 기본값이므로, 보여 줄 이름(nm)은 원본 그대로 두고
-     키만 확장자를 살린 안전한 문자열로 새로 짓는다. */
-  const dot = a.file.name.lastIndexOf('.')
-  const ext = dot > 0 ? a.file.name.slice(dot + 1).toLowerCase().replace(/[^a-z0-9]/g, '') : ''
-  const stem = (dot > 0 ? a.file.name.slice(0, dot) : a.file.name)
-    .replace(/[^a-zA-Z0-9._-]/g, '')     // 한글·공백·특수문자는 키에서 뺀다
-    .slice(0, 40)
-  const safe = (stem || a.kind) + (ext ? '.' + ext : '')
-  const path = `${a.cid}/${Date.now()}_${safe}`
-  const buf = Buffer.from(await a.file.arrayBuffer())
-  const up = await sb.storage.from(BUCKET).upload(path, buf, {
-    contentType: a.file.type || 'application/octet-stream', upsert: false,
-  })
-  if (up.error) return { ok: false, reason: up.error.message }
+  if (!a.path.startsWith(a.cid + '/') || a.path.includes('..')) return { ok: false, reason: 'bad-path' }
+  const slash = a.path.lastIndexOf('/')
+  const ls = await sb.storage.from(BUCKET).list(a.path.slice(0, slash), { search: a.path.slice(slash + 1) })
+  if (!ls.data?.some(x => x.name === a.path.slice(slash + 1))) return { ok: false, reason: 'not-uploaded' }
   const ins = await sb.from('cand_docs').insert({
-    cid: a.cid, kind: a.kind, nm: a.file.name, path,
-    size: a.file.size, mime: a.file.type || null, by_nm: a.byNm ?? null,
+    cid: a.cid, kind: a.kind, nm: a.nm.slice(0, 200), path: a.path,
+    size: a.size, mime: a.mime || null, by_nm: a.byNm ?? null,
   })
   if (ins.error) {
     /* 표에 못 넣었으면 파일만 떠 있게 두지 않는다 — 되돌린다. */
-    await sb.storage.from(BUCKET).remove([path])
+    await sb.storage.from(BUCKET).remove([a.path])
     return { ok: false, reason: ins.error.message }
   }
   return { ok: true }
+}
+
+/** 서버가 파일을 직접 받아 올리는 길 — 채용 사이트 지원 폼 전용(서버 함수 본문 한도 4MB 안에서만). */
+export async function putDoc(a: { cid: string; kind: DocKind; file: File; byNm?: string }): Promise<{ ok: boolean; reason?: string }> {
+  const sb = serverClient()
+  if (!sb) return { ok: false, reason: 'not-configured' }
+  const s = await signDoc({ cid: a.cid, kind: a.kind, name: a.file.name, size: a.file.size })
+  if (!s.ok) return s
+  const up = await sb.storage.from(BUCKET).upload(s.path, Buffer.from(await a.file.arrayBuffer()), {
+    contentType: a.file.type || 'application/octet-stream', upsert: false,
+  })
+  if (up.error) return { ok: false, reason: up.error.message }
+  return recordDoc({ cid: a.cid, kind: a.kind, nm: a.file.name, path: s.path, size: a.file.size, mime: a.file.type, ...(a.byNm ? { byNm: a.byNm } : {}) })
 }
 
 /** 파일 한 개 지우기 — 저장소와 목록을 같이 지운다. */

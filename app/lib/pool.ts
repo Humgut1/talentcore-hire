@@ -160,10 +160,9 @@ export function poolFor(pid: string, all = false): PoolRow[] {
     const score = matchScore(c, pid)
     if (!all && score === 0) continue
 
-    /* 병합된 사람은 한 번만 — 대표 한 건만 명단에 올린다. */
-    const key = personKeyOf(c)
-    if (seen.has(key)) continue
-    seen.add(key)
+    /* 같은 사람은 한 번만 — 가장 먼저 만난 지원건 하나만 명단에 올린다. */
+    if ([...seen].some(id => samePerson(cands.find(x => x.id === id)!, c))) continue
+    seen.add(c.id)
 
     const { grade, why } = gradeOf(c)
     const sinceD = daysSince(c.en)
@@ -184,62 +183,35 @@ export function poolFor(pid: string, all = false): PoolRow[] {
 }
 
 /* ---------------------------------------------------------
-   중복 — 같은 사람의 지원건이 여러 개인가
+   중복 지원 — 같은 사람이 전에 지원한 적이 있는가
+   ---------------------------------------------------------
+   기준(사용자 확정 2026-09-17): **이름과 전화번호가 둘 다 같으면** 같은 사람이다.
+   이름만 같으면 동명이인일 수 있고, 전화번호는 가족이 같이 쓰기도 해서 둘 다 본다.
+   판정만 하고 조치는 하지 않는다 — 합치지도, 막지도, 경고하지도 않는다.
+   후보자 화면에 "이전 지원 이력" 으로 보여 줄 뿐이다.
+   예전 병합(person_key)으로 묶어 둔 건도 같은 사람으로 계속 인정한다.
    --------------------------------------------------------- */
-/* 이미 사람이 판단을 내린 지원건은 그 판단을 따른다.
-   pk 가 자기 id 면 '확인했고 다른 사람이다', 남의 id 면 '그 사람과 같다'. */
 export const personKeyOf = (c: Candidate): string => c.pk ?? c.id
 
-export type DupSignal = 'email' | 'name' | 'name-role'
-
-export interface DupPair { a: Candidate; b: Candidate; by: DupSignal; note: string }
-
-/* 이름은 겹칠 수 있다. 동명이인을 같은 사람으로 합치면 되돌릴 수 없으니,
-   이름만 같을 때는 '가능성'으로만 올리고 사람이 판단하게 둔다.
-   Greenhouse 도 태그를 붙일 뿐 자동 병합은 하지 않는다. */
-function signalOf(a: Candidate, b: Candidate): { by: DupSignal; note: string } | null {
-  if (a.email && b.email && a.email.toLowerCase() === b.email.toLowerCase())
-    return { by: 'email', note: `같은 이메일 · ${a.email}` }
-  if (a.nm !== b.nm) return null
-  const t = tokens(a.role), u = tokens(b.role)
-  let n = 0; t.forEach(x => { if (u.has(x)) n++ })
-  if (n > 0 && Math.abs(a.yr - b.yr) <= 1)
-    return { by: 'name-role', note: `같은 이름 · 직무·연차 일치 (${a.yr}년 / ${b.yr}년)` }
-  return { by: 'name', note: `같은 이름 · 직무는 다름 (${a.role} / ${b.role})` }
+const nameKey = (s: string) => s.replace(/\s+/g, '').toLowerCase()
+/** 전화번호는 숫자만 남기고, 국가번호 82 로 시작하면 0 으로 바꿔 비교한다. */
+export const phoneKey = (s?: string | null): string => {
+  const d = (s ?? '').replace(/\D/g, '')
+  return d.startsWith('82') && d.length >= 11 ? '0' + d.slice(2) : d
 }
 
-/** 아직 정리되지 않은 중복 후보 쌍. 이미 판단이 끝난 건(pk 가 있는 건)은 뺀다. */
-export function dupPairs(list: Candidate[] = cands): DupPair[] {
-  const out: DupPair[] = []
-  for (let i = 0; i < list.length; i++) {
-    for (let j = i + 1; j < list.length; j++) {
-      const a = list[i], b = list[j]
-      if (a.pk || b.pk) continue          // 한쪽이라도 판단이 끝났으면 다시 묻지 않는다
-      const s = signalOf(a, b)
-      if (!s) continue
-      out.push({ a, b, ...s })
-    }
-  }
-  /* 확실한 신호(이메일)부터 위로 — 사람이 위에서부터 처리하면 된다. */
-  const w: Record<DupSignal, number> = { email: 0, 'name-role': 1, name: 2 }
-  return out.sort((x, y) => w[x.by] - w[y.by])
+/** 같은 사람인가 — 이름 + 전화번호, 또는 예전에 묶어 둔 건. */
+export function samePerson(a: Candidate, b: Candidate): boolean {
+  if (a.id === b.id) return true
+  if ((a.pk && a.pk === b.pk) || a.pk === b.id || b.pk === a.id) return true
+  const pa = phoneKey(a.phone), pb = phoneKey(b.phone)
+  return pa.length >= 9 && pa === pb && nameKey(a.nm) === nameKey(b.nm)
 }
 
-/** 같은 사람인가 — 병합으로 확정된 것만 참으로 본다(추측은 여기서 안 쓴다). */
-export const samePerson = (a: Candidate, b: Candidate): boolean =>
-  a.id === b.id || (!!a.pk && a.pk === b.pk) || a.pk === b.id || b.pk === a.id
-
-/** 이 사람의 다른 지원 이력 — 병합이 끝난 것만 모은다. */
-export function otherApps(c: Candidate): Candidate[] {
-  return cands.filter(x => x.id !== c.id && samePerson(x, c))
-}
-
-/** 중복 정리가 남은 건수 — 사이드바 뱃지용. */
-export const dupCount = (): number => dupPairs().length
-
-/** 이 후보자에게 붙는 중복 경고(있으면). 드로어 상단 배너가 읽는다. */
-export function dupFor(cid: string): DupPair[] {
-  return dupPairs().filter(p => p.a.id === cid || p.b.id === cid)
+/** 이 사람의 다른 지원 이력 — 최근 지원이 위로. */
+export function otherApps(c: Candidate, list: Candidate[] = cands): Candidate[] {
+  return list.filter(x => x.id !== c.id && samePerson(x, c))
+    .sort((x, y) => (y.ap ?? '').localeCompare(x.ap ?? ''))
 }
 
 /** 인재풀 전체 규모 — 화면 상단 요약용. */

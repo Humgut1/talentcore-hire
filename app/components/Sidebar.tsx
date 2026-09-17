@@ -12,7 +12,6 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
 import { me } from '../lib/data'
-import { dupCount } from '../lib/pool'
 
 /** 사이드바가 그리는 데 필요한 만큼만 추린 공고 한 줄. 서버가 만들어 넘긴다. */
 export interface SidePos {
@@ -26,7 +25,7 @@ const TOP = [
   { r: '/todo',       i: 'i-check-sq', n: '내 할 일' },
   { r: '/review',     i: 'i-eye-off',  n: '서류 검토' },
   { r: '/candidates', i: 'i-users',    n: '후보자 전체' },
-  { r: '/pool',       i: 'i-copy',     n: '인재풀', b: 'dup' },
+  { r: '/pool',       i: 'i-copy',     n: '인재풀' },
 ]
 const BOTTOM = [
   { r: '/interviewers', i: 'i-user',     n: '면접관' },
@@ -43,7 +42,6 @@ function isActive(r: string, pathname: string) {
 
 export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
   const pathname = usePathname()
-  const dupN = dupCount()
   const [q, setQ] = useState('')
 
   /* 마감된 공고는 접어 둔다 — 매일 보는 목록이 과거로 길어지면 안 된다. */
@@ -86,7 +84,6 @@ export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
         {TOP.map(it => (
           <Link className={'nav-i' + (isActive(it.r, pathname) ? ' on' : '')} href={it.r} key={it.r}>
             <Icon id={it.i} />{it.n}
-            {it.b === 'dup' && dupN ? <span className="badge mute">{dupN}</span> : null}
           </Link>
         ))}
       </div>

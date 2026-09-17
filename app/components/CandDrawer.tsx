@@ -22,7 +22,8 @@ import { Icon } from './IconSprite'
 import IvPanel from './IvPanel'
 import DecisionClient from './DecisionClient'
 import OfferClient from './OfferClient'
-import { uploadDoc, removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
+import { removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
+import { sendDoc } from '../lib/doc-upload'
 import { createOffer } from '../lib/actions'
 import { MAIL_TPLS, tplByCode } from '../lib/cand-mail'
 import { ratingDef, isPositive } from '../lib/scorecard'
@@ -186,9 +187,7 @@ function DocPane({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void }) 
   useEffect(() => { setOpenId(null) }, [d.cid])
 
   const upload = (f: File, k: string) => start(async () => {
-    const fd = new FormData()
-    fd.set('cid', d.cid); fd.set('kind', k); fd.set('by', d.sender); fd.set('file', f)
-    const r = await uploadDoc(fd)
+    const r = await sendDoc({ cid: d.cid, kind: k, by: d.sender, file: f })
     setMsg(r.ok ? `${f.name} 을(를) 올렸습니다.`
       : (FAIL[r.reason ?? ''] ?? `올리지 못했습니다 (${r.reason ?? '알 수 없음'})`))
     if (file.current) file.current.value = ''
@@ -290,9 +289,7 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
   const file = useRef<HTMLInputElement>(null)
 
   const pick = (f: File) => start(async () => {
-    const fd = new FormData()
-    fd.set('cid', d.cid); fd.set('kind', kind); fd.set('by', d.sender); fd.set('file', f)
-    const r = await uploadDoc(fd)
+    const r = await sendDoc({ cid: d.cid, kind, by: d.sender, file: f })
     setMsg(r.ok ? `${f.name} 을(를) 올렸습니다.`
       : (FAIL[r.reason ?? ''] ?? `올리지 못했습니다 (${r.reason ?? '알 수 없음'})`))
     if (file.current) file.current.value = ''
@@ -313,14 +310,13 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 
   return (
     <>
-      {d.dup ? (
+      {d.others.length ? (
         <div className="dw-dup">
           <Icon id="i-copy" className="ic-sm" />
           <div>
-            <b>같은 사람의 지원건일 수 있습니다</b>
-            <span>{d.dup.title} 지원건 · {d.dup.note}{d.dup.n > 1 ? ` 외 ${d.dup.n - 1}건` : ''}</span>
+            <b>이전 지원 이력 {d.others.length}건</b>
+            <span>최근 {d.others[0].ap} · {d.others[0].title} · {d.others[0].stage} — 이름·전화번호 일치</span>
           </div>
-          <Link className="btn" href="/pool">인재풀에서 확인</Link>
         </div>
       ) : null}
 
@@ -385,7 +381,7 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 
       {d.others.length ? (
         <>
-          <Sec t="다른 지원 내역" n={d.others.length} />
+          <Sec t="이전 지원 이력" n={d.others.length} />
           <div className="dw-others">
             {d.others.map(o => (
               <div className="dw-other" key={o.id}>

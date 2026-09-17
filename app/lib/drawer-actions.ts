@@ -8,17 +8,15 @@
    ========================================================= */
 import { hydrateData } from './db'
 import { cands, posById } from './data'
-import { putDoc, dropDoc, docUrl, type DocKind } from './docs'
+import { signDoc, recordDoc, dropDoc, docUrl, type DocKind } from './docs'
 import { sendCandMail } from './maillog'
 
-export async function uploadDoc(fd: FormData): Promise<{ ok: boolean; reason?: string }> {
-  const cid = String(fd.get('cid') || '')
-  const kind = String(fd.get('kind') || 'etc') as DocKind
-  const by = String(fd.get('by') || '')
-  const file = fd.get('file')
-  if (!cid || !(file instanceof File) || !file.size) return { ok: false, reason: 'no-file' }
-  if (file.size > 20 * 1024 * 1024) return { ok: false, reason: 'too-big' }
-  return putDoc({ cid, kind, file, ...(by ? { byNm: by } : {}) })
+export async function startDoc(cid: string, kind: DocKind, name: string, size: number) {
+  return signDoc({ cid, kind, name, size })
+}
+
+export async function finishDoc(a: { cid: string; kind: DocKind; nm: string; path: string; size: number; mime?: string; by?: string }) {
+  return recordDoc({ cid: a.cid, kind: a.kind, nm: a.nm, path: a.path, size: a.size, mime: a.mime ?? null, ...(a.by ? { byNm: a.by } : {}) })
 }
 
 export async function removeDoc(id: string): Promise<{ ok: boolean; reason?: string }> {

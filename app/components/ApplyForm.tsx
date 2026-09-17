@@ -30,6 +30,7 @@ interface Props {
 export default function ApplyForm({ pid, title, steps, company }: Props) {
   const [state, action, pending] = useActionState(submitApplication, EMPTY)
   const [fileName, setFileName] = useState('')
+  const [fileBig, setFileBig] = useState(false)
 
   /* 폼은 길어서 제출 버튼이 화면 맨 아래에 있다. 접수 완료 화면으로 바뀌어도
      스크롤은 그대로라, 올려 주지 않으면 지원자는 빈 여백만 보고 '된 건가?' 한다.
@@ -132,10 +133,21 @@ export default function ApplyForm({ pid, title, steps, company }: Props) {
           <div className="s-file">
             <input id="a-resume" name="resume" type="file" required
                    accept=".pdf,.doc,.docx,.hwp,.hwpx,application/pdf"
-                   onChange={e => setFileName(e.target.files?.[0]?.name ?? '')} />
+                   onChange={e => {
+                     /* 서버가 받는 본문 한도(4MB) 안쪽에서 미리 막는다 — 넘으면 접수 자체가 튕긴다. */
+                     const f = e.target.files?.[0]
+                     if (f && f.size > 3.8 * 1024 * 1024) {
+                       e.target.value = ''
+                       setFileName('')
+                       setFileBig(true)
+                       return
+                     }
+                     setFileBig(false)
+                     setFileName(f?.name ?? '')
+                   }} />
           </div>
           <span className="s-hint">
-            {fileName ? `선택됨 · ${fileName}` : 'PDF 를 권장합니다. 포트폴리오는 이력서에 링크로 넣어 주세요.'}
+            {fileBig ? '파일이 3.8MB 를 넘습니다. PDF 로 저장하거나 이미지를 줄여 다시 골라 주세요.' : fileName ? `선택됨 · ${fileName}` : 'PDF 를 권장합니다(3.8MB 까지). 포트폴리오는 이력서에 링크로 넣어 주세요.'}
           </span>
         </div>
 
