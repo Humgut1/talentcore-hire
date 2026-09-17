@@ -1155,3 +1155,31 @@ button.se-step:hover { background: var(--brand-soft); color: var(--brand-deep); 
 .sc-pb { flex: 1; min-width: 0; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sc-prow .sc-by { flex: none; }
 @media (max-width: 480px) { .sc-prow .sc-by { display: none; } }
+
+/* ---------- 면접 평가 입력 (H5) ---------- */
+.ev-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; max-width: 1200px; }
+.ev-doc { overflow: hidden; display: flex; flex-direction: column; }
+.ev-doc-f { width: 100%; height: 640px; border: 0; background: var(--sunken); }
+.ev-doc-img { width: 100%; height: auto; display: block; }
+.ev-doc-none { padding: 22px 18px; font-size: 12.5px; color: var(--t3); line-height: 1.6; }
+.ev-doc-bar { padding: 8px 14px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--t4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ev-roster { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.ev-who { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--t2); }
+.ev-note { margin-top: 8px; font-size: 11.5px; color: var(--t4); line-height: 1.6; }
+.ev-hint { margin-top: 4px; font-size: 11.5px; color: var(--t4); }
+.ev-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ev-sel { width: 100%; max-width: 280px; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg, transparent); color: var(--t1); font: inherit; font-size: 13px; }
+.ev-f { margin-bottom: 10px; }
+.ev-f.total { padding-top: 10px; border-top: 1px dashed var(--line); }
+.ev-k { font-size: 12.5px; color: var(--t2); margin-bottom: 5px; font-weight: 600; }
+.ev-scale { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.ev-rate { padding: 7px 4px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--t2); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev-rate:hover { background: var(--hover); }
+.ev-rate.on { color: var(--t1); font-weight: 600; }
+.ev-rate.on.pos { border-color: var(--done); box-shadow: inset 0 0 0 1px var(--done); }
+.ev-rate.on.neg { border-color: var(--esc); box-shadow: inset 0 0 0 1px var(--esc); }
+.ev-acts { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+@media (max-width: 900px) {
+  .ev-split { grid-template-columns: minmax(0, 1fr); }
+  .ev-doc-f { height: 420px; }
+}

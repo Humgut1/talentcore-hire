@@ -19,6 +19,7 @@ import {
   type Offer, type OfferState,
 } from './offer'
 import { rejectDef, SIDE_LABEL } from './decision'
+import { evalGate, visibleEvals, sealedLine } from './evalgate'
 import { mtgViews, inboxAll } from './meetings'
 // 서버 전용 google.ts 에서 '타입만' 가져온다(클라이언트 번들에 fs·시크릿 유입 방지).
 import type { GoogleStatus } from './google'
@@ -207,7 +208,13 @@ export function candidateFootHTML(cid: string, docs: CandDoc[] = [], mails: Mail
     ]),
     ...(trail[cid] || []).map(t => ({ t: t.at, b: t.b, p: t.p, s: t.s })),
   ]
-  const ev = evals[cid] || []
+  /* 이 단계 면접관이 다 내기 전에는 이 단계 평가를 빼고 그린다(H5). */
+  const ev = visibleEvals(cid)
+  const gate = evalGate(cid)
+  const sealedBox = gate && gate.sealed
+    ? '<div class="sheet" style="padding:12px 16px;margin-bottom:10px;font-size:12px;color:var(--t3)">' +
+      ico('i-clock', 'ic-sm') + ' ' + esc(sealedLine(gate)) + '</div>'
+    : ''
 
   /* 불합격으로 끝난 카드는 사유를 화면 위쪽에 그대로 남긴다.
      '어디서, 왜, 누가 빠졌나'가 다음 채용의 유일한 자산이다. */
@@ -234,6 +241,7 @@ export function candidateFootHTML(cid: string, docs: CandDoc[] = [], mails: Mail
     '</div></div>' +
     `<div class="sec-h" style="margin-top:24px"><h3>평가</h3><span class="n">${ev.length}건</span>` +
     (ev.length ? `<div class="right"><a class="btn quiet" href="/e/${c.id}">${ico('i-rows', 'ic-sm')}나란히 비교</a></div>` : '') + '</div>' +
+    sealedBox +
     (ev.length ? '<div class="sheet">' + ev.map(e =>
       '<div style="padding:14px 16px;border-top:1px solid var(--line)">' +
       '<div style="display:flex;align-items:center;gap:9px">' +
@@ -794,9 +802,10 @@ function pendingIvs(c: Candidate): string[] {
 export function evalCompareHTML(cid: string) {
   const c = cands.find(x => x.id === cid)
   if (!c) return notFoundHTML()
-  const list = evals[cid] || []
+  const list = visibleEvals(cid)
   const stage = stageById(c.p, c.st)
-  const pend = pendingIvs(c)
+  const gate = evalGate(cid)
+  const pend = gate ? gate.roster.filter(x => !x.done).map(x => x.uid) : pendingIvs(c)
   const vd = verdictOf(list)
 
   /* 항목 축 = 제출된 평가에 실제로 등장한 항목들의 합집합.
@@ -856,12 +865,17 @@ export function evalCompareHTML(cid: string) {
     (dist ? `<i>${dist}</i>` : '') +
     (pend.length ? `<i style="color:var(--esc)">미제출 ${esc(pend.map(nameOf).join(', '))}</i>` : '') +
     '</div></header>' +
-    '<div class="stage">' + matrix +
+    '<div class="stage">' +
+    (gate && gate.sealed
+      ? '<div class="sheet" style="padding:12px 16px;margin-bottom:12px;font-size:12.5px;color:var(--t2)">' +
+        ico('i-clock', 'ic-sm') + ' ' + esc(sealedLine(gate)) + '</div>'
+      : '') +
+    matrix +
     (list.length ? '<div class="sheet" style="margin-top:12px"><div class="sec-h" style="padding:16px 18px 0"><h3>면접관 메모</h3></div>' + memos + '</div>' : '') +
     judgeBar +
     note([
       '이 화면은 <b>제출이 끝난 뒤에만</b> 의미가 있습니다. 면접관 본인은 자기 평가를 내기 전까지 남의 점수를 못 봅니다.',
-      '평가는 면접관에게 보낸 <b>개인 링크</b>에서 작성합니다 — 별도 계정·로그인이 없습니다.',
+      '평가는 <b>후보자 상세·서랍</b>에서 이력서를 옆에 두고 쓰거나, 면접관에게 보낸 개인 링크에서 작성합니다. 배정된 면접관이 <b>모두 제출해야</b> 이 단계 내용이 공개됩니다.',
       '평가는 <b>판정으로 이어질 때만</b> 값이 있습니다. 읽고 끝나면 후보자는 그 자리에 그대로 서 있습니다.',
     ]) + '</div>'
 }

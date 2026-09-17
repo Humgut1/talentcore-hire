@@ -121,12 +121,15 @@ export function decisionFor(
   const pending = gradable ? ivs.filter(v => !done.has(v.uid)).map(v => v.nm) : []
   const expected = gradable ? ivs.length : 0
   const submitted = evals.length
-  const verdict = verdictOf(evals)
+  /* 배정된 면접관이 다 내기 전에는 찬반 방향도 내용의 일부다 — 보여주지 않는다(H5). */
+  const sealed = gradable && expected > 0 && pending.length > 0
+  const verdict = sealed ? 'none' : verdictOf(evals)
   const ready = !gradable || (expected > 0 ? pending.length === 0 : submitted > 0)
 
   let advice: DecisionKind | null = null
   if (!closed) {
     if (!gradable) advice = 'advance'
+    else if (sealed) advice = null
     else if (verdict === 'pass') advice = 'advance'
     else if (verdict === 'fail') advice = 'reject'
     else if (verdict === 'split') advice = 'hold'
@@ -134,7 +137,7 @@ export function decisionFor(
 
   const notes: string[] = []
   if (gradable && pending.length)
-    notes.push(`${pending.join(' · ')} 님의 평가가 아직 없습니다. 지금 판정하면 그 의견 없이 정해집니다.`)
+    notes.push(`${pending.join(' · ')} 님의 평가가 아직 없습니다. 모두 제출하기 전까지 평가 내용은 가려지며, 지금 판정하면 그 의견 없이 정해집니다.`)
   if (verdict === 'split')
     notes.push('찬반이 갈렸습니다. 숫자로 덮지 말고 무엇을 다르게 봤는지 맞춰본 뒤 판정하세요.')
   if (!closed && !next)

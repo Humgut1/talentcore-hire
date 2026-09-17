@@ -5,11 +5,13 @@
 import Screen from '../../../components/Screen'
 import DecisionClient from '../../../components/DecisionClient'
 import StageComments from '../../../components/StageComments'
+import EvalPanel from '../../../components/EvalPanel'
+import { evalGate } from '../../../lib/evalgate'
 import { hydrateData } from '../../../lib/db'
 import { candidateHeadHTML, candidateFootHTML } from '../../../lib/render'
 import { cands, evals, me, personById, posById, stageById, stagesOf, commentsFor } from '../../../lib/data'
 import { decisionFor } from '../../../lib/decision'
-import { docsOf } from '../../../lib/docs'
+import { docsOf, docUrl } from '../../../lib/docs'
 import { mailsOf } from '../../../lib/maillog'
 
 export default async function Page({ params }: { params: Promise<{ cid: string }> }) {
@@ -30,6 +32,14 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const view = decisionFor(cur, stagesOf(c.p), ev, ivs)
   const cm = commentsFor(c.id)
 
+  /* 면접 평가 — 이력서를 옆에 펴 둔 채 쓴다(H5). 평가 받는 단계에서만. */
+  const gate = evalGate(c.id)
+  const showEval = !!gate && gate.gradable && !gate.closed
+  const resume = showEval ? (docs.find(f => f.kind === 'resume') ?? docs[0]) : undefined
+  const resumeUrl = resume ? await docUrl(resume.path, 1800) : null
+  const isPdf = !!resume && (resume.mime === 'application/pdf' || /\.pdf$/i.test(resume.nm))
+  const isImg = !!resume && (/^image\//.test(resume.mime ?? '') || /\.(png|jpe?g|gif|webp)$/i.test(resume.nm))
+
   return (
     <>
       <Screen html={candidateHeadHTML(cid)} />
@@ -40,6 +50,31 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
         pos={posById(c.p).title} sender={me.name}
         {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
       />
+      {showEval && gate ? (
+        <div className="stage" style={{ padding: '16px 26px 0' }}>
+          <div className="ev-split">
+            <div className="sheet ev-doc">
+              {!resume ? (
+                <div className="ev-doc-none">올라온 이력서가 없습니다. 서랍에서 이력서를 올리면 이 자리에 펼쳐집니다.</div>
+              ) : !resumeUrl ? (
+                <div className="ev-doc-none">{resume.nm} — 파일 주소를 만들지 못했습니다.</div>
+              ) : isPdf ? (
+                <iframe className="ev-doc-f" src={resumeUrl} title={resume.nm} />
+              ) : isImg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img className="ev-doc-img" src={resumeUrl} alt={resume.nm} />
+              ) : (
+                <div className="ev-doc-none">
+                  {resume.nm} — 브라우저가 바로 펼칠 수 없는 형식입니다.{' '}
+                  <a className="btn sm" href={resumeUrl} target="_blank" rel="noopener noreferrer">새 창에서 열기</a>
+                </div>
+              )}
+              {resume ? <div className="ev-doc-bar">{resume.nm}</div> : null}
+            </div>
+            <EvalPanel gate={gate} />
+          </div>
+        </div>
+      ) : null}
       <Screen html={candidateFootHTML(cid, docs, mails)} />
     </>
   )

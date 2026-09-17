@@ -22,6 +22,7 @@ import { Icon } from './IconSprite'
 import IvPanel from './IvPanel'
 import DecisionClient from './DecisionClient'
 import StageComments from './StageComments'
+import EvalPanel from './EvalPanel'
 import OfferClient from './OfferClient'
 import { removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
 import { sendDoc } from '../lib/doc-upload'
@@ -422,6 +423,7 @@ function EvalTab({ d }: { d: DrawerData }) {
         {...(d.rj ? { rj: d.rj.code } : {})}
         {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
       />
+      {d.evalGate ? <div style={{ marginTop: 14 }}><EvalPanel gate={d.evalGate} /></div> : null}
       <Sec t="평가" n={d.evals.length} right={
         d.evals.length ? <Link className="btn quiet" href={`/e/${d.cid}`}>나란히 비교</Link> : null
       } />
@@ -448,8 +450,15 @@ function EvalTab({ d }: { d: DrawerData }) {
           ))}
         </div>
       ) : (
-        <div className="dw-none">아직 평가가 없습니다. 면접이 끝나면 평가지 작성 요청이 자동으로 나갑니다.</div>
+        <div className="dw-none">
+          {d.evalGate?.sealed
+            ? d.evalGate.stageNm + ' 평가는 모두 제출하면 공개됩니다.'
+            : '아직 평가가 없습니다. 면접이 끝나면 평가지 작성 요청이 자동으로 나갑니다.'}
+        </div>
       )}
+      {d.evals.length && d.evalGate?.sealed ? (
+        <div className="dw-none" style={{ marginTop: 8 }}>{d.evalGate.stageNm} 평가는 모두 제출하면 공개됩니다. 위 목록은 앞 단계 평가입니다.</div>
+      ) : null}
     </>
   )
 }

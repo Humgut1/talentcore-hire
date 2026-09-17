@@ -15,6 +15,7 @@ import {
 } from './data'
 import { decisionFor, rejectDef, SIDE_LABEL, type DecisionView, type RejectCode } from './decision'
 import { otherApps } from './pool'
+import { evalGate, visibleEvals, type EvalGate } from './evalgate'
 import { docsOf, docUrl, type CandDoc } from './docs'
 import { mailsOf, type MailRow } from './maillog'
 import { mailerStatus } from './mailer'
@@ -42,6 +43,7 @@ export interface DrawerData {
   comments: { cur: CommentView[]; prior: { st: string; c: CommentView }[] }
   timeline: TLItem[]
   evals: EvalItem[]
+  evalGate: EvalGate | null
   /* 서류는 '보이는' 것이 기본이다 — 서랍 왼쪽에서 바로 읽힌다.
      그래서 목록을 받는 김에 잠깐 살아 있는 주소까지 여기서 만들어 붙인다.
      화면이 파일을 고를 때마다 서버에 다시 묻게 하면, 이력서 한 장 보는 데
@@ -133,7 +135,8 @@ export async function drawerData(
     decision: decisionFor(sg, stagesOf(c.p), stageEv, ivs),
     comments: commentsFor(cid),
     timeline: tl,
-    evals: ev,
+    evals: visibleEvals(cid),
+    evalGate: evalGate(cid),
     docs, mails,
     others: otherApps(c).map(x => {
       const st = stageById(x.p, x.st)
