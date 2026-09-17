@@ -88,10 +88,10 @@ async function main() {
 
   const e = env()
   const token = e.SUPABASE_ACCESS_TOKEN
-  const url = e.NEXT_PUBLIC_SUPABASE_URL || ''
+  const url = e.SUPABASE_URL || e.NEXT_PUBLIC_SUPABASE_URL || ''
   const ref = url.replace('https://', '').split('.')[0]
   if (!token) die('.env.local 에 SUPABASE_ACCESS_TOKEN 이 없습니다.')
-  if (!ref) die('.env.local 에 NEXT_PUBLIC_SUPABASE_URL 이 없습니다.')
+  if (!ref) die('.env.local 에 SUPABASE_URL 이 없습니다.')
   const conn = { token, ref }
 
   const all = files()

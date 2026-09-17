@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
@@ -53,6 +53,15 @@ export default function Board(
     setForm(emptyForm)
     setAddStage(stageId ?? cols[0]?.id ?? 's1')
   }
+  /* 다른 화면(진행 매트릭스)의 [후보자 추가] 는 ?add=1 로 넘어온다 — 열고 주소는 지운다. */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search)
+    if (q.get('add') !== '1') return
+    q.delete('add')
+    window.history.replaceState(null, '', window.location.pathname + (q.size ? '?' + q : ''))
+    openAdd()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   function submitAdd() {
     const nm = form.nm.trim()
     if (!nm || !addStage) return
@@ -369,9 +378,6 @@ export default function Board(
   const tabs: [string, string, string, number | null][] = [
     ['board', '파이프라인', 'i-columns', activeCands.length],
     ['progress', '진행 매트릭스', 'i-rows', null],
-    ['setup', '공고 설정', 'i-sliders', null],
-    ['auto', '자동화', 'i-zap', null],
-    ['links', '지원 링크', 'i-link', null],
   ]
 
   return (
@@ -387,7 +393,8 @@ export default function Board(
           <span className={'pill ' + st[0]}><i className="dot" />{st[1]}</span>
           {risk > 0 && <span className="pill bad"><Icon id="i-alert" className="ic-sm" />사람 대기 {risk}</span>}
           <div className="spacer">
-            <Link className="btn" href={`/p/${PID}/links`}><Icon id="i-link" className="ic-sm" />지원 링크</Link>
+            <a className="btn" href={`/careers/${PID}`} target="_blank" rel="noreferrer"><Icon id="i-link" className="ic-sm" />공고 보기</a>
+            <Link className="btn" href={`/p/${PID}/setup`}><Icon id="i-sliders" className="ic-sm" />공고 설정</Link>
             <button className="btn br" onClick={() => openAdd()}><Icon id="i-plus" className="ic-sm" />후보자 추가</button>
           </div>
         </div>

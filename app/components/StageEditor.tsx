@@ -11,7 +11,7 @@
      서버 액션으로 저장한다(미설정이면 조용히 화면만 유지).
    · 헤더를 JSX로 직접 그려, 공고명·팀·상태를 편집하면 즉시 반영된다.
    ========================================================= */
-import { Fragment, useRef, useState } from 'react'
+import { Fragment, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
 import { KIND, type Stage, type Person, type Position } from '../lib/data'
@@ -63,8 +63,9 @@ function summary(s: Stage): string {
 interface Toast { id: number; html: string }
 
 export default function StageEditor(
-  { pid, initialStages, people, candCounts, position }:
+  { pid, initialStages, people, candCounts, position, children }:
   {
+    children?: ReactNode
     pid: string
     initialStages: Stage[]
     people: Person[]
@@ -253,9 +254,6 @@ export default function StageEditor(
   const tabs: [string, string, string][] = [
     ['board', '파이프라인', 'i-columns'],
     ['progress', '진행 매트릭스', 'i-rows'],
-    ['setup', '전형 단계', 'i-sliders'],
-    ['auto', '자동화', 'i-zap'],
-    ['links', '지원 링크', 'i-link'],
   ]
 
   return (
@@ -270,6 +268,7 @@ export default function StageEditor(
           <h1>{pos.title}</h1>
           <span className={'pill ' + stPill[0]}><i className="dot" />{stPill[1]}</span>
           <div className="spacer">
+            <a className="btn" href={`/careers/${pid}`} target="_blank" rel="noreferrer"><Icon id="i-link" className="ic-sm" />공고 보기</a>
             <Link className="btn" href={`/p/${pid}/board`}><Icon id="i-columns" className="ic-sm" />보드로</Link>
           </div>
         </div>
@@ -286,7 +285,7 @@ export default function StageEditor(
         </div>
         <nav className="tabs">
           {tabs.map(t => (
-            <Link className={'tab' + (t[0] === 'setup' ? ' on' : '')} href={`/p/${pid}/${t[0]}`} key={t[0]}>
+            <Link className="tab" href={`/p/${pid}/${t[0]}`} key={t[0]}>
               <Icon id={t[2]} className="ic-sm" />{t[1]}
             </Link>
           ))}
@@ -295,7 +294,7 @@ export default function StageEditor(
 
       {/* ===== 본문 ===== */}
       <div className="stage">
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 26, alignItems: 'start' }}>
+        <div className="split" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 26, alignItems: 'start' }}>
           {/* ----- 왼쪽: 단계 편집 + 기본 정보 ----- */}
           <div>
             <div className="sec-h">
@@ -741,6 +740,9 @@ export default function StageEditor(
           </div>
         </div>
       </div>
+
+      {/* ===== 자동화 (예전 자동화 탭) ===== */}
+      <div className="stage" style={{ paddingTop: 0 }}>{children}</div>
 
       {/* ===== 토스트 ===== */}
       <div className="toast-wrap">

@@ -4,7 +4,7 @@
    해시 라우트(#/...)는 Next 경로(/...)로 치환했다.
    ========================================================= */
 import {
-  me, positions, people, cands, auto, links, timeline, trail, evals,
+  me, positions, people, cands, timeline, trail, evals,
   funnelRows, dwellRows, sourceRows, kpis, exportCols,
   LABEL, KIND, stagesOf, stageById, posById, activeCands, byRisk,
   md, daysSince, offerOf, offerList, rejectRows,
@@ -87,9 +87,6 @@ export function posHeader(pid: string, tab: string) {
   const tabs: [string, string, string, number | null][] = [
     ['board', '파이프라인', 'i-columns', cs.length],
     ['progress', '진행 매트릭스', 'i-rows', null],
-    ['setup', '공고 설정', 'i-sliders', null],
-    ['auto', '자동화', 'i-zap', null],
-    ['links', '지원 링크', 'i-link', null],
   ]
   return '<header class="top">' +
     `<div class="crumb">${ico('i-briefcase', 'ic-sm')}<a href="/positions">공고</a>` +
@@ -98,8 +95,9 @@ export function posHeader(pid: string, tab: string) {
     `<span class="pill ${st[0]}"><i class="dot"></i>${st[1]}</span>` +
     (risk ? `<span class="pill bad">${ico('i-alert', 'ic-sm')}사람 대기 ${risk}</span>` : '') +
     '<div class="spacer">' +
-    `<a class="btn" href="/p/${pid}/links">${ico('i-link', 'ic-sm')}지원 링크</a>` +
-    `<button class="btn br">${ico('i-plus', 'ic-sm')}후보자 추가</button>` +
+    `<a class="btn" href="/careers/${pid}" target="_blank" rel="noreferrer">${ico('i-link', 'ic-sm')}공고 보기</a>` +
+    `<a class="btn" href="/p/${pid}/setup">${ico('i-sliders', 'ic-sm')}공고 설정</a>` +
+    `<a class="btn br" href="/p/${pid}/board?add=1">${ico('i-plus', 'ic-sm')}후보자 추가</a>` +
     '</div></div>' +
     '<div class="meta">' +
     `<i>${ico('i-users', 'ic-sm')}${esc(p.dept)} <b>${esc(p.team)}</b></i>` +
@@ -153,165 +151,6 @@ export function progressHTML(pid: string) {
       '위 레일이 <b>공고의 단면</b>이다. 숫자가 쌓이고 붉어진 칸이 병목이다.',
       '아래 한 줄이 <b>후보자 한 명의 궤적</b>. 굵은 원이 현재 위치이고 그 색이 조율 상태다.',
       '보드가 "지금 무엇을 할까"라면, 이 표는 <b>"이 공고가 어디서 막히는가"</b>에 답한다.',
-    ]) + '</div>'
-}
-
-/* ---------- 공고 설정 ---------- */
-const PRESETS = [
-  { nm: '사전 과제', kind: 'task', sla: 5, dur: 0, mode: '—' },
-  { nm: '컬처핏 인터뷰', kind: 'interview', sla: 4, dur: 60, mode: '화상' },
-  { nm: '실무 인터뷰', kind: 'interview', sla: 5, dur: 90, mode: '대면' },
-  { nm: '레퍼런스 체크', kind: 'screen', sla: 3, dur: 0, mode: '—' },
-  { nm: '임원 면접', kind: 'interview', sla: 7, dur: 60, mode: '대면' },
-  { nm: '처우 협의', kind: 'offer', sla: 3, dur: 0, mode: '—' },
-]
-export function setupHTML(pid: string) {
-  const p = posById(pid), st = stagesOf(pid)
-  const rows = st.map((s, i) => {
-    const ivs = (s.ivs || []).map(id => { const u = people.find(x => x.id === id); return u ? u.nm + (u.ea ? ' (EA)' : '') : '' }).join(', ')
-    return `<div class="se-row" draggable="${!s.rail}" data-s="${s.id}" data-i="${i}">` +
-      (s.rail ? `<span class="se-grip" style="opacity:.25">${ico('i-lock', 'ic-sm')}</span>`
-        : `<span class="se-grip">${ico('i-grip')}</span>`) +
-      `<i class="se-sw" style="background:${s.color}"></i>` +
-      `<input class="se-name" value="${esc(s.nm)}" data-rn="${s.id}"${s.rail ? ' readonly' : ''}>` +
-      `<span class="se-kind">${KIND[s.kind]}</span>` +
-      (s.rail ? `<span class="se-f">${ico('i-lock')}고정 단계</span>` :
-        `<label class="se-f" title="이 단계의 기준 체류일">${ico('i-clock')}` +
-        `<input class="in sm w-xs" type="number" min="0" value="${s.sla}" data-sla="${s.id}">d</label>` +
-        (s.kind === 'interview'
-          ? `<label class="se-f" title="면접 길이">${ico('i-video')}` +
-            `<select class="sel sm w-sm" data-dur="${s.id}">` +
-            [30, 45, 60, 90, 120].map(m => `<option${s.dur === m ? ' selected' : ''}>${m}분</option>`).join('') +
-            '</select></label>' +
-            `<span class="se-f">${ico('i-users')}${ivs || '미지정'}</span>`
-          : `<span class="se-f">${ico('i-zap')}${s.auto ? '자동' : '수동'}</span>`)) +
-      (s.rail ? '' : `<button class="se-del" data-del="${s.id}" title="단계 삭제">${ico('i-trash', 'ic-sm')}</button>`) +
-      '</div>'
-  }).join('')
-  return posHeader(pid, 'setup') +
-    '<div class="stage">' +
-    '<div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:26px;align-items:start">' +
-    '<div>' +
-    `<div class="sec-h"><h3>전형 단계 구성</h3><span class="n">${st.length}단계</span>` +
-    `<span class="hint">${ico('i-grip', 'ic-sm')} 끌어서 순서 변경 · 이름을 눌러 수정</span></div>` +
-    `<div class="sheet" id="stageEditor">${rows}` +
-    `<button class="se-add" data-preset="__custom">${ico('i-plus', 'ic-sm')}단계 추가</button></div>` +
-    '<div class="preset">' + PRESETS.map((pz, i) => `<button data-preset="${i}">${ico('i-plus', 'ic-sm')}${esc(pz.nm)}</button>`).join('') + '</div>' +
-    '<div class="sec-h" style="margin-top:26px"><h3>기본 정보</h3></div>' +
-    '<div class="sheet" style="padding:16px 18px">' +
-    '<div class="row2">' +
-    field('공고명', `<input class="in" value="${esc(p.title)}">`) +
-    field('고용형태', '<select class="sel">' + ['정규직', '계약직', '파트타임', '인턴', '프리랜서', '파견'].map(x => `<option${p.emp === x ? ' selected' : ''}>${x}</option>`).join('') + '</select>') +
-    '</div>' +
-    '<div class="row3">' +
-    field('부문', '<select class="sel"><option>플랫폼본부</option><option>프로덕트본부</option><option>사업본부</option></select>') +
-    field('팀', `<input class="in" value="${esc(p.team)}">`) +
-    field('상태', '<select class="sel"><option>오픈</option><option>홀드</option><option>마감</option></select>') +
-    '</div>' +
-    '<div class="row2">' +
-    field('담당 리크루터', '<select class="sel"><option>정수민</option><option>박현우</option></select>') +
-    field('하이어링 매니저', '<select class="sel"><option>최영수</option><option>노아름</option></select>') +
-    '</div>' +
-    field('JD', `<textarea class="ta">${esc(p.jd)}</textarea>`) +
-    '</div>' +
-    '</div>' +
-    '<div>' +
-    '<div class="sec-h"><h3>단계 구성이 하는 일</h3></div>' +
-    '<div class="sheet" style="padding:15px 16px">' +
-    infoRow('i-columns', '파이프라인 열', '여기서 만든 단계가 곧 보드의 열이 됩니다.') +
-    infoRow('i-clock', '기준 체류일', '초과하면 카드가 주황(지연)으로 바뀝니다.') +
-    infoRow('i-video', '면접 길이', '캘린더 교집합을 찾을 블록 길이입니다. 2시간이면 연속 2시간을 찾습니다.') +
-    infoRow('i-users', '면접관', 'EA 조율 대상이 한 명이라도 있으면 그 단계는 자동화에서 제외됩니다.') +
-    infoRow('i-download', 'Export', '추가한 단계는 Export 컬럼에 타임스탬프로 자동 추가됩니다.') +
-    '</div>' +
-    '<div class="note" style="margin-top:14px">' +
-    `<h4>${ico('i-info', 'ic-sm')}주의</h4><ul>` +
-    '<li>진행 중인 후보자가 있는 단계는 삭제할 수 없습니다.</li>' +
-    '<li><b>입사 · 불합격</b>은 종료 단계라 순서와 이름이 고정입니다.</li>' +
-    '<li>단계를 바꿔도 이미 지나간 후보자의 이력은 그대로 보존됩니다.</li></ul></div>' +
-    '</div>' +
-    '</div>' +
-    '</div>'
-}
-
-/* ---------- 자동화 설정 ---------- */
-export function autoHTML(pid: string) {
-  const a = auto[pid] || auto.p1
-  const rules = a.rules.map(r =>
-    '<div class="rule"><div class="txt"><b>' + esc(r.nm) + '</b><span>' + esc(r.d) + '</span></div>' +
-    '<div class="ctl">' +
-    (r.lock ? `<span class="pill">${ico('i-lock', 'ic-sm')}해제 불가</span>`
-      : `<input class="in sm w-sm" value="${esc(r.th)}">`) +
-    `<button class="sw${r.on ? ' on' : ''}" data-rule="${r.id}"${r.lock ? ' disabled' : ''}></button>` +
-    '</div></div>').join('')
-  return posHeader(pid, 'auto') +
-    '<div class="stage">' +
-    '<div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:26px;align-items:start">' +
-    '<div>' +
-    `<div class="sec-h"><h3>에스컬레이션 규칙</h3><span class="n">${a.rules.length}종</span>` +
-    '<span class="hint">켜진 규칙이 걸리면 조율 처리함으로 올라옵니다</span></div>' +
-    `<div class="sheet">${rules}</div>` +
-    '<div class="sec-h" style="margin-top:26px"><h3>단계별 기준 체류일 (SLA)</h3>' +
-    '<span class="hint">초과하면 카드가 주황으로 바뀝니다</span></div>' +
-    '<div class="sheet"><table class="tb"><thead><tr><th>단계</th><th>유형</th>' +
-    '<th class="num">기준</th><th class="num">현재 평균</th><th class="num">초과</th></tr></thead><tbody>' +
-    stagesOf(pid).filter(s => !s.rail).map(s => {
-      const mine = candsOf(pid).filter(c => c.st === s.id)
-      const avg = mine.length ? (mine.reduce((x, c) => x + c.d, 0) / mine.length) : 0
-      const over = mine.filter(c => c.d > s.sla).length
-      return `<tr><td class="strong"><i class="se-sw" style="display:inline-block;background:${s.color};margin-right:7px"></i>${esc(s.nm)}</td>` +
-        `<td style="color:var(--t3)">${KIND[s.kind]}${s.dur ? ' · ' + s.dur + '분' : ''}</td>` +
-        `<td class="num">${s.sla}d</td><td class="num"${avg > s.sla ? ' style="color:var(--esc);font-weight:600"' : ''}>${avg.toFixed(1)}d</td>` +
-        `<td class="num">${over ? `<span class="pill bad">${over}명</span>` : '—'}</td></tr>`
-    }).join('') + '</tbody></table></div>' +
-    '</div>' +
-    '<div>' +
-    '<div class="sec-h"><h3>슬롯 탐색</h3></div>' +
-    '<div class="sheet" style="padding:16px 18px">' +
-    field('탐색 범위', `<select class="sel"><option>영업일 ${a.window}일</option><option>영업일 5일</option><option>영업일 15일</option></select>`) +
-    field('탐색 시간대', `<input class="in" value="${esc(a.hours)}">`) +
-    '<div class="row2">' +
-    field('면접 간 버퍼', `<input class="in" value="${a.buffer}분">`) +
-    field('타임존', `<input class="in" value="${esc(a.tz)}">`) +
-    '</div>' +
-    '</div>' +
-    '<div class="sec-h" style="margin-top:20px"><h3>응답 제한 · 리마인더</h3></div>' +
-    '<div class="sheet" style="padding:16px 18px">' +
-    '<div class="row2">' +
-    field('후보자', `<select class="sel"><option>${a.candSla}시간</option><option>24시간</option><option>72시간</option></select>`) +
-    field('면접관', `<select class="sel"><option>${a.ivSla}시간</option><option>12시간</option><option>48시간</option></select>`) +
-    '</div>' +
-    field('리마인더 타이밍', `<input class="in" value="${esc(a.remind)}">`) +
-    '<div class="desc" style="font-size:11px;color:var(--t4)">면접 전 리마인더는 후보자·면접관 양쪽에 발송됩니다.</div>' +
-    '</div>' +
-    `<div class="note" style="margin-top:14px"><h4>${ico('i-shield', 'ic-sm')}AI가 하지 않는 것</h4><ul>` +
-    '<li><b>일정을 확정하지 않습니다.</b> 면접관의 명시적 클릭이 있어야 확정됩니다.</li>' +
-    '<li>EA 조율 대상이 포함되면 자동화에서 <b>완전히 제외</b>하고 즉시 코디네이터로 넘깁니다.</li>' +
-    '<li>불합격 통보를 자동 발송하지 않습니다. 초안까지만 만듭니다.</li></ul></div>' +
-    '</div>' +
-    '</div>' +
-    '</div>'
-}
-
-/* ---------- 지원 링크 ---------- */
-export function linksHTML(pid: string) {
-  const ls = links[pid] || links.p1
-  return posHeader(pid, 'links') +
-    '<div class="stage">' +
-    `<div class="sec-h"><h3>채널별 지원 링크</h3><span class="hint">유입 출처가 Export의 <code>utm_source</code>로 자동 기록됩니다</span>` +
-    `<div class="right"><button class="btn br">${ico('i-plus', 'ic-sm')}링크 생성</button></div></div>` +
-    '<div class="sheet"><table class="tb"><thead><tr><th>채널</th><th>URL</th>' +
-    '<th class="num">조회</th><th class="num">지원</th><th class="num">전환율</th><th></th></tr></thead><tbody>' +
-    ls.map(l =>
-      `<tr><td class="strong">${esc(l.ch)}</td>` +
-      `<td class="mono" style="color:var(--t3);font-size:11.5px">${esc(l.url)}</td>` +
-      `<td class="num">${l.v}</td><td class="num">${l.a}</td>` +
-      `<td class="num">${(l.a / l.v * 100).toFixed(1)}%</td>` +
-      `<td style="text-align:right"><button class="btn quiet" data-copy="${esc(l.url)}">${ico('i-copy', 'ic-sm')}복사</button></td></tr>`
-    ).join('') + '</tbody></table></div>' +
-    note([
-      '채널마다 별도 링크를 쓰면 <b>출처를 사람이 입력할 필요가 없습니다</b>. 유입 시점에 자동 기록됩니다.',
-      '임직원 추천 링크는 추천인이 함께 기록되어, 대시보드의 <b>레퍼럴 추천인 순위</b>로 이어집니다.',
     ]) + '</div>'
 }
 
