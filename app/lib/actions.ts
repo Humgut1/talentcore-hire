@@ -6,7 +6,7 @@
 import { serverClient } from './supabase'
 import { hydrateData } from './db'
 import {
-  cands, stageById, stagesOf, personById, personByName, posById, people, TODAY,
+  cands, stageById, stagesOf, personById, personByName, posById, people, TODAY, hmNow, actorLabel, _patchPositionHm,
   auto, evals, offerOf, _patchAuto, _pushEval, _setOffer, _patchCand, _pushTrail,
   _addPosition, nextPositionId, defaultAuto, _setAvail, _patchMeeting, meetings,
   _addCand, nextCandId, _patchPositionBand, _patchPositionState, _patchPositionPublic, _patchPerson,
@@ -269,14 +269,15 @@ export async function createOffer(cid: string): Promise<{ ok: boolean; reason?: 
   if (!c) return { ok: false, reason: 'no-candidate' }
   const pos = posById(c.p)
   const band: [number, number] = pos.band ?? [4000, 7000]
-  const hm = people.find(p => p.nm === pos.hm)
+  const h = hmNow(pos)
+  const hm = people.find(p => p.nm === h.nm)
   const today = new Date(TODAY)
   const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   return saveOffer({
     cid, st: 'draft', level: '—',
     base: Math.round((band[0] + band[1]) / 2 / 100) * 100, sign: 0, band,
     chain: hm
-      ? [{ uid: hm.id, nm: hm.nm, role: '하이어링 매니저', s: 'pending' }]
+      ? [{ uid: hm.id, nm: hm.nm, role: h.forNm ? `하이어링 매니저 (${h.forNm} 대신)` : '하이어링 매니저', s: 'pending' }]
       : [],
     createdAt: iso,
   })
@@ -603,7 +604,8 @@ function evalsAt(cid: string, stageNm: string) {
    금액은 밴드 하단으로 채워 두되, 어차피 초안에서 고쳐야 한다. */
 function draftOfferFor(c: Candidate): Offer {
   const pos = posById(c.p)
-  const hm = personByName(pos.hm)
+  const h = hmNow(pos)
+  const hm = personByName(h.nm)
   const band: [number, number] = pos.band ?? [0, 0]
   return {
     /* 직급은 자리 카드에서 온 값이 정답이다. 공고 제목은 '프론트엔드 엔지니어
@@ -611,14 +613,20 @@ function draftOfferFor(c: Candidate): Offer {
        직급으로 돌아가 직원 전환 화면의 프리필을 깨뜨린다. */
     cid: c.id, st: 'draft', level: pos.level || pos.title,
     base: band[0], sign: 0, band,
-    chain: hm ? [{ uid: hm.id, nm: hm.nm, role: '하이어링 매니저', s: 'pending' }] : [],
+    chain: hm ? [{ uid: hm.id, nm: hm.nm, role: h.forNm ? `하이어링 매니저 (${h.forNm} 대신)` : '하이어링 매니저', s: 'pending' }] : [],
     createdAt: TODAY_ISO,
   }
 }
 
+/* 누가 판정했는지 — 대행자가 눌렀으면 '(최영수 대신)' 까지 남긴다.
+   로그인이 붙기 전에는 화면이 고른 사람(?u=)이 들어온다. 없으면 적지 않는다. */
+function byTag(pid: string, by?: string): string {
+  return by ? ` · 판정 ${actorLabel(posById(pid), by)}` : ''
+}
+
 /* 합격 — 다음 단계로 보낸다. */
 export async function advanceCand(
-  cid: string,
+  cid: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string; to?: string; offerMade?: boolean }> {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
@@ -645,9 +653,9 @@ export async function advanceCand(
   await pushTrail(cid, {
     at: nowLabel(), s: 'done',
     b: `${cur.nm} 통과 → ${next.nm}`,
-    p: ev.length
+    p: (ev.length
       ? `평가 ${ev.length}건 · ${VERDICT_LABEL[verdictOf(ev)]}${offerMade ? ' · 처우안 초안 자동 생성' : ''}`
-      : `평가 없이 진행${offerMade ? ' · 처우안 초안 자동 생성' : ''}`,
+      : `평가 없이 진행${offerMade ? ' · 처우안 초안 자동 생성' : ''}`) + byTag(c.p, by),
   })
   return { ...r, to: next.nm, offerMade }
 }
@@ -655,7 +663,7 @@ export async function advanceCand(
 /* 보류 — 단계는 그대로 두고 '사람이 봐야 하는 건'으로 올린다.
    합·불 둘만 두면 "일단 킵"이 아무 데도 남지 않고 사람 머릿속에만 남는다. */
 export async function holdCand(
-  cid: string, memo: string,
+  cid: string, memo: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
@@ -667,7 +675,7 @@ export async function holdCand(
   const act = ['판정 다시 하기', '후보자에게 상황 안내']
   _patchCand(cid, { s: 'esc', why, act })
   const r = await updateCand(cid, { s: 'esc', why, act })
-  await pushTrail(cid, { at: nowLabel(), s: 'now', b: '판정 보류', p: memo.trim() })
+  await pushTrail(cid, { at: nowLabel(), s: 'now', b: '판정 보류', p: memo.trim() + byTag(c.p, by) })
   return r
 }
 
@@ -675,7 +683,7 @@ export async function holdCand(
    사유는 '우리가 거절'과 '후보자가 이탈'로 나뉜다. 둘을 섞으면
    퍼널에서 기준의 문제와 매력의 문제가 구분되지 않는다. */
 export async function rejectCand(
-  cid: string, code: string, memo?: string,
+  cid: string, code: string, memo?: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
@@ -705,7 +713,7 @@ export async function rejectCand(
   await pushTrail(cid, {
     at: nowLabel(), s: 'bad',
     b: `${cur.nm}에서 ${def.side === 'them' ? '이탈' : '불합격'}`,
-    p: note ? `${def.l} · ${note}` : def.l,
+    p: (note ? `${def.l} · ${note}` : def.l) + byTag(c.p, by),
   })
   return r
 }
@@ -921,6 +929,42 @@ export async function savePositionPublic(
   if (patch.exp !== undefined) row.exp = patch.exp || null
   if (patch.due !== undefined) row.due = patch.due || null
   const { error } = await sb.from('positions').update(row).eq('id', pid)
+  return error ? { ok: false, reason: error.message } : { ok: true }
+}
+
+/* HM · 대행 저장 (마이그레이션 015)
+   대행은 기간이 필수다 — 끝나는 날이 없으면 '잠깐 맡긴 것'이 영원히 남는다.
+   기간이 지나면 hmNow() 가 원래 HM 으로 돌려주므로 따로 지우지 않아도 된다. */
+export interface HmPatch { hm?: string; hmProxy?: string | null; hmFrom?: string; hmUntil?: string; hmNote?: string }
+export async function savePositionHm(
+  pid: string, patch: HmPatch,
+): Promise<{ ok: boolean; reason?: string }> {
+  await hydrateData()
+  const pos = posById(pid)
+  const row: Record<string, unknown> = {}
+  const mem: Partial<Position> = {}
+  if (patch.hm !== undefined) {
+    if (!personByName(patch.hm)) return { ok: false, reason: 'no-person' }
+    row.hm = patch.hm; mem.hm = patch.hm
+  }
+  if (patch.hmProxy === null) {
+    Object.assign(row, { hm_proxy: null, hm_from: null, hm_until: null, hm_note: null })
+    Object.assign(mem, { hmProxy: undefined, hmFrom: undefined, hmUntil: undefined, hmNote: undefined })
+  } else if (patch.hmProxy !== undefined) {
+    const d = /^d{4}-d{2}-d{2}$/
+    if (!personByName(patch.hmProxy)) return { ok: false, reason: 'no-person' }
+    if (patch.hmProxy === (patch.hm ?? pos.hm)) return { ok: false, reason: 'same-person' }
+    if (!patch.hmFrom || !patch.hmUntil || !d.test(patch.hmFrom) || !d.test(patch.hmUntil)) return { ok: false, reason: 'need-dates' }
+    if (patch.hmFrom > patch.hmUntil) return { ok: false, reason: 'bad-dates' }
+    const note = (patch.hmNote ?? '').trim().slice(0, 80)
+    Object.assign(row, { hm_proxy: patch.hmProxy, hm_from: patch.hmFrom, hm_until: patch.hmUntil, hm_note: note || null })
+    Object.assign(mem, { hmProxy: patch.hmProxy, hmFrom: patch.hmFrom, hmUntil: patch.hmUntil, hmNote: note || undefined })
+  }
+  _patchPositionHm(pid, mem)
+  const sb = serverClient()
+  if (!sb) return { ok: false, reason: 'not-configured' }
+  const { error } = await sb.from('positions').update(row).eq('id', pid)
+  if (error && /hm_(proxy|from|until|note)/.test(error.message)) return { ok: false, reason: 'needs-migration' }
   return error ? { ok: false, reason: error.message } : { ok: true }
 }
 

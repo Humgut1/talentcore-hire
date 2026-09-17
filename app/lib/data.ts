@@ -47,6 +47,13 @@ export interface Position {
   /* 자리 카드가 들고 있던 직급 라벨('L4 — Senior'). 오퍼 초안의 '직급' 기본값이다.
      Hire 에서 사람이 직접 연 공고에는 없다 — 그때는 공고 제목으로 떨어진다. */
   level?: string
+  /* ---- HM 대행 (마이그레이션 015 전 DB 에는 없다) ----
+     부서장이 휴가·공석이거나 다른 사람이 채용을 맡을 때. 기간이 끝나면 저절로 원래 HM 으로 돌아간다
+     — 사람이 되돌리는 걸 잊어도 검토 요청이 엉뚱한 사람에게 계속 가지 않게. */
+  hmProxy?: string          // 대행자 이름
+  hmFrom?: string           // 시작일(YYYY-MM-DD, 포함)
+  hmUntil?: string          // 종료일(YYYY-MM-DD, 포함)
+  hmNote?: string           // 사유 한 줄(휴가·겸직 등)
   /* ---- 채용 사이트(공개 공고)용. 마이그레이션 012 전 DB 에는 없다 ---- */
   pub?: boolean    // 채용 사이트에 내걸었는가. undefined = 아직 판단한 적 없음(= 내걸림)
   loc?: string     // 근무지. 공고를 보는 사람이 두 번째로 보는 값이다
@@ -364,6 +371,30 @@ export const daysSince = (d: string) => {
 }
 export const activeCands = (pid: string) => cands.filter(c => c.p === pid && !stageById(pid, c.st).rail)
 export const personByName = (nm: string) => people.find(p => p.nm === nm)
+
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+/** 대행이 오늘 살아 있는가. 기간 밖이면 원래 HM 이 받는다. */
+export function proxyOn(pos: Position, today = isoOf(TODAY)): boolean {
+  return !!(pos.hmProxy && pos.hmFrom && pos.hmUntil && pos.hmFrom <= today && today <= pos.hmUntil)
+}
+
+/** 오늘 이 공고의 HM 일(서류 검토 요청·오퍼 승인)을 받는 사람. 대행 중이면 대행자, forNm 에 원래 HM. */
+export function hmNow(pos: Position, today = isoOf(TODAY)): { nm: string; forNm?: string; until?: string } {
+  return proxyOn(pos, today)
+    ? { nm: pos.hmProxy as string, forNm: pos.hm, until: pos.hmUntil }
+    : { nm: pos.hm }
+}
+
+/** 이 사람이 이 공고의 HM 일을 볼 수 있는가 — 원래 HM 은 대행 중에도 볼 수 있다(막지 않는다). */
+export const isHmOf = (pos: Position, nm: string) => pos.hm === nm || hmNow(pos).nm === nm
+
+/** 판정 기록에 붙일 이름 — 대행자가 눌렀으면 '서민재 (최영수 대신)'. */
+export function actorLabel(pos: Position, nm: string): string {
+  const h = hmNow(pos)
+  return h.forNm && nm === h.nm ? `${nm} (${h.forNm} 대신)` : nm
+}
 
 /* ---- 조율 처리함 (전 공고 에스컬레이션 집계) ---- */
 export interface InboxItem { k: 'cand' | 'mtg'; s: Status; nm: string; st: string; pos: string; ag: string; why: string; act?: string[] }
@@ -930,6 +961,13 @@ export function _patchPositionState(pid: string, st: Position['st']) {
 /* 채용 사이트 노출값(공개 여부·근무지·경력·마감일)만 고치기.
    마이그레이션 012 전 DB 에서는 저장이 실패하지만, 화면은 진행시킨다 —
    새로고침 전까지는 담당자가 방금 고친 대로 보인다. */
+export function _patchPositionHm(
+  pid: string,
+  patch: Partial<Pick<Position, 'hm' | 'hmProxy' | 'hmFrom' | 'hmUntil' | 'hmNote'>>,
+) {
+  positions = positions.map(p => (p.id === pid ? { ...p, ...patch } : p))
+}
+
 export function _patchPositionPublic(
   pid: string,
   patch: Partial<Pick<Position, 'pub' | 'loc' | 'exp' | 'due'>>,

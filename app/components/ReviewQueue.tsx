@@ -182,6 +182,7 @@ export default function ReviewQueue(
                   <div><dt>경력</dt><dd>{cur.role}</dd></div>
                   <div><dt>유입</dt><dd>{cur.src} · {cur.ap} 지원</dd></div>
                   <div><dt>공고</dt><dd>{cur.pos} <span style={{ color: 'var(--t4)' }}>({cur.dept})</span></dd></div>
+                  {cur.forNm ? <div><dt>대행</dt><dd>{cur.forNm} 님 대신 판정 <span style={{ color: 'var(--t4)' }}>(~{cur.proxyUntil?.slice(5).replace('-', '/')})</span></dd></div> : null}
                   <div>
                     <dt>같이 보는 사람</dt>
                     <dd>{cur.withMe.length
@@ -201,7 +202,7 @@ export default function ReviewQueue(
                 <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
                   <button
                     className="btn solid" style={{ flex: 1, justifyContent: 'center' }} disabled={busy}
-                    onClick={() => run(() => advanceCand(cur.cid), cur.nm + ' · 다음 단계로')}
+                    onClick={() => run(() => advanceCand(cur.cid, who), cur.nm + ' · 다음 단계로')}
                   >
                     <Icon id="i-check-circle" className="ic-sm" />다음 단계로
                   </button>
@@ -225,7 +226,7 @@ export default function ReviewQueue(
                     </div>
                     <button
                       className="btn solid" disabled={busy || !memo.trim()}
-                      onClick={() => run(() => holdCand(cur.cid, memo), cur.nm + ' · 보류')}
+                      onClick={() => run(() => holdCand(cur.cid, memo, who), cur.nm + ' · 보류')}
                     >보류로 저장</button>
                   </div>
                 ) : null}
@@ -255,7 +256,7 @@ export default function ReviewQueue(
                     </div>
                     <button
                       className="btn solid" disabled={busy || !code}
-                      onClick={() => run(() => rejectCand(cur.cid, code as string, rMemo), cur.nm + ' · 불합격')}
+                      onClick={() => run(() => rejectCand(cur.cid, code as string, rMemo, who), cur.nm + ' · 불합격')}
                     >불합격으로 저장</button>
                     <div style={{ fontSize: 11.5, color: 'var(--t4)', marginTop: 6 }}>
                       통보 메일은 자동으로 나가지 않습니다. 초안은 후보자 상세에서 만듭니다.

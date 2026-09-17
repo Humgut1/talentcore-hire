@@ -51,6 +51,8 @@ function mapPosition(r: any): Position {
     ...(r.opening_codes?.length ? { openingCodes: r.opening_codes } : {}),
     /* 마이그레이션 013 전 DB 에는 없다 → 빠진 채로 남고 오퍼 초안은 공고 제목을 쓴다. */
     ...(r.level ? { level: r.level } : {}),
+    /* 마이그레이션 015 전 DB 에는 없다 → 대행 없음으로 읽는다. */
+    ...(r.hm_proxy ? { hmProxy: r.hm_proxy, hmFrom: r.hm_from ?? undefined, hmUntil: r.hm_until ?? undefined, hmNote: r.hm_note ?? undefined } : {}),
     /* 마이그레이션 012 전 DB 에는 없다 → 빠진 채로 남고, 채용 사이트는
        '아직 판단한 적 없음 = 내걸림'으로 읽는다(지금까지와 같은 동작). */
     ...(r.pub != null ? { pub: !!r.pub } : {}),

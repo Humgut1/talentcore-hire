@@ -13,7 +13,7 @@
    ※ 서버·클라이언트 양쪽에서 import 한다. I/O 없이 계산만 한다.
    ========================================================= */
 import {
-  cands, positions, stagesOf, stageById, posById, people,
+  cands, positions, stagesOf, stageById, posById, people, isHmOf, hmNow,
   type Person, type Status,
 } from './data'
 
@@ -27,6 +27,9 @@ export interface ReviewItem {
   held: boolean
   /* 이 단계를 같이 보는 사람들(나 제외). 혼자 보는 건지 아닌지가 판정 부담을 바꾼다. */
   withMe: string[]
+  /* 이 사람이 대행으로 보고 있으면 원래 HM 이름. 판정 기록에 '(최영수 대신)'으로 남는다. */
+  forNm?: string
+  proxyUntil?: string
 }
 
 /** 이 사람이 서류를 봐야 하는 후보자들. HM 이거나, 그 단계 검토자로 지정된 경우. */
@@ -37,7 +40,7 @@ export function reviewQueue(p: Person): ReviewItem[] {
     if (pos.st === 'closed') continue
     const st = stageById(c.p, c.st)
     if (st.kind !== 'screen') continue
-    const isMine = pos.hm === p.nm || st.ivs.indexOf(p.id) >= 0
+    const isMine = isHmOf(pos, p.nm) || st.ivs.indexOf(p.id) >= 0
     if (!isMine) continue
     out.push({
       cid: c.id, nm: c.nm, yr: c.yr, role: c.role, src: c.src, ap: c.ap,
@@ -46,6 +49,7 @@ export function reviewQueue(p: Person): ReviewItem[] {
       s: c.s, why: c.why, held: c.why.indexOf('판정 보류') === 0,
       withMe: st.ivs.filter(u => u !== p.id)
         .map(u => (people.find(x => x.id === u) || { nm: u }).nm),
+      ...(() => { const h = hmNow(pos); return h.forNm && h.nm === p.nm ? { forNm: h.forNm, proxyUntil: h.until } : {} })(),
     })
   }
   /* 오래 기다린 사람부터. 기준 초과는 무조건 위로 올린다 — 여기서 밀리면
@@ -61,6 +65,6 @@ export function reviewQueue(p: Person): ReviewItem[] {
 export function reviewPositions(p: Person): number {
   return positions.filter(pos =>
     pos.st !== 'closed' &&
-    (pos.hm === p.nm || stagesOf(pos.id).some(s => s.kind === 'screen' && s.ivs.indexOf(p.id) >= 0)),
+    (isHmOf(pos, p.nm) || stagesOf(pos.id).some(s => s.kind === 'screen' && s.ivs.indexOf(p.id) >= 0)),
   ).length
 }

@@ -27,7 +27,7 @@
    ※ 서버·클라이언트 양쪽에서 import 한다. I/O 없이 계산만 한다.
    ========================================================= */
 import {
-  cands, stagesOf, posById, personById, personByName, people, positions,
+  cands, stagesOf, posById, personById, personByName, people, positions, hmNow,
   meetings, inboxItems, TODAY, daysSince, md,
   type Meeting, type Status, type Stage, type InboxItem, type Person,
 } from './data'
@@ -139,6 +139,7 @@ export function suggestAttendees(pid: string, kind: MtgKind): string[] {
   const out: string[] = []
   const push = (uid?: string) => { if (uid && out.indexOf(uid) < 0) out.push(uid) }
   push(personByName(pos.hm)?.id)
+  push(personByName(hmNow(pos).nm)?.id)
   const line = ivLine(pid)
   if (kind === 'kickoff') (line[0]?.ivs || []).forEach(push)
   else line.forEach(s => (s.ivs || []).forEach(push))

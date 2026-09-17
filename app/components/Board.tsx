@@ -8,6 +8,7 @@ import {
   cands as staticCands, stagesOf, stageById, posById, personById,
   company, md, byRisk, LABEL,
   type Candidate, type Status, type Stage, type Position,
+  proxyOn,
 } from '../lib/data'
 import { persistMove, persistCand, addCandidate, assignMeeting, meetingPicker, searchMeetingSlots, confirmMeeting,
   bulkAdvance, bulkReject, bulkMail } from '../lib/actions'
@@ -417,7 +418,7 @@ export default function Board(
         <div className="meta">
           <i><Icon id="i-users" className="ic-sm" />{p.dept} <b>{p.team}</b></i>
           <i><Icon id="i-user" className="ic-sm" />리크루터 <b>{p.rec}</b></i>
-          <i><Icon id="i-star" className="ic-sm" />HM <b>{p.hm}</b></i>
+          <i><Icon id="i-star" className="ic-sm" />HM <b>{p.hm}</b>{proxyOn(p) && <> · 대행 <b>{p.hmProxy}</b></>}</i>
           <i><Icon id="i-clock" className="ic-sm" />게시 <b>D+{p.ttf}</b></i>
           <i><Icon id="i-briefcase" className="ic-sm" />고용형태 <b>{p.emp}</b></i>
           {/* TalentCore 에서 넘어온 공고만 — 몇 자리를 채우는 공고인지, 어느 요청서에서 왔는지.

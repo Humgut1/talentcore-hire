@@ -11,7 +11,7 @@
    ========================================================= */
 import {
   cands, evals, timeline, trail, posById, stageById, stagesOf, personById,
-  offerOf, md, daysSince, type TLItem, type EvalItem,
+  offerOf, md, daysSince, hmNow, type TLItem, type EvalItem,
 } from './data'
 import { decisionFor, rejectDef, SIDE_LABEL, type DecisionView, type RejectCode } from './decision'
 import { otherApps } from './pool'
@@ -119,7 +119,7 @@ export async function drawerData(
     src: c.src, ap: md(c.ap), apAgo: daysSince(c.ap), en: md(c.en), days: c.d,
     ...(c.email ? { email: c.email } : {}),
     status: c.s, why: c.why,
-    pos: { id: p.id, title: p.title, dept: p.dept, team: p.team, rec: p.rec, hm: p.hm },
+    pos: { id: p.id, title: p.title, dept: p.dept, team: p.team, rec: p.rec, hm: (h => h.forNm ? `${h.nm} (${h.forNm} 대행)` : h.nm)(hmNow(p)) },
     stage: { id: sg.id, nm: sg.nm, color: sg.color, kind: sg.kind },
     ...(rjDef && c.rj ? {
       rj: {

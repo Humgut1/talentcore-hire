@@ -14,10 +14,10 @@
 import { Fragment, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
-import { KIND, type Stage, type Person, type Position } from '../lib/data'
+import { KIND, TODAY, proxyOn, type Stage, type Person, type Position } from '../lib/data'
 import {
   persistStageEdit, persistStageLayout, persistAddStage,
-  persistDeleteStage, persistPosition, savePositionBand, savePositionPublic,
+  persistDeleteStage, persistPosition, savePositionBand, savePositionPublic, savePositionHm,
   type NewStage,
 } from '../lib/actions'
 
@@ -275,7 +275,7 @@ export default function StageEditor(
         <div className="meta">
           <i><Icon id="i-users" className="ic-sm" />{pos.dept} <b>{pos.team}</b></i>
           <i><Icon id="i-user" className="ic-sm" />리크루터 <b>{pos.rec}</b></i>
-          <i><Icon id="i-star" className="ic-sm" />HM <b>{pos.hm}</b></i>
+          <i><Icon id="i-star" className="ic-sm" />HM <b>{pos.hm}</b>{proxyOn(pos) && <> · 대행 <b>{pos.hmProxy}</b></>}</i>
           <i><Icon id="i-briefcase" className="ic-sm" />고용형태 <b>{pos.emp}</b></i>
           {/* TalentCore 에서 넘어온 공고만 — 출처 표시다. 색은 쓰지 않는다. */}
           {(pos.openings ?? 1) > 1 &&
@@ -646,6 +646,14 @@ export default function StageEditor(
               </div>
             </div>
 
+            {/* ----- 담당자 · HM 대행 ----- */}
+            <div className="sec-h" style={{ marginTop: 26 }}>
+              <h3>담당자</h3>
+              <span className="hint">HM 이 서류 검토 요청과 오퍼 승인을 받습니다</span>
+            </div>
+            <HmBox pos={pos} people={people} onChange={p => { setPos(x => ({ ...x, ...p })); mark() }}
+              onRec={v => { setField('rec', v); saveField('rec', v) }} />
+
             {/* ----- 채용 사이트 ----- */}
             <div className="sec-h" style={{ marginTop: 26 }}>
               <h3>채용 사이트</h3>
@@ -764,6 +772,119 @@ function InfoRow({ i, t, d }: { i: string; t: string; d: string }) {
       <div>
         <b style={{ fontSize: 12.5 }}>{t}</b>
         <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 1 }}>{d}</div>
+      </div>
+    </div>
+  )
+}
+
+/* =========================================================
+   담당자 · HM 대행
+   ---------------------------------------------------------
+   HM 기본값은 채용 요청서의 부서장이다(TalentCore 에서 넘어올 때 채워진다).
+   부서장이 휴가·공석이거나 다른 사람이 채용을 맡으면 두 길이 있다.
+   · 아예 바꾼다 → HM 칸을 고친다.
+   · 잠깐 맡긴다 → 기간 있는 대행. 끝나는 날이 지나면 저절로 원래 HM 에게 돌아간다.
+   대행자가 판정하면 기록에 '서민재 (최영수 대신)' 으로 남는다.
+   ========================================================= */
+const HM_REASON: Record<string, string> = {
+  'no-person': '명부에 없는 사람입니다.',
+  'same-person': 'HM 본인을 대행자로 지정할 수 없습니다.',
+  'need-dates': '대행 시작일과 종료일을 모두 넣어 주세요.',
+  'bad-dates': '종료일이 시작일보다 빠릅니다.',
+  'needs-migration': 'DB 에 대행 칸이 아직 없어 화면에만 반영됐습니다(마이그레이션 015 필요).',
+}
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const md = (iso?: string) => (iso ? `${+iso.slice(5, 7)}/${+iso.slice(8, 10)}` : '')
+
+function HmBox(
+  { pos, people, onChange, onRec }:
+  { pos: Position; people: Person[]; onChange: (p: Partial<Position>) => void; onRec: (v: string) => void },
+) {
+  const today = isoDay(TODAY)
+  /* 명부가 백 명을 넘는다 — 그 역할을 이미 가진 사람을 위로, 나머지는 가나다순. */
+  const live = people.filter(p => p.active !== false)
+  const ranked = (role: string) => live.slice()
+    .sort((a, b) => Number(b.roles.includes(role)) - Number(a.roles.includes(role)) || a.nm.localeCompare(b.nm, 'ko'))
+    .map(p => p.nm)
+  const names = ranked('하이어링 매니저')
+  const recs = ranked('리크루터')
+  const [proxy, setProxy] = useState('')
+  const [from, setFrom] = useState(today)
+  const [until, setUntil] = useState('')
+  const [note, setNote] = useState('')
+  const [err, setErr] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function run(patch: Parameters<typeof savePositionHm>[1], mem: Partial<Position>) {
+    setBusy(true); setErr('')
+    const r = await savePositionHm(pos.id, patch).catch(() => ({ ok: false, reason: 'network' }))
+    setBusy(false)
+    const soft = r.reason === 'not-configured' || r.reason === 'needs-migration'
+    if (!r.ok && !soft) { setErr(HM_REASON[r.reason ?? ''] ?? '저장하지 못했습니다.'); return }
+    if (r.reason === 'needs-migration') setErr(HM_REASON['needs-migration'])
+    onChange(mem)
+  }
+
+  const on = proxyOn(pos, today)
+  const state = !pos.hmProxy ? '' : on ? '대행 중' : (pos.hmFrom ?? '') > today ? '대행 예정' : '대행 끝남'
+
+  return (
+    <div className="sheet" style={{ padding: '16px 18px' }}>
+      <div className="row2">
+        <div className="field">
+          <label>리크루터</label>
+          <select className="sel" value={pos.rec} onChange={e => onRec(e.target.value)}>
+            {recs.indexOf(pos.rec) < 0 && <option>{pos.rec}</option>}
+            {recs.map(n => <option key={n}>{n}</option>)}
+          </select>
+        </div>
+        <div className="field">
+          <label>하이어링 매니저 (HM)</label>
+          <select className="sel" value={pos.hm} disabled={busy}
+            onChange={e => run({ hm: e.target.value }, { hm: e.target.value })}>
+            {names.indexOf(pos.hm) < 0 && <option>{pos.hm}</option>}
+            {names.map(n => <option key={n}>{n}</option>)}
+          </select>
+          <p className="se-hlp">기본값은 채용 요청서의 부서장입니다. 채용을 아예 다른 사람이 맡으면 여기서 바꿉니다.</p>
+        </div>
+      </div>
+
+      <div className="hm-px">
+        <b>대행</b>
+        {pos.hmProxy ? (
+          <div className="hm-cur">
+            <span className={'pill' + (on ? ' ok' : '')}><i className="dot" />{state}</span>
+            <span><b>{pos.hmProxy}</b> 님이 {pos.hm} 님 대신 · {md(pos.hmFrom)} ~ {md(pos.hmUntil)}{pos.hmNote ? ` · ${pos.hmNote}` : ''}</span>
+            <button className="btn sm" disabled={busy}
+              onClick={() => run({ hmProxy: null }, { hmProxy: undefined, hmFrom: undefined, hmUntil: undefined, hmNote: undefined })}>
+              대행 해제
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="se-hlp">휴가·공석처럼 잠깐 맡길 때. 기간 동안 검토 요청과 오퍼 승인이 대행자에게 가고, 종료일이 지나면 {pos.hm} 님에게 저절로 돌아갑니다.</p>
+            <div className="hm-form">
+              <label>대행자
+                <select className="sel" value={proxy} onChange={e => setProxy(e.target.value)}>
+                  <option value="">선택</option>
+                  {names.filter(n => n !== pos.hm).map(n => <option key={n}>{n}</option>)}
+                </select>
+              </label>
+              <label>시작일<input className="in" type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+              <label>종료일<input className="in" type="date" value={until} min={from} onChange={e => setUntil(e.target.value)} /></label>
+              <label className="grow">사유<input className="in" value={note} maxLength={80} placeholder="예: 8월 휴가" onChange={e => setNote(e.target.value)} /></label>
+              <button className="btn" disabled={busy || !proxy || !from || !until}
+                onClick={() => run(
+                  { hmProxy: proxy, hmFrom: from, hmUntil: until, hmNote: note },
+                  { hmProxy: proxy, hmFrom: from, hmUntil: until, hmNote: note.trim() || undefined },
+                )}>
+                대행 지정
+              </button>
+            </div>
+          </>
+        )}
+        {err && <p className="hm-err">{err}</p>}
       </div>
     </div>
   )
