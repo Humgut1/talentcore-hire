@@ -7,6 +7,7 @@ import { serverClient } from './supabase'
 import { hydrateData } from './db'
 import {
   cands, stageById, stagesOf, personById, personByName, posById, people, TODAY, hmNow, actorLabel, _patchPositionHm,
+  isHmOf, commentsAt, commentsLive, _pushComment, type CommentVerdict,
   auto, evals, offerOf, _patchAuto, _pushEval, _setOffer, _patchCand, _pushTrail,
   _addPosition, nextPositionId, defaultAuto, _setAvail, _patchMeeting, meetings,
   _addCand, nextCandId, _patchPositionBand, _patchPositionState, _patchPositionPublic, _patchPerson,
@@ -561,6 +562,57 @@ export async function listSeats(pid: string): Promise<SeatView> {
      "누가 언제 왜"가 없으면 되돌린 뒤 아무도 이유를 모른다.
    ========================================================= */
 
+/* =========================================================
+   단계 판정 코멘트 (H4)
+   ---------------------------------------------------------
+   합격/보류/불합격 + 이유. 쓸 수 있는 사람: 이 공고의 리크루터·HM(대행 포함)·
+   리크루터 역할·그 단계 검토자. 고치면 새 줄 — 이전 내용은 이력으로 남는다.
+   ========================================================= */
+function needComment(c: Candidate): boolean {
+  return commentsLive && commentsAt(c.id, c.st).length === 0
+}
+
+export async function saveStageComment(
+  cid: string, verdict: string, body: string, by: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  await hydrateData()
+  const c = cands.find(x => x.id === cid)
+  if (!c) return { ok: false, reason: 'no-candidate' }
+  if (verdict !== 'pass' && verdict !== 'hold' && verdict !== 'fail') return { ok: false, reason: 'bad-verdict' }
+  const text = (body || '').trim()
+  if (!text) return { ok: false, reason: 'need-comment' }
+  if (text.length > 2000) return { ok: false, reason: 'too-long' }
+
+  const pos = posById(c.p)
+  const st = stageById(c.p, c.st)
+  const p = personByName(by)
+  const allowed = by === pos.rec || isHmOf(pos, by)
+    || !!p?.roles.includes('리크루터') || (!!p && (st.ivs || []).indexOf(p.id) >= 0)
+  if (!allowed) return { ok: false, reason: 'no-permission' }
+
+  /* 같은 사람이 같은 내용으로 다시 누른 것(보류 재저장 등)은 새 이력으로 쌓지 않는다. */
+  const prev = commentsAt(cid, c.st).slice(-1)[0]
+  if (prev && prev.by === by && prev.verdict === verdict && prev.body === text) return { ok: true }
+
+  const h = hmNow(pos)
+  const forNm = h.forNm && h.nm === by ? h.forNm : undefined
+  _pushComment(cid, {
+    sid: c.st, verdict: verdict as CommentVerdict, body: text, by,
+    ...(forNm ? { forNm } : {}), at: new Date().toISOString(),
+  })
+
+  const sb = serverClient()
+  if (!sb) return { ok: false, reason: 'not-configured' }
+  const { error } = await sb.from('stage_comments').insert({
+    candidate_id: cid, stage_id: c.st, verdict, body: text, author: by, for_nm: forNm ?? null,
+  })
+  if (error) {
+    const m = error.message || ''
+    return { ok: false, reason: /stage_comments|does not exist|schema cache/.test(m) ? 'needs-migration' : m }
+  }
+  return { ok: true }
+}
+
 function nowLabel() {
   const n = new Date()
   const pad = (x: number) => String(x).padStart(2, '0')
@@ -670,6 +722,7 @@ export async function holdCand(
   if (!c) return { ok: false, reason: 'no-candidate' }
   if (stageById(c.p, c.st).rail) return { ok: false, reason: 'closed' }
   if (!memo.trim()) return { ok: false, reason: 'need-memo' }
+  if (needComment(c)) return { ok: false, reason: 'need-comment' }
 
   const why = `판정 보류 — ${memo.trim()}`
   const act = ['판정 다시 하기', '후보자에게 상황 안내']
@@ -1472,10 +1525,13 @@ async function mailReject(
 
 /** 한 명을 다음 단계로 + 통보. 후보자 카드에서 쓴다.
     메일이 실패해도 판정은 이미 저장돼 있다 — 그래서 ok 와 mail 을 따로 돌려준다. */
-export async function advanceAndNotify(cid: string, mailCode?: string | null) {
+export async function advanceAndNotify(cid: string, mailCode?: string | null, by?: string) {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
-  const r = await advanceCand(cid)
+  if (c && needComment(c)) {
+    return { ok: false, reason: 'need-comment', mail: null as null | { ok: boolean; reason?: string } }
+  }
+  const r = await advanceCand(cid, by)
   if (!r.ok || !c || !mailCode) return { ...r, mail: null as null | { ok: boolean; reason?: string } }
   const mail = await mailAdvance(c, r.to ?? stageById(c.p, c.st).nm, mailCode)
   return { ...r, mail }
@@ -1483,12 +1539,16 @@ export async function advanceAndNotify(cid: string, mailCode?: string | null) {
 
 /** 한 명을 불합격 + 통보. notify 는 bulkReject 와 같은 규칙. */
 export async function rejectAndNotify(
-  cid: string, code: string, memo?: string, notify: string | null = 'auto',
+  cid: string, code: string, memo?: string, notify: string | null = 'auto', by?: string,
 ) {
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   const at = c ? stageById(c.p, c.st) : null
-  const r = await rejectCand(cid, code, memo)
+  /* 후보자가 스스로 그만둔 건은 우리 판단이 아니라 코멘트를 요구하지 않는다. */
+  if (c && code && rejectDef(code as RejectCode).side === 'us' && needComment(c)) {
+    return { ok: false, reason: 'need-comment', mail: null as null | { ok: boolean; reason?: string } }
+  }
+  const r = await rejectCand(cid, code, memo, by)
   if (!r.ok || !c || !at || !notify) return { ...r, mail: null as null | { ok: boolean; reason?: string } }
   const mail = await mailReject(c, at, code as RejectCode, notify)
   return { ...r, mail }

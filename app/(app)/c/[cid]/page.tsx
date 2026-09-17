@@ -4,9 +4,10 @@
     포털로 끼워 넣으면 패널이 떨어져 나간다 — 그래서 위/아래로 쪼갠다.) */
 import Screen from '../../../components/Screen'
 import DecisionClient from '../../../components/DecisionClient'
+import StageComments from '../../../components/StageComments'
 import { hydrateData } from '../../../lib/db'
 import { candidateHeadHTML, candidateFootHTML } from '../../../lib/render'
-import { cands, evals, me, personById, posById, stageById, stagesOf } from '../../../lib/data'
+import { cands, evals, me, personById, posById, stageById, stagesOf, commentsFor } from '../../../lib/data'
 import { decisionFor } from '../../../lib/decision'
 import { docsOf } from '../../../lib/docs'
 import { mailsOf } from '../../../lib/maillog'
@@ -27,13 +28,17 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const ev = (evals[c.id] || []).filter(e => e.st === cur.nm)
   const ivs = (cur.ivs || []).map(uid => ({ uid, nm: personById(uid)?.nm ?? '면접관' }))
   const view = decisionFor(cur, stagesOf(c.p), ev, ivs)
+  const cm = commentsFor(c.id)
 
   return (
     <>
       <Screen html={candidateHeadHTML(cid)} />
+      <StageComments wrap cid={c.id} actor={me.name} stageNm={cur.nm}
+        cur={cm.cur} prior={cm.prior} closed={!!cur.rail} />
       <DecisionClient
         view={view} cid={c.id} cand={c.nm} rj={c.rj}
         pos={posById(c.p).title} sender={me.name}
+        {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
       />
       <Screen html={candidateFootHTML(cid, docs, mails)} />
     </>

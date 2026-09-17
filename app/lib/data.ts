@@ -553,6 +553,55 @@ export interface TrailItem {
 }
 export let trail: Record<string, TrailItem[]> = {}
 
+/* ---- F2. 단계 판정 코멘트 (H4) ----
+   단계마다 합격/보류/불합격 + 이유. 고칠 때마다 새 줄이 쌓인다 —
+   마지막 줄이 지금 값이고 앞 줄들이 수정 이력이다(지우지 않는다).
+   commentsLive 는 DB 표를 실제로 읽었는지. 표가 없으면 서버가 '코멘트 필수'를 강제하지 않는다. */
+export type CommentVerdict = 'pass' | 'hold' | 'fail'
+export const COMMENT_VERDICT: Record<CommentVerdict, string> = { pass: '합격', hold: '보류', fail: '불합격' }
+export interface StageComment {
+  sid: string; verdict: CommentVerdict; body: string
+  by: string; forNm?: string
+  at: string      // ISO
+}
+export let comments: Record<string, StageComment[]> = {}
+export let commentsLive = false
+export const commentsAt = (cid: string, sid: string) => (comments[cid] || []).filter(x => x.sid === sid)
+export function _pushComment(cid: string, x: StageComment) {
+  comments = { ...comments, [cid]: [...(comments[cid] || []), x] }
+}
+
+/** 화면용 — 시각은 서버에서 한국 시간으로 만들어 내려보낸다(브라우저마다 달라지지 않게). */
+export interface CommentView { verdict: CommentVerdict; l: string; body: string; by: string; at: string }
+const KST = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+})
+function kstLabel(iso: string): string {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const parts = KST.formatToParts(d)
+  const g = (t: string) => parts.find(p => p.type === t)?.value ?? ''
+  return g('month') + '/' + g('day') + ' ' + g('hour') + ':' + g('minute')
+}
+const toView = (x: StageComment): CommentView => ({
+  verdict: x.verdict, l: COMMENT_VERDICT[x.verdict] ?? x.verdict, body: x.body,
+  by: x.forNm ? x.by + ' (' + x.forNm + ' 대신)' : x.by, at: kstLabel(x.at),
+})
+/** 지금 단계 코멘트(최신이 앞) + 앞 단계들의 마지막 코멘트. */
+export function commentsFor(cid: string): { cur: CommentView[]; prior: { st: string; c: CommentView }[] } {
+  const c = cands.find(x => x.id === cid)
+  if (!c) return { cur: [], prior: [] }
+  const all = comments[cid] || []
+  const cur = all.filter(x => x.sid === c.st).map(toView).reverse()
+  const prior: { st: string; c: CommentView }[] = []
+  for (const st of stagesOf(c.p)) {
+    if (st.id === c.st) continue
+    const mine = all.filter(x => x.sid === st.id)
+    if (mine.length) prior.push({ st: st.nm, c: toView(mine[mine.length - 1]) })
+  }
+  return { cur, prior }
+}
+
 /* ---- G. 평가 (스코어카드) ----
    척도 정의는 lib/scorecard.ts. 여기엔 제출된 평가만 담는다.
    각 평가는 자기 항목 이름을 들고 있으므로, 기본 항목 목록을
@@ -841,6 +890,7 @@ export function _setData(d: Partial<{
   evals: Record<string, EvalItem[]>
   offers: Record<string, Offer>
   trail: Record<string, TrailItem[]>
+  comments: Record<string, StageComment[]>
   avail: Record<string, { wh: [number, number]; busy: AvailBusy[] }>
 }>) {
   if (d.people) people = d.people
@@ -865,6 +915,7 @@ export function _setData(d: Partial<{
   if (d.evals) evals = d.evals
   if (d.offers) offers = d.offers
   if (d.trail) trail = d.trail
+  if (d.comments) { comments = d.comments; commentsLive = true }
   if (d.avail) avail = d.avail
 }
 

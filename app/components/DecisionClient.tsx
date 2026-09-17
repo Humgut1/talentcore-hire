@@ -71,19 +71,22 @@ const REASON: Record<string, string> = {
   'need-reason': '불합격 사유를 골라야 저장됩니다.',
   'not-rejected': '불합격 상태가 아닙니다.',
   'offer-declined': '후보자가 오퍼를 거절한 건은 되돌릴 수 없습니다. 후보자의 답이기 때문입니다.',
+  'need-comment': '이 단계의 판정 코멘트를 먼저 남겨 주세요.',
 }
 /* DB 미설정·새 칸 없음은 '실패'가 아니다 — 화면에는 반영되고 저장만 안 된 상태. */
 const softFail = (r?: string) =>
-  r === 'not-configured' ||
+  r === 'not-configured' || r === 'needs-migration' ||
   !!(r && (r.indexOf('does not exist') >= 0 || r.indexOf('schema cache') >= 0))
 
 const hint: React.CSSProperties = { fontSize: 11.5, color: 'var(--t3)', marginTop: 4 }
 const line: React.CSSProperties = { fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }
 
 export default function DecisionClient({
-  view, cid, cand, pos, sender, rj,
+  view, cid, cand, pos, sender, rj, comment,
 }: {
   view: DecisionView; cid: string; cand: string; pos: string; sender: string
+  /* 이 단계의 마지막 판정 코멘트. 없으면 넘기기·보류·불합격(우리 판단)을 막는다. */
+  comment?: string
   /* 이미 종료된 카드의 사유 — 종료 문구를 '우리가 거절'과 '후보자 이탈'로 갈라 쓴다. */
   rj?: RejectCode
 }) {
@@ -99,6 +102,7 @@ export default function DecisionClient({
   )
   const [rjMail, setRjMail] = useState<string | null>('auto')
 
+  const noComment = !comment
   const [memo, setMemo] = useState('')
   const [side, setSide] = useState<RejectSide>('us')
   const [code, setCode] = useState<RejectCode | ''>('')
@@ -221,16 +225,21 @@ export default function DecisionClient({
             ? <>다음 단계는 <b>{view.next.nm}</b> 입니다. 넘기면 체류일이 0일로 초기화되고 일정 조율이 다시 시작됩니다.</>
             : '이 단계가 마지막입니다.'}
         </div>
+        {noComment ? (
+          <div style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 6 }}>
+            위 판정 코멘트를 먼저 남겨야 넘기거나 보류·불합격할 수 있습니다. 후보자 이탈 기록은 예외입니다.
+          </div>
+        ) : null}
         {view.notes.map((n, i) => (
           <div key={i} style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 6 }}>{n}</div>
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
-          <button className="btn solid" disabled={busy || !view.next}
+          <button className="btn solid" disabled={busy || !view.next || noComment}
             onClick={() => setOpen(open === 'pass' ? '' : 'pass')}>
             <Icon id="i-check-sq" className="ic-sm" />다음 단계로
           </button>
-          <button className="btn" disabled={busy}
-            onClick={() => setOpen(open === 'hold' ? '' : 'hold')}>보류</button>
+          <button className="btn" disabled={busy || noComment}
+            onClick={() => { if (open !== 'hold' && !memo) setMemo(comment ?? ''); setOpen(open === 'hold' ? '' : 'hold') }}>보류</button>
           <button className="btn" disabled={busy}
             onClick={() => setOpen(open === 'reject' ? '' : 'reject')}>불합격</button>
         </div>
@@ -249,7 +258,7 @@ export default function DecisionClient({
       {passDraft ? <MailPv d={passDraft} /> : null}
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button className="btn solid" disabled={busy || !view.next}
-          onClick={() => run(() => advanceAndNotify(cid, passMail), r =>
+          onClick={() => run(() => advanceAndNotify(cid, passMail, sender), r =>
             `${r.to ?? view.next?.nm ?? '다음 단계'} 단계로 보냈습니다` +
             (r.offerMade ? ' · 처우안 초안을 만들어 뒀습니다' : '') + mailTail(r.mail))}>
           {passMail ? '보내고 메일 발송' : '보내기 (메일 없음)'}
@@ -269,7 +278,7 @@ export default function DecisionClient({
         value={memo} onChange={e => setMemo(e.target.value)} disabled={busy} />
       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
         <button className="btn" disabled={busy || !memo.trim()}
-          onClick={() => run(() => holdCand(cid, memo), '보류로 기록했습니다')}>보류 저장</button>
+          onClick={() => run(() => holdCand(cid, memo, sender), '보류로 기록했습니다')}>보류 저장</button>
         <button className="btn quiet" disabled={busy} onClick={() => setOpen('')}>취소</button>
       </div>
     </div>
@@ -316,8 +325,8 @@ export default function DecisionClient({
       {draft ? <MailPv d={draft} /> : null}
 
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
-        <button className="btn" disabled={busy || !code}
-          onClick={() => run(() => rejectAndNotify(cid, code, rMemo, rjMail),
+        <button className="btn" disabled={busy || !code || (side === 'us' && noComment)}
+          onClick={() => run(() => rejectAndNotify(cid, code, rMemo, rjMail, sender),
             r => '전형을 종료로 기록했습니다' + mailTail(r.mail))}>
           {(side === 'them' ? '이탈로 기록' : '불합격 기록') + (rjMail ? ' + 통보' : '')}
         </button>

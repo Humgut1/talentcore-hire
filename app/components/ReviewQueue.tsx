@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation'
 import { Icon } from './IconSprite'
 import type { ReviewItem } from '../lib/review'
 import { SIDE_LABEL, SIDE_DESC, reasonsOf, type RejectCode, type RejectSide } from '../lib/decision'
-import { advanceCand, holdCand, rejectCand } from '../lib/actions'
+import { advanceCand, holdCand, rejectCand, saveStageComment } from '../lib/actions'
 
 const REASON: Record<string, string> = {
   'no-candidate': '후보자를 찾지 못했습니다.',
@@ -24,11 +24,14 @@ const REASON: Record<string, string> = {
   'no-rail': '이 공고에 불합격 단계가 없습니다.',
   'need-memo': '보류 사유를 적어야 저장됩니다.',
   'need-reason': '불합격 사유를 골라야 저장됩니다.',
+  'need-comment': '검토 코멘트를 적어야 저장됩니다.',
+  'no-permission': '이 공고의 HM·리크루터·검토자만 판정할 수 있습니다.',
+  'too-long': '코멘트를 2,000자 안으로 줄여 주세요.',
 }
 
 /* DB 미설정·새 칸 없음은 '실패'가 아니다 — 화면에는 반영되고 저장만 안 된 상태. */
 const softFail = (r?: string) =>
-  r === 'not-configured' ||
+  r === 'not-configured' || r === 'needs-migration' ||
   !!(r && (r.indexOf('does not exist') >= 0 || r.indexOf('schema cache') >= 0))
 
 export default function ReviewQueue(
@@ -42,15 +45,26 @@ export default function ReviewQueue(
   const [err, setErr] = useState('')
   const [done, setDone] = useState<string[]>([])
   const [open, setOpen] = useState<'' | 'hold' | 'reject'>('')
-  const [memo, setMemo] = useState('')
+  /* 검토 코멘트 — 세 버튼 모두 이 칸을 판정 이유로 함께 저장한다. 보류 사유도 이 칸이다. */
+  const [note, setNote] = useState(items[0]?.comment?.body ?? '')
   const [side, setSide] = useState<RejectSide>('us')
   const [code, setCode] = useState<RejectCode | ''>('')
-  const [rMemo, setRMemo] = useState('')
 
   const cur: ReviewItem | undefined = queue[Math.min(i, queue.length - 1)]
   const over = queue.filter(x => x.over).length
 
-  function reset() { setOpen(''); setMemo(''); setCode(''); setRMemo(''); setErr('') }
+  function reset(next?: ReviewItem) {
+    setOpen(''); setCode(''); setErr('')
+    if (next !== undefined) setNote(next.comment?.body ?? '')
+  }
+
+  /* 코멘트를 먼저 남기고 판정한다. 코멘트가 막히면 판정도 하지 않는다. */
+  const judge = (cid: string, v: 'pass' | 'hold' | 'fail', act: () => Promise<{ ok: boolean; reason?: string }>) =>
+    async () => {
+      const k = await saveStageComment(cid, v, note, who)
+      if (!k.ok && !softFail(k.reason)) return k
+      return act()
+    }
 
   /* 판정 → 큐에서 빼고, 같은 자리에 다음 사람이 올라온다. */
   async function run(fn: () => Promise<{ ok: boolean; reason?: string }>, line: string) {
@@ -63,10 +77,12 @@ export default function ReviewQueue(
         return
       }
       const id = cur.cid
-      setQueue(q => q.filter(x => x.cid !== id))
-      setI(x => Math.max(0, Math.min(x, queue.length - 2)))
+      const rest = queue.filter(x => x.cid !== id)
+      const ni = Math.max(0, Math.min(i, rest.length - 1))
+      setQueue(rest)
+      setI(ni)
       setDone(d => [line, ...d])
-      reset()
+      reset(rest[ni] ?? ({} as ReviewItem))
       router.refresh()
     } catch {
       setErr('저장하지 못했습니다. 잠시 뒤 다시 눌러주세요.')
@@ -133,7 +149,7 @@ export default function ReviewQueue(
                 {queue.map((x, n) => (
                   <button
                     key={x.cid}
-                    onClick={() => { setI(n); reset() }}
+                    onClick={() => { setI(n); reset(x) }}
                     style={{
                       display: 'block', width: '100%', textAlign: 'left', padding: '10px 13px',
                       borderTop: n ? '1px solid var(--line)' : undefined,
@@ -199,37 +215,34 @@ export default function ReviewQueue(
                 ) : null}
 
                 {/* ---------- 판정 ---------- */}
-                <div style={{ display: 'flex', gap: 6, marginTop: 16 }}>
+                <div className="field" style={{ marginTop: 16, marginBottom: 0 }}>
+                  <label>검토 코멘트 (필수)</label>
+                  <textarea
+                    className="ta" value={note} disabled={busy} maxLength={2000}
+                    placeholder="합격·보류·불합격 이유. 보류라면 무엇이 정해지면 다시 볼지. 다음 단계 면접관도 읽습니다."
+                    onChange={e => setNote(e.target.value)}
+                  />
+                  {cur.comment ? (
+                    <div style={{ fontSize: 11.5, color: 'var(--t4)', marginTop: 4 }}>
+                      지난 코멘트 · {cur.comment.l} · {cur.comment.by} · {cur.comment.at} — 고쳐서 판정하면 이전 내용은 이력으로 남습니다
+                    </div>
+                  ) : null}
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                   <button
-                    className="btn solid" style={{ flex: 1, justifyContent: 'center' }} disabled={busy}
-                    onClick={() => run(() => advanceCand(cur.cid, who), cur.nm + ' · 다음 단계로')}
+                    className="btn solid" style={{ flex: 1, justifyContent: 'center' }} disabled={busy || !note.trim()}
+                    onClick={() => run(judge(cur.cid, 'pass', () => advanceCand(cur.cid, who)), cur.nm + ' · 합격 · 다음 단계로')}
                   >
-                    <Icon id="i-check-circle" className="ic-sm" />다음 단계로
+                    <Icon id="i-check-circle" className="ic-sm" />합격 · 다음 단계로
                   </button>
-                  <button className="btn" disabled={busy} onClick={() => { const o = open; reset(); setOpen(o === 'hold' ? '' : 'hold') }}>
+                  <button className="btn" disabled={busy || !note.trim()}
+                    onClick={() => run(judge(cur.cid, 'hold', () => holdCand(cur.cid, note, who)), cur.nm + ' · 보류')}>
                     보류
                   </button>
                   <button className="btn" disabled={busy} onClick={() => { const o = open; reset(); setOpen(o === 'reject' ? '' : 'reject') }}>
                     불합격
                   </button>
                 </div>
-
-                {open === 'hold' ? (
-                  <div style={{ marginTop: 12 }}>
-                    <div className="field" style={{ marginBottom: 8 }}>
-                      <label>보류 사유 (필수)</label>
-                      <textarea
-                        className="ta" value={memo} autoFocus
-                        placeholder="왜 지금 결정하지 않는지 한 줄로. 이 줄이 없으면 나중에 아무도 이유를 기억하지 못합니다."
-                        onChange={e => setMemo(e.target.value)}
-                      />
-                    </div>
-                    <button
-                      className="btn solid" disabled={busy || !memo.trim()}
-                      onClick={() => run(() => holdCand(cur.cid, memo, who), cur.nm + ' · 보류')}
-                    >보류로 저장</button>
-                  </div>
-                ) : null}
 
                 {open === 'reject' ? (
                   <div style={{ marginTop: 12 }}>
@@ -248,16 +261,18 @@ export default function ReviewQueue(
                             : undefined}>{r.l}</button>
                       ))}
                     </div>
-                    <div className="field" style={{ margin: '12px 0 8px' }}>
-                      <label>메모 (선택)</label>
-                      <textarea className="ta" value={rMemo} style={{ minHeight: 56 }}
-                        placeholder="어느 항목이 부족했는지 적어두면 나중에 JD 를 고칠 때 쓰입니다."
-                        onChange={e => setRMemo(e.target.value)} />
-                    </div>
                     <button
-                      className="btn solid" disabled={busy || !code}
-                      onClick={() => run(() => rejectCand(cur.cid, code as string, rMemo, who), cur.nm + ' · 불합격')}
+                      className="btn solid" style={{ marginTop: 12 }}
+                      disabled={busy || !code || (side === 'us' && !note.trim())}
+                      onClick={() => run(
+                        side === 'us'
+                          ? judge(cur.cid, 'fail', () => rejectCand(cur.cid, code as string, note, who))
+                          : () => rejectCand(cur.cid, code as string, note, who),
+                        cur.nm + ' · 불합격')}
                     >불합격으로 저장</button>
+                    {side === 'us' && !note.trim() ? (
+                      <div style={{ fontSize: 11.5, color: 'var(--late)', marginTop: 6 }}>위 검토 코멘트를 적어야 저장됩니다.</div>
+                    ) : null}
                     <div style={{ fontSize: 11.5, color: 'var(--t4)', marginTop: 6 }}>
                       통보 메일은 자동으로 나가지 않습니다. 초안은 후보자 상세에서 만듭니다.
                     </div>

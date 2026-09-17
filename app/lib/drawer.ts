@@ -11,7 +11,7 @@
    ========================================================= */
 import {
   cands, evals, timeline, trail, posById, stageById, stagesOf, personById,
-  offerOf, md, daysSince, hmNow, type TLItem, type EvalItem,
+  offerOf, md, daysSince, hmNow, commentsFor, type TLItem, type EvalItem, type CommentView,
 } from './data'
 import { decisionFor, rejectDef, SIDE_LABEL, type DecisionView, type RejectCode } from './decision'
 import { otherApps } from './pool'
@@ -39,6 +39,7 @@ export interface DrawerData {
   /* 끝난 카드 */
   rj?: { code: RejectCode; l: string; d: string; side: string; memo?: string; exStage?: string; decided?: string }
   decision: DecisionView
+  comments: { cur: CommentView[]; prior: { st: string; c: CommentView }[] }
   timeline: TLItem[]
   evals: EvalItem[]
   /* 서류는 '보이는' 것이 기본이다 — 서랍 왼쪽에서 바로 읽힌다.
@@ -130,6 +131,7 @@ export async function drawerData(
       },
     } : {}),
     decision: decisionFor(sg, stagesOf(c.p), stageEv, ivs),
+    comments: commentsFor(cid),
     timeline: tl,
     evals: ev,
     docs, mails,

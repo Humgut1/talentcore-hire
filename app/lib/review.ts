@@ -13,8 +13,8 @@
    ※ 서버·클라이언트 양쪽에서 import 한다. I/O 없이 계산만 한다.
    ========================================================= */
 import {
-  cands, positions, stagesOf, stageById, posById, people, isHmOf, hmNow,
-  type Person, type Status,
+  cands, positions, stagesOf, stageById, posById, people, isHmOf, hmNow, commentsFor,
+  type Person, type Status, type CommentView,
 } from './data'
 
 export interface ReviewItem {
@@ -30,6 +30,8 @@ export interface ReviewItem {
   /* 이 사람이 대행으로 보고 있으면 원래 HM 이름. 판정 기록에 '(최영수 대신)'으로 남는다. */
   forNm?: string
   proxyUntil?: string
+  /* 이 단계의 마지막 판정 코멘트(보류해 둔 사람이면 그때 쓴 것). */
+  comment?: CommentView
 }
 
 /** 이 사람이 서류를 봐야 하는 후보자들. HM 이거나, 그 단계 검토자로 지정된 경우. */
@@ -49,6 +51,7 @@ export function reviewQueue(p: Person): ReviewItem[] {
       s: c.s, why: c.why, held: c.why.indexOf('판정 보류') === 0,
       withMe: st.ivs.filter(u => u !== p.id)
         .map(u => (people.find(x => x.id === u) || { nm: u }).nm),
+      ...(() => { const k = commentsFor(c.id).cur[0]; return k ? { comment: k } : {} })(),
       ...(() => { const h = hmNow(pos); return h.forNm && h.nm === p.nm ? { forNm: h.forNm, proxyUntil: h.until } : {} })(),
     })
   }

@@ -21,6 +21,7 @@ import Link from 'next/link'
 import { Icon } from './IconSprite'
 import IvPanel from './IvPanel'
 import DecisionClient from './DecisionClient'
+import StageComments from './StageComments'
 import OfferClient from './OfferClient'
 import { removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
 import { sendDoc } from '../lib/doc-upload'
@@ -310,6 +311,10 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 
   return (
     <>
+      <div style={{ marginBottom: 14 }}>
+        <StageComments cid={d.cid} actor={d.sender} stageNm={d.stage.nm}
+          cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
+      </div>
       {d.others.length ? (
         <div className="dw-dup">
           <Icon id="i-copy" className="ic-sm" />
@@ -410,9 +415,12 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 function EvalTab({ d }: { d: DrawerData }) {
   return (
     <>
+      <StageComments cid={d.cid} actor={d.sender} stageNm={d.stage.nm}
+        cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       <DecisionClient
         view={d.decision} cid={d.cid} cand={d.nm} pos={d.pos.title} sender={d.sender}
         {...(d.rj ? { rj: d.rj.code } : {})}
+        {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
       />
       <Sec t="평가" n={d.evals.length} right={
         d.evals.length ? <Link className="btn quiet" href={`/e/${d.cid}`}>나란히 비교</Link> : null

@@ -10,7 +10,7 @@ import {
   _setData, auto as staticAuto, SEED_BAND, SEED_RJ, SEED_EX, SEED_EMAIL, SEED_CANDS,
   DEFAULT_POLICY,
   type Person, type Position, type Stage, type Meeting, type Candidate,
-  type AutoConfig, type EvalItem, type TrailItem, type IvPolicy,
+  type AutoConfig, type EvalItem, type TrailItem, type IvPolicy, type StageComment,
 } from './data'
 import {
   _setIv, type Interview, type IvPart, type IvSlot, type IvEvent,
@@ -183,6 +183,12 @@ function mergeCands(err: unknown, data: any[] | null): Candidate[] | undefined {
 function mapTrail(r: any): TrailItem {
   return { at: r.at ?? '', b: r.b ?? '', p: r.p ?? '', s: r.s ?? 'done' }
 }
+function mapComment(r: any): StageComment {
+  return {
+    sid: r.stage_id, verdict: r.verdict, body: r.body ?? '', by: r.author ?? '',
+    ...(r.for_nm ? { forNm: r.for_nm } : {}), at: r.created_at ?? '',
+  }
+}
 function mapEval(r: any): EvalItem {
   return {
     uid: r.interviewer_id, iv: r.iv, role: r.role, st: r.st,
@@ -222,7 +228,7 @@ async function hydrateOnce(): Promise<boolean> {
   if (!sb) return false
   try {
     const [people, positions, stages, meetings, candidates, automation, evaluations, offerRows, trailRows, availRows,
-           ivRows, ivPartRows, ivSlotRows, ivEventRows] = await Promise.all([
+           ivRows, ivPartRows, ivSlotRows, ivEventRows, commentRows] = await Promise.all([
       sb.from('people').select('*'),
       sb.from('positions').select('*').order('opened', { ascending: true }),
       sb.from('stages').select('*').order('ord', { ascending: true }),
@@ -237,6 +243,7 @@ async function hydrateOnce(): Promise<boolean> {
       sb.from('interview_parts').select('*').order('ord', { ascending: true }),
       sb.from('interview_slots').select('*').order('ord', { ascending: true }),
       sb.from('interview_events').select('*').order('id', { ascending: true }),
+      sb.from('stage_comments').select('*').order('id', { ascending: true }),
     ])
     const err = people.error || positions.error || stages.error || meetings.error || candidates.error
     if (err) { console.error('[db] hydrate 오류:', err.message); return false }
@@ -280,6 +287,13 @@ async function hydrateOnce(): Promise<boolean> {
         : Object.fromEntries(
           Object.entries(groupBy(trailRows.data ?? [], r => r.candidate_id))
             .map(([cid, rows]) => [cid, rows.map(mapTrail)]),
+        ),
+      /* 판정 코멘트(마이그레이션 015): 같은 규칙. */
+      comments: commentRows.error
+        ? undefined
+        : Object.fromEntries(
+          Object.entries(groupBy(commentRows.data ?? [], r => r.candidate_id))
+            .map(([cid, rows]) => [cid, rows.map(mapComment)]),
         ),
       /* 가용시간: 같은 규칙. 표가 없으면 방금 외부 링크에서 저장한 값을 지우지 않는다.
          표는 있는데 비어 있으면 '아직 아무도 안 냈다'가 맞으므로 정적 샘플로 덮는다. */
