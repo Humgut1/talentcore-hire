@@ -40,7 +40,9 @@ function isActive(r: string, pathname: string) {
   return pathname.startsWith(r)
 }
 
-export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
+export default function Sidebar(
+  { posList = [], who = null }: { posList?: SidePos[]; who?: { nm: string; role: string } | null },
+) {
   const pathname = usePathname()
   const [q, setQ] = useState('')
 
@@ -129,11 +131,12 @@ export default function Sidebar({ posList = [] }: { posList?: SidePos[] }) {
       </div>
 
       <div className="side-foot">
-        <span className="avatar">{me.init}</span>
-        <div>
-          <div className="who">{me.name}</div>
-          <div className="role">{me.role}</div>
+        <span className="avatar">{who ? who.nm.slice(0, 1) : me.init}</span>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="who">{who ? who.nm : me.name}</div>
+          <div className="role">{who ? who.role : me.role}</div>
         </div>
+        {who ? <a className="btn quiet sm" href="/logout" title="로그아웃">나가기</a> : null}
       </div>
     </aside>
   )

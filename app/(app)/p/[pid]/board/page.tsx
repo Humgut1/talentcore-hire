@@ -5,6 +5,7 @@ import { cands, stagesOf, posById } from '../../../../lib/data'
 import { mtgViews } from '../../../../lib/meetings'
 import { ivBoardOpen } from '../../../../lib/iv-actions'
 import { drawerData } from '../../../../lib/drawer'
+import { currentSession, evalViewer } from '../../../../lib/session'
 
 /* 공고 보드 = 하루 종일 열어 두는 유일한 화면.
    후보자 서랍은 별도 페이지가 아니라 이 화면의 주소 뒤에 붙는다(?c=후보자).
@@ -25,7 +26,7 @@ export default async function Page({
      아직 자리가 없는 후보자를 줄에 세운다. 둘 다 사람이 눌러 줄 일이 아니다. */
   await ivBoardOpen()
 
-  const d = c ? await drawerData(c, iv, ivw === '1') : null
+  const d = c ? await drawerData(c, iv, ivw === '1', evalViewer(await currentSession())) : null
 
   return (
     <>

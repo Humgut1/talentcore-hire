@@ -573,14 +573,14 @@ function mailerRows(r: (i: string, t: string, d: string, ctl: string) => string,
   return email + slack + test
 }
 
-export function settingsHTML(g?: GoogleStatus, flash?: string, m?: MailerStatus, core?: 'unconfigured' | 'configured') {
+export function settingsHTML(
+  g?: GoogleStatus, flash?: string, m?: MailerStatus, core?: 'unconfigured' | 'configured',
+  users?: { pending: number; active: number } | null,
+) {
   const grp = (t: string, rows: string) => `<div class="grp"><div class="sec-h"><h3>${t}</h3></div><div class="sheet">${rows}</div></div>`
   const r = (i: string, t: string, d: string, ctl: string) =>
     `<div class="rule">${ico(i)}<div class="txt"><b>${t}</b><span>${d}</span></div><div class="ctl">${ctl}</div></div>`
   const sw = (on: boolean) => `<button class="sw${on ? ' on' : ''}"></button>`
-  const rbacNames = ['코디네이터', '리크루터', '하이어링 매니저', '인터뷰어', 'HR Manager', '경영진']
-  const rbacDesc = ['전 공고 조율 처리 · 수동 조율', '담당 공고 전체', '본인 부서 · 개인정보 제한', '배정된 면접 · 평가지만', '전체 조회 + 설정', '전사 집계 요약만']
-  const rbacN = [2, 3, 5, 12, 1, 4]
   return '<header class="top">' +
     `<div class="crumb">${ico('i-sliders', 'ic-sm')}운영</div>` +
     '<div class="h-row"><h1>설정</h1></div>' +
@@ -600,8 +600,14 @@ export function settingsHTML(g?: GoogleStatus, flash?: string, m?: MailerStatus,
       r('i-mail', '발신 도메인', 'careers.example.com SPF/DKIM', '<span class="pill ok">인증 완료</span>') +
       r('i-msg', 'SMS', '후보자 동의 필수', '<span class="pill">미사용</span>' + sw(false))) +
     grp('리마인드 발송', mailerRows(r, m)) +
-    grp('L-2 사용자 · 권한 (RBAC)',
-      rbacNames.map((x, i) => r('i-shield', x, rbacDesc[i], `<span class="pill">${rbacN[i]}명</span><button class="btn quiet">${ico('i-sliders', 'ic-sm')}</button>`)).join('')) +
+    grp('사용자 · 권한',
+      /* TalentCore 계정으로 들어온 사람을 HR Admin 이 승인하고 역할을 준다(H2). */
+      r('i-shield', 'TalentCore 계정 로그인', 'HR Admin 승인 후 역할(HR Admin · 리크루터 · HM · 면접관)을 받아 들어옵니다',
+        (users
+          ? (users.pending ? '<span class="pill warn">승인 대기 ' + users.pending + '명</span>' : '') +
+            '<span class="pill">사용 중 ' + users.active + '명</span>'
+          : '') +
+        '<a class="btn quiet" href="/settings/users">관리</a>')) +
     grp('L-3 알림 템플릿',
       r('i-mail', '후보자 슬롯 안내', '한국어 기본 · 영어 병행', '<span class="pill">2개 언어</span><button class="btn quiet">편집</button>') +
       r('i-mail', '면접 확정 안내', '캘린더 인비 동시 발송', '<span class="pill">2개 언어</span><button class="btn quiet">편집</button>') +

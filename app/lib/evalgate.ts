@@ -21,9 +21,12 @@ export interface EvalGate {
   submitted: number    // 이 단계에 들어온 평가 수
   expected: number     // 배정된 면접관 수
   sealed: boolean      // 아직 덜 모여서 내용을 가린다
+  /* 로그인한 사람(H2). undefined = 작성자를 고정하지 않음(비밀번호 관리자·HR Admin),
+     null = 계정은 있지만 Hire 명부와 연결되지 않음, 문자열 = 그 사람으로만 쓴다 */
+  me?: string | null
 }
 
-export function evalGate(cid: string): EvalGate | null {
+export function evalGate(cid: string, me?: string | null): EvalGate | null {
   const c = cands.find(x => x.id === cid)
   if (!c) return null
   const st = stageById(c.p, c.st)
@@ -38,6 +41,7 @@ export function evalGate(cid: string): EvalGate | null {
     submitted: here.length,
     expected: roster.length,
     sealed: gradable && roster.length > 0 && roster.some(r => !r.done),
+    ...(me !== undefined ? { me } : {}),
   }
 }
 

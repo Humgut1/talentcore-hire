@@ -70,7 +70,7 @@ export interface DrawerData {
  * @param wide 자리 탐색 범위를 넓힐지
  */
 export async function drawerData(
-  cid: string, sel?: string, wide = false,
+  cid: string, sel?: string, wide = false, viewer?: string | null,
 ): Promise<DrawerData | null> {
   const c = cands.find(x => x.id === cid)
   if (!c) return null
@@ -136,7 +136,7 @@ export async function drawerData(
     comments: commentsFor(cid),
     timeline: tl,
     evals: visibleEvals(cid),
-    evalGate: evalGate(cid),
+    evalGate: evalGate(cid, viewer),
     docs, mails,
     others: otherApps(c).map(x => {
       const st = stageById(x.p, x.st)

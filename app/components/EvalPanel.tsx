@@ -17,7 +17,9 @@ import type { EvalGate } from '../lib/evalgate'
 
 export default function EvalPanel({ gate, wrap = false }: { gate: EvalGate; wrap?: boolean }) {
   const router = useRouter()
-  const firstLeft = gate.roster.find(r => !r.done) ?? gate.roster[0]
+  const locked = gate.me !== undefined
+  const mine = locked ? gate.roster.find(r => r.uid === gate.me) : undefined
+  const firstLeft = locked ? mine : (gate.roster.find(r => !r.done) ?? gate.roster[0])
   const [uid, setUid] = useState(firstLeft?.uid ?? '')
   const [scores, setScores] = useState<Record<string, Rating>>({})
   const [overall, setOverall] = useState<Rating | null>(null)
@@ -41,8 +43,8 @@ export default function EvalPanel({ gate, wrap = false }: { gate: EvalGate; wrap
       const items = gate.attrs.map(a => [a, scores[a]] as [string, Rating])
       const r = await submitEval(gate.cid, who.uid, items, overall as Rating, memo.trim())
       if (!r.ok && r.reason !== 'not-configured') {
-        setErr(r.reason === 'not-assigned'
-          ? '이 단계에 배정된 면접관만 제출할 수 있습니다.'
+        setErr(r.reason === 'not-assigned' || r.reason === 'not-you'
+          ? '이 단계에 배정된 면접관 본인만 제출할 수 있습니다.'
           : '제출하지 못했습니다 (' + (r.reason ?? '알 수 없는 오류') + ')')
         return
       }
@@ -91,7 +93,13 @@ export default function EvalPanel({ gate, wrap = false }: { gate: EvalGate; wrap
                 : '모두 제출했습니다. 아래 평가 목록과 나란히 비교에서 내용을 볼 수 있습니다.'}
             </div>
 
-            {!open ? (
+            {locked && !mine ? (
+              <div className="ev-note">
+                {gate.me === null
+                  ? '로그인한 계정이 Hire 면접관 명부와 연결돼 있지 않아 평가를 쓸 수 없습니다. HR Admin 에게 연결을 요청해 주세요.'
+                  : '이 단계에 배정된 면접관만 평가를 쓸 수 있습니다.'}
+              </div>
+            ) : !open ? (
               <button className="btn solid" style={{ marginTop: 10 }} onClick={() => { setOpen(true); setMsg('') }}>
                 평가 작성
               </button>
@@ -99,12 +107,16 @@ export default function EvalPanel({ gate, wrap = false }: { gate: EvalGate; wrap
               <div className="ev-form">
                 <div className="field" style={{ marginBottom: 10 }}>
                   <label>작성자</label>
+                  {locked && mine ? (
+                    <div style={{ fontSize: 13, color: 'var(--t1)', fontWeight: 600 }}>{mine.nm}</div>
+                  ) : (
                   <select className="ev-sel" value={uid} disabled={busy}
                     onChange={e => { setUid(e.target.value); clear() }}>
                     {gate.roster.map(r => (
                       <option key={r.uid} value={r.uid}>{r.nm}{r.done ? ' · 제출함' : ''}</option>
                     ))}
                   </select>
+                  )}
                   {who?.done ? (
                     <div className="ev-hint">이미 제출했습니다. 다시 제출하면 이전 평가를 덮어씁니다.</div>
                   ) : null}

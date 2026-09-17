@@ -27,6 +27,22 @@ export const GATE_COOKIE = 'hire_gate'
 
 export type GateRole = 'full' | 'demo'
 
+/* TalentCore 계정으로 들어온 사람(H2)의 Hire 역할. HR Admin 이 승인하며 정한다. */
+export type AppRole = 'admin' | 'recruiter' | 'hm' | 'interviewer'
+export const APP_ROLES: AppRole[] = ['admin', 'recruiter', 'hm', 'interviewer']
+export const ROLE_LABEL: Record<AppRole, string> = {
+  admin: 'HR Admin', recruiter: '리크루터', hm: '하이어링 매니저', interviewer: '면접관',
+}
+
+/** 표에 적힌 사람. 비밀번호로 들어온 표에는 uid 가 없다(= 관리자 비상 출입). */
+export interface GateSession {
+  role: GateRole
+  uid?: string        // app_users.id (core:<tenant>:<user>)
+  urole?: AppRole
+  nm?: string
+  pid?: string        // Hire 명부 사람 id — 면접관 본인 확인에 쓴다
+}
+
 /** 표에 찍는 도장. 없으면 표를 만들 수도 읽을 수도 없다(= 전부 잠긴다). */
 function secret(): string {
   return (
@@ -62,24 +78,60 @@ export async function issueTicket(role: GateRole, days: number): Promise<string>
   return `${body}.${await hmac(body)}`
 }
 
+/* 사람 정보는 표 가운데 칸에 base64url 로 싣는다. 점(.)이 섞이지 않게. */
+function b64e(s: string): string {
+  let bin = ''
+  enc.encode(s).forEach(b => { bin += String.fromCharCode(b) })
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+function b64d(s: string): string {
+  const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'))
+  return new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0)))
+}
+
+/** TalentCore 계정으로 들어온 사람의 표. `full.만료.사람.서명` */
+export async function issueUserTicket(
+  u: { uid: string; urole: AppRole; nm: string; pid?: string | null }, days: number,
+): Promise<string> {
+  const exp = Date.now() + Math.round(days * 86_400_000)
+  const body = 'full.' + exp + '.' + b64e(JSON.stringify({ u: u.uid, r: u.urole, n: u.nm, p: u.pid || undefined }))
+  return body + '.' + await hmac(body)
+}
+
 /** 표를 읽는다. 위조·만료·도장 없음은 전부 null(= 못 들어옴). */
 export async function readTicket(raw: string | undefined | null): Promise<GateRole | null> {
+  return (await readSession(raw))?.role ?? null
+}
+
+/** 표를 읽어 누가 들고 왔는지까지 돌려준다. */
+export async function readSession(raw: string | undefined | null): Promise<GateSession | null> {
   if (!raw || !secret()) return null
   const parts = raw.split('.')
-  if (parts.length !== 3) return null
-  const [role, expStr, sig] = parts
+  if (parts.length !== 3 && parts.length !== 4) return null
+  const [role, expStr] = parts
+  const sig = parts[parts.length - 1]
+  const who = parts.length === 4 ? parts[2] : null
   if (role !== 'full' && role !== 'demo') return null
+  if (who !== null && role !== 'full') return null
 
   const exp = Number(expStr)
   if (!Number.isFinite(exp) || exp <= Date.now()) return null
 
-  const want = await hmac(`${role}.${exp}`)
+  const want = await hmac(parts.slice(0, -1).join('.'))
   if (sig.length !== want.length) return null
   /* 글자를 하나씩 비교하다 다르면 바로 멈추면, 걸린 시간으로 서명을 맞혀 볼 수 있다.
      끝까지 다 보고 마지막에 판단한다. */
   let diff = 0
   for (let i = 0; i < want.length; i++) diff |= sig.charCodeAt(i) ^ want.charCodeAt(i)
-  return diff === 0 ? (role as GateRole) : null
+  if (diff !== 0) return null
+  if (who === null) return { role: role as GateRole }
+  try {
+    const j = JSON.parse(b64d(who)) as { u?: string; r?: string; n?: string; p?: string }
+    if (!j.u || !APP_ROLES.includes(j.r as AppRole)) return null
+    return { role: 'full', uid: j.u, urole: j.r as AppRole, nm: j.n || '', pid: j.p || undefined }
+  } catch {
+    return null
+  }
 }
 
 /* ---------------------------------------------------------
@@ -109,6 +161,7 @@ const OPEN_API = [
   '/api/cron/',            // 예약 실행 (CRON_SECRET)
   '/api/google/callback',  // 구글이 되돌려 보내는 주소 — 우리 쿠키가 없다
   '/api/dev-seed',         // 스스로 개발 환경에서만 동작한다
+  '/api/auth/core',        // TalentCore 계정 로그인 출발·도착 — 아직 표가 없는 사람이 지난다
 ]
 
 /** 이 주소는 표 없이 열리는가 */

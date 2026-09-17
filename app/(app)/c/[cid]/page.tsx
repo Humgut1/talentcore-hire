@@ -7,6 +7,7 @@ import DecisionClient from '../../../components/DecisionClient'
 import StageComments from '../../../components/StageComments'
 import EvalPanel from '../../../components/EvalPanel'
 import { evalGate } from '../../../lib/evalgate'
+import { currentSession, evalViewer } from '../../../lib/session'
 import { hydrateData } from '../../../lib/db'
 import { candidateHeadHTML, candidateFootHTML } from '../../../lib/render'
 import { cands, evals, me, personById, posById, stageById, stagesOf, commentsFor } from '../../../lib/data'
@@ -25,6 +26,9 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const [docs, mails] = await Promise.all([docsOf(cid), mailsOf(cid)])
 
   const cur = stageById(c.p, c.st)
+  /* 로그인한 사람이 있으면 그 이름으로 남긴다(H2). 없으면(비밀번호 관리자) 예전처럼. */
+  const sess = await currentSession()
+  const actor = sess?.uid ? (sess.nm || me.name) : me.name
   /* 판정에 쓰는 평가는 '이 단계에서 받은 것'만이다.
      앞 단계 평가까지 섞으면 이미 지난 의견으로 다시 판정하게 된다. */
   const ev = (evals[c.id] || []).filter(e => e.st === cur.nm)
@@ -33,7 +37,7 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   const cm = commentsFor(c.id)
 
   /* 면접 평가 — 이력서를 옆에 펴 둔 채 쓴다(H5). 평가 받는 단계에서만. */
-  const gate = evalGate(c.id)
+  const gate = evalGate(c.id, evalViewer(sess))
   const showEval = !!gate && gate.gradable && !gate.closed
   const resume = showEval ? (docs.find(f => f.kind === 'resume') ?? docs[0]) : undefined
   const resumeUrl = resume ? await docUrl(resume.path, 1800) : null
@@ -43,11 +47,11 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
   return (
     <>
       <Screen html={candidateHeadHTML(cid)} />
-      <StageComments wrap cid={c.id} actor={me.name} stageNm={cur.nm}
+      <StageComments wrap cid={c.id} actor={actor} stageNm={cur.nm}
         cur={cm.cur} prior={cm.prior} closed={!!cur.rail} />
       <DecisionClient
         view={view} cid={c.id} cand={c.nm} rj={c.rj}
-        pos={posById(c.p).title} sender={me.name}
+        pos={posById(c.p).title} sender={actor}
         {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
       />
       {showEval && gate ? (

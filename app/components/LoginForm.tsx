@@ -48,12 +48,32 @@ const CSS = `
 .gate-demo { width: 100%; justify-content: center; padding: 8px 12px; font-size: 13px; }
 .gate-note { margin: 10px 0 0; font-size: 11.5px; color: var(--t3); line-height: 1.65; text-align: center; }
 
+.gate-core { width: 100%; justify-content: center; padding: 9px 12px; font-size: 13px; }
+.gate-msg { margin: 0 0 14px; padding: 10px 12px; border-radius: 8px; background: var(--sunken);
+            font-size: 12px; color: var(--t2); line-height: 1.6; }
+.gate-msg b { color: var(--t1); }
+.gate-msg.bad { color: var(--esc); }
 .gate-foot { margin-top: 16px; text-align: center; font-size: 11.5px; }
 .gate-foot a { color: var(--t3); border-bottom: 1px solid var(--line-firm); }
 .gate-foot a:hover { color: var(--t1); }
 `
 
-export default function LoginForm({ back, configured }: { back: string; configured: boolean }) {
+/* TalentCore 로그인에서 돌아왔을 때 한 줄 안내. 승인 대기는 실패가 아니라 절차다. */
+const SSO_MSG: Record<string, { t: string; bad?: boolean }> = {
+  pending: { t: '가입 요청이 접수됐습니다. HR Admin 이 역할을 정해 승인하면 들어올 수 있습니다.' },
+  blocked: { t: '이 계정은 Hire 사용이 막혀 있습니다. HR 담당자에게 문의해 주세요.', bad: true },
+  inactive: { t: 'TalentCore 에서 사용 중인 계정이 아닙니다.', bad: true },
+  expired: { t: '로그인 시간이 지났습니다. 다시 눌러 주세요.', bad: true },
+  failed: { t: 'TalentCore 계정을 확인하지 못했습니다. 다시 눌러 주세요.', bad: true },
+  unreachable: { t: 'TalentCore 에 연결하지 못했습니다. 잠시 뒤 다시 눌러 주세요.', bad: true },
+  unconfigured: { t: 'TalentCore 연동이 설정돼 있지 않아 계정 로그인을 쓸 수 없습니다.', bad: true },
+  setup: { t: '사용자 명단 표가 아직 없습니다. 관리자가 DB 설정(마이그레이션 015)을 마쳐야 합니다.', bad: true },
+}
+
+export default function LoginForm(
+  { back, configured, sso, coreReady }: { back: string; configured: boolean; sso?: string; coreReady: boolean },
+) {
+  const ssoMsg = sso ? SSO_MSG[sso] : undefined
   const router = useRouter()
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
@@ -109,14 +129,25 @@ export default function LoginForm({ back, configured }: { back: string; configur
             <h1>들어가기</h1>
             <p className="sub">이 안에는 지원자의 이름·연락처와 면접 기록이 있습니다.</p>
 
+            {ssoMsg && <p className={'gate-msg' + (ssoMsg.bad ? ' bad' : '')}>{ssoMsg.t}</p>}
+
+            <a className={'btn solid gate-core' + (coreReady ? '' : ' disabled')}
+              href={coreReady ? '/api/auth/core/start?next=' + encodeURIComponent(back) : undefined}
+              aria-disabled={!coreReady}>
+              TalentCore 계정으로 로그인
+            </a>
+            <p className="gate-note">처음 들어오면 HR Admin 승인 후 사용할 수 있습니다.</p>
+
+            <div className="gate-or">관리자 비상 출입</div>
+
             <form onSubmit={submit}>
-              <label className="gate-lbl" htmlFor="pw">비밀번호</label>
+              <label className="gate-lbl" htmlFor="pw">관리자 비밀번호</label>
               <input
                 id="pw" className="in" type="password" value={pw}
-                autoComplete="current-password" autoFocus disabled={busy}
+                autoComplete="current-password" disabled={busy}
                 onChange={e => setPw(e.target.value)}
               />
-              <button className="btn solid gate-go" disabled={busy || !pw}>
+              <button className="btn gate-go" disabled={busy || !pw}>
                 {busy ? '확인하는 중…' : '들어가기'}
               </button>
             </form>

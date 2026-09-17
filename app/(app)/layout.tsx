@@ -7,7 +7,10 @@ import Sidebar, { type SidePos } from '../components/Sidebar'
 import NavProgress from '../components/NavProgress'
 import { hydrateData } from '../lib/db'
 import { positions, cands, stageById } from '../lib/data'
-import { GATE_COOKIE, readTicket } from '../lib/gate'
+import { redirect } from 'next/navigation'
+import { GATE_COOKIE, readSession } from '../lib/gate'
+import { viewerLabel } from '../lib/session'
+import { getUser } from '../lib/users'
 
 export const metadata: Metadata = {
   title: 'Hire',
@@ -24,7 +27,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   /* 데모로 들어온 사람은 저장이 안 된다. 눌러 보고 나서 알게 하면
      "고장 났나" 로 읽힌다 — 누르기 전에 말해 준다. */
-  const role = await readTicket((await cookies()).get(GATE_COOKIE)?.value)
+  const sess = await readSession((await cookies()).get(GATE_COOKIE)?.value)
+  const role = sess?.role ?? null
+
+  /* 계정으로 들어온 사람은 표가 살아 있어도 매번 명단을 다시 본다(H2).
+     HR Admin 이 막거나 승인을 거두면 다음 화면 이동부터 바로 나가게 된다.
+     명단을 못 읽는 경우(DB 미설정)는 표를 믿는다. */
+  if (sess?.uid) {
+    const u = await getUser(sess.uid)
+    if (u === null || (u && 'st' in u && (u.st !== 'active' || u.role !== sess.urole))) {
+      redirect('/logout?why=changed')
+    }
+  }
 
   const posList: SidePos[] = positions.map(p => {
     const act = cands.filter(c => c.p === p.id && !stageById(p.id, c.st).rail)
@@ -62,7 +76,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <a href="/login">비밀번호로 들어가기</a>
             </div>
           )}
-          <Sidebar posList={posList} />
+          <Sidebar posList={posList} who={viewerLabel(sess)} />
           <main className="main">{children}</main>
         </div>
       </body>

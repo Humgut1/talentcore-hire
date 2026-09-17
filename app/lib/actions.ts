@@ -3,6 +3,7 @@
    서버 액션 — 보드에서 카드를 옮기면 DB에 저장한다.
    DB 미설정이면 조용히 no-op (앱은 화면 상태만 바뀜).
    ========================================================= */
+import { currentSession } from './session'
 import { serverClient } from './supabase'
 import { hydrateData } from './db'
 import {
@@ -172,6 +173,9 @@ export async function submitEval(
   items: [string, string][], overall: string, memo: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
+  /* 로그인한 사람은 자기 이름으로만 평가를 낸다(H2). HR Admin 은 대리 입력을 허용한다. */
+  const who = await currentSession()
+  if (who?.uid && who.urole !== 'admin' && who.pid !== uid) return { ok: false, reason: 'not-you' }
   const p = personById(uid)
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
