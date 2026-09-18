@@ -14,7 +14,7 @@ import {
   _addCand, nextCandId, _patchPositionBand, _patchPositionState, _patchPositionPublic, _patchPerson,
   type AutoConfig, type Rule, type Candidate, type TrailItem, type Position, type Person,
 } from './data'
-import { stagesFromTemplate } from './templates'
+import { stagesFromTemplate, stagesFromBody, cleanBody, type CustomStage } from './templates'
 import type { Rating } from './scorecard'
 import { verdictOf, VERDICT_LABEL } from './scorecard'
 import { rejectDef, REJECT_REASONS, type RejectCode } from './decision'
@@ -762,6 +762,15 @@ export async function listSeats(pid: string): Promise<SeatView> {
    합격/보류/불합격 + 이유. 쓸 수 있는 사람: 이 공고의 리크루터·HM(대행 포함)·
    리크루터 역할·그 단계 검토자. 고치면 새 줄 — 이전 내용은 이력으로 남는다.
    ========================================================= */
+/* 판정·코멘트를 남기는 사람 이름. 화면이 보낸 이름은 믿지 않는다 —
+   TalentCore 계정이면 그 사람(명부 이름)으로 고정한다. 비밀번호 관리자·데모만
+   화면이 보낸 이름을 쓴다(사람이 정해지지 않은 출입이라서). */
+async function actorFor(by: string | undefined): Promise<string | undefined> {
+  const s = await currentSession()
+  if (!s?.uid) return by
+  return (s.pid ? personById(s.pid)?.nm : undefined) || s.nm || by
+}
+
 function needComment(c: Candidate): boolean {
   return commentsLive && commentsAt(c.id, c.st).length === 0
 }
@@ -770,6 +779,7 @@ export async function saveStageComment(
   cid: string, verdict: string, body: string, by: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
+  by = (await actorFor(by)) || by
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
   if (verdict !== 'pass' && verdict !== 'hold' && verdict !== 'fail') return { ok: false, reason: 'bad-verdict' }
@@ -890,6 +900,7 @@ export async function advanceCand(
   mtg?: { nm: string; v: string }[]
 }> {
   await hydrateData()
+  by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
   const cur = stageById(c.p, c.st)
@@ -936,6 +947,7 @@ export async function holdCand(
   cid: string, memo: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
+  by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
   if (stageById(c.p, c.st).rail) return { ok: false, reason: 'closed' }
@@ -957,6 +969,7 @@ export async function rejectCand(
   cid: string, code: string, memo?: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
+  by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
   const cur = stageById(c.p, c.st)
@@ -1292,6 +1305,10 @@ export interface NewPositionInput {
      이걸 비워 두고 공고를 열면 후보자가 인터뷰 단계에 서는 순간
      조율이 '면접관 미지정'으로 막힌다. */
   panel?: { r1?: string[]; r2?: string[] }
+  /* 공고 개설 화면에서 직접 고친 단계(지원 접수 뒤부터). 있으면 template 보다 먼저 본다. */
+  stages?: CustomStage[]
+  /* 이전 공고 복사 — 그 공고의 자동화 규칙(에스컬레이션 임계값)도 같이 가져온다. */
+  copyFrom?: string
 }
 
 export async function createPosition(
@@ -1307,7 +1324,9 @@ export async function createPosition(
   const hi = Math.max(input.bandLo, input.bandHi)
 
   const pid = nextPositionId()
-  const st = stagesFromTemplate(input.template)
+  const st = input.stages?.length
+    ? stagesFromBody(cleanBody(input.stages, id => !!personById(id)))
+    : stagesFromTemplate(input.template)
   /* 인터뷰 단계에 면접관을 미리 앉힌다. 순서대로 1차·2차이고,
      3차 이상은 템플릿에도 없으므로 비워 둔다(리크루터가 직접 고른다). */
   if (input.panel) {
@@ -1315,7 +1334,8 @@ export async function createPosition(
     if (line[0] && input.panel.r1?.length) line[0].ivs = input.panel.r1.slice(0, 1)
     if (line[1] && input.panel.r2?.length) line[1].ivs = input.panel.r2.slice(0, 2)
   }
-  const cfg = defaultAuto()
+  const src = input.copyFrom ? auto[input.copyFrom] : undefined
+  const cfg: AutoConfig = src ? JSON.parse(JSON.stringify(src)) : defaultAuto()
   /* 자리 카드 코드가 왔으면 장수가 곧 뽑는 인원이다. 사람이 직접 만든 공고는 1명. */
   const codes = (input.openingCodes ?? []).filter(Boolean)
   const openings = codes.length || 1

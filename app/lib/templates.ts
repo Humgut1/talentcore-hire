@@ -120,3 +120,55 @@ export function stagesFromTemplate(tid: string): Stage[] {
   })
   return out
 }
+
+/* ---------------------------------------------------------
+   직접 짠 단계 (공고 개설 화면의 단계 편집 · 이전 공고 복사)
+   ---------------------------------------------------------
+   Greenhouse·Ashby 는 공고를 만들 때 "템플릿에서 시작 / 기존 공고 복사"
+   두 갈래를 주고, 고른 뒤 그 자리에서 단계를 고치게 한다. 여기서도 같다.
+   화면이 보낸 값은 믿지 않고 이 함수가 한 번 더 다듬는다 —
+   첫 칸은 반드시 '지원 접수', 끝 레일(입사·불합격)은 여기서 붙인다.
+   --------------------------------------------------------- */
+export interface CustomStage extends TemplateStage { ivs?: string[]; auto?: boolean }
+
+export const STAGE_MAX = 12
+const EDIT_KINDS: StageKind[] = ['screen', 'interview', 'task', 'offer']
+
+export function cleanBody(raw: CustomStage[], knownIv: (id: string) => boolean): CustomStage[] {
+  const body = raw
+    .filter(s => s && s.kind !== 'apply' && s.kind !== 'hired' && s.kind !== 'reject')
+    .slice(0, STAGE_MAX - 2)
+    .map(s => {
+      const kind = EDIT_KINDS.includes(s.kind) ? s.kind : 'screen'
+      const iv = kind === 'interview'
+      return {
+        nm: String(s.nm || '').trim().slice(0, 30) || '새 단계',
+        kind,
+        sla: Math.min(60, Math.max(1, Math.round(Number(s.sla) || 3))),
+        dur: iv ? Math.min(240, Math.max(15, Math.round(Number(s.dur) || 60))) : 0,
+        mode: iv ? (['대면', '화상', '전화'].includes(s.mode) ? s.mode : '화상') : (s.mode === '비대면' ? '비대면' : '—'),
+        ivs: iv ? Array.from(new Set((s.ivs || []).filter(knownIv))).slice(0, 6) : [],
+        auto: s.auto !== false,
+      }
+    })
+  /* 오퍼 단계가 없으면 오퍼 초안·결재·오퍼레터가 설 자리가 없다 — 끝에 붙인다. */
+  if (!body.some(s => s.kind === 'offer')) body.push({ ...OFFER, ivs: [], auto: true })
+  return [{ ...APPLY, ivs: [], auto: true }, ...body]
+}
+
+/** 다듬은 단계 → 실제 단계 배열. 규칙은 stagesFromTemplate 와 같다. */
+export function stagesFromBody(body: CustomStage[]): Stage[] {
+  const out: Stage[] = body.map((s, i) => ({
+    id: `s${i + 1}`, nm: s.nm, kind: s.kind, sla: s.sla, dur: s.dur, mode: s.mode,
+    ivs: s.ivs ?? [], color: ramp(body.length, i), auto: s.auto !== false,
+  }))
+  out.push({
+    id: `s${body.length + 1}`, nm: '입사', kind: 'hired', sla: 0, dur: 0,
+    mode: '—', ivs: [], color: '#0a9459', auto: false, rail: true,
+  })
+  out.push({
+    id: 's0', nm: '불합격', kind: 'reject', sla: 0, dur: 0,
+    mode: '—', ivs: [], color: '#a8a8b2', auto: false, rail: true,
+  })
+  return out
+}

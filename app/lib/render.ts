@@ -746,7 +746,20 @@ export function todoFor(p: Person): Todo[] {
   return out.sort((a, b) => rank(a) - rank(b) || b.ord - a.ord)
 }
 
-export function todoHTML(uid?: string) {
+/* 계정은 있는데 Hire 명부(TalentCore 직원)와 이어지지 않은 사람.
+   남의 할 일을 대신 보여주지 않는다 — 비워 두고 이유만 말한다. */
+export function unlinkedScreen(h: string, i: string) {
+  return '<header class="top">' +
+    `<div class="crumb">${ico(i, 'ic-sm')}내 화면</div>` +
+    `<div class="h-row"><h1>${h}</h1></div></header>` +
+    '<div class="stage"><div class="zero" style="max-width:760px">' +
+    `${ico('i-user', 'ic-lg')}<h3 style="margin:8px 0 4px">직원 명부와 연결되지 않은 계정입니다</h3>` +
+    '<div style="font-size:12px">TalentCore 직원 정보와 이어지면 본인에게 걸린 일만 여기에 뜹니다. HR 관리자에게 문의하세요.</div></div></div>'
+}
+
+/** fixed = 로그인한 사람으로 고정(남의 화면 고르기 없음). uid 가 명부에 없으면 안내만. */
+export function todoHTML(uid?: string | null, fixed = false) {
+  if (fixed && !people.some(x => x.id === uid)) return unlinkedScreen('내 할 일', 'i-check-sq')
   const who = people.find(x => x.id === uid)
     ?? people.find(x => x.nm === me.name)
     ?? people[0]
@@ -758,7 +771,7 @@ export function todoHTML(uid?: string) {
   const others = people
     .map(p => ({ p, n: todoFor(p).length }))
     .filter(x => x.n > 0 || x.p.id === who.id)
-  const picker = '<div class="chips" style="margin:0 0 14px;gap:6px">' +
+  const picker = fixed ? '' : '<div class="chips" style="margin:0 0 14px;gap:6px">' +
     others.map(x =>
       `<a class="chip${x.p.id === who.id ? ' on' : ''}" href="/todo?u=${x.p.id}">` +
       `${esc(x.p.nm)} <b>${x.n}</b></a>`).join('') + '</div>'
@@ -1159,7 +1172,8 @@ function posCard(p: typeof positions[number]): string {
     '</div>'
 }
 
-export function myHomeHTML(uid?: string) {
+export function myHomeHTML(uid?: string | null, fixed = false) {
+  if (fixed && !people.some(x => x.id === uid)) return unlinkedScreen('내 공고', 'i-star')
   const who = people.find(x => x.id === uid)
     ?? people.find(x => x.nm === me.name)
     ?? people[0]
@@ -1172,7 +1186,7 @@ export function myHomeHTML(uid?: string) {
 
   /* 로그인이 없는 프로토타입이라 '누구 화면인지'를 직접 고른다 — /todo 와 같은 방식.
      담당 공고가 있는 사람만 칩으로 띄운다. */
-  const picker = '<div class="chips" style="margin:0 0 14px;gap:6px">' +
+  const picker = fixed ? '' : '<div class="chips" style="margin:0 0 14px;gap:6px">' +
     people.filter(p => mineOf(p.nm).length > 0 || p.id === who.id).map(p =>
       `<a class="chip${p.id === who.id ? ' on' : ''}" href="/my?u=${p.id}">` +
       `${esc(p.nm)} <b>${mineOf(p.nm).length}</b></a>`).join('') + '</div>'

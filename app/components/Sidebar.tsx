@@ -23,7 +23,6 @@ export interface SidePos {
 
 const TOP = [
   { r: '/todo',       i: 'i-check-sq', n: '내 할 일' },
-  { r: '/review',     i: 'i-eye-off',  n: '서류 검토' },
   { r: '/candidates', i: 'i-users',    n: '후보자 전체' },
   { r: '/pool',       i: 'i-copy',     n: '인재풀' },
 ]
@@ -37,6 +36,8 @@ const BOTTOM = [
 function isActive(r: string, pathname: string) {
   if (r === '/') return pathname === '/'
   if (r === '/candidates') return pathname.startsWith('/candidates') || pathname.startsWith('/c/')
+  /* 서류 검토 큐는 '내 할 일'의 카드로 들어가는 화면이다 */
+  if (r === '/todo') return pathname.startsWith('/todo') || pathname.startsWith('/review')
   return pathname.startsWith(r)
 }
 

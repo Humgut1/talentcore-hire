@@ -95,7 +95,7 @@ export default function ReviewQueue(
     }
   }
 
-  const chips = (
+  const chips = picker.length === 0 ? null : (
     <div className="chips" style={{ margin: '0 0 14px', gap: 6 }}>
       {picker.map(p => (
         <Link className={'chip' + (p.nm === who ? ' on' : '')} href={'/review?u=' + p.id} key={p.id}>

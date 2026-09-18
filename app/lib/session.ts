@@ -35,3 +35,12 @@ export function evalViewer(s: GateSession | null): string | null | undefined {
   if (!s?.uid || s.urole === 'admin') return undefined
   return s.pid ?? null
 }
+
+/** 내 화면(/todo · /my · /review)의 주인.
+ *  · TalentCore 계정 → 그 사람으로 고정. 남의 화면으로 바꿔 볼 수 없다.
+ *    명부와 안 이어졌으면 null(빈 화면 + 안내).
+ *  · 비밀번호 관리자·데모 → 사람이 정해지지 않았으니 ?u= 로 골라 본다(pick). */
+export function myViewer(s: GateSession | null): { pick: true } | { pick: false; pid: string | null } {
+  if (s?.uid) return { pick: false, pid: s.pid ?? null }
+  return { pick: true }
+}
