@@ -424,3 +424,106 @@ export async function releaseRoom(ref: string): Promise<{ ok: true; cancelled: n
   if (r.body.ok !== true) return { ok: false, reason: 'rejected', detail: String(r.body.error ?? '') }
   return { ok: true, cancelled: Number(r.body.cancelled ?? 0) }
 }
+
+/* =========================================================
+   오퍼 밴드 초과 결재 — TalentCore 결재선에 태운다 (오퍼 O1)
+   ---------------------------------------------------------
+   전에는 Hire 가 직원 명부에서 '본부장'을 찾아 승인 줄에 붙였다.
+   이름만 결재였다. 그 사람이 정말 그 결재를 할 사람인지, 부재 시
+   누가 대신하는지, 며칠 안에 처리해야 하는지를 Hire 는 모른다.
+   그 규칙은 전부 TalentCore 에 이미 있다(요청서 결재선과 같은 기계).
+
+   그래서 방향을 뒤집었다. Hire 는 결재 건을 올리고(push) 상태를
+   물어본다(pull). 승인·반려 버튼은 TalentCore 결재함에서 누른다.
+   ref = Hire 후보자 id — 같은 후보자 것은 언제나 최근 한 건을 본다.
+   ========================================================= */
+
+export interface CoreOfferStep {
+  step_no: number
+  label: string
+  name: string          // 이 단계를 맡은 사람
+  pos?: string
+  status: 'waiting' | 'approved' | 'rejected'
+  by?: string | null    // 실제로 누른 사람
+  acted_at?: string | null
+  comment?: string | null
+}
+
+export interface CoreOffer {
+  id: number
+  ref: string
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled' | 'none'
+  status_label: string
+  base: number
+  sign: number
+  band_hi: number
+  decided_at?: string | null
+  reject_reason?: string | null
+  reject_by?: string | null
+  current?: { step_no: number; label: string; name: string; due_at?: string | null } | null
+  steps: CoreOfferStep[]
+}
+
+export interface OfferApprovalPush {
+  ref: string
+  cand_name: string
+  position_title?: string
+  opening_code?: string | undefined
+  department_name?: string
+  level?: string
+  base: number
+  sign: number
+  band_lo: number
+  band_hi: number
+  start_date?: string | undefined
+  requester_core_id?: number | undefined
+  requester_name?: string
+  note?: string
+}
+
+function asOffer(b: Record<string, unknown>): CoreOffer {
+  return {
+    id: Number(b.id ?? 0),
+    ref: String(b.ref ?? ''),
+    status: (b.status as CoreOffer['status']) ?? 'none',
+    status_label: String(b.status_label ?? ''),
+    base: Number(b.base ?? 0),
+    sign: Number(b.sign ?? 0),
+    band_hi: Number(b.band_hi ?? 0),
+    decided_at: (b.decided_at as string | null) ?? null,
+    reject_reason: (b.reject_reason as string | null) ?? null,
+    reject_by: (b.reject_by as string | null) ?? null,
+    current: (b.current as CoreOffer['current']) ?? null,
+    steps: (b.steps as CoreOfferStep[]) ?? [],
+  }
+}
+
+/** 결재를 올린다. 이미 결재 중이거나 같은 금액으로 승인된 건이 있으면 그것이 온다. */
+export async function pushOfferApproval(p: OfferApprovalPush):
+  Promise<{ ok: true; offer: CoreOffer } | CoreFail> {
+  const r = await coreJson('/api/offers/approval', { method: 'POST', body: p })
+  if (!r.ok) return r
+  if (r.body.ok !== true)
+    return { ok: false, reason: 'rejected', detail: String(r.body.error ?? `HTTP ${r.status}`) }
+  return { ok: true, offer: asOffer(r.body) }
+}
+
+/** 지금 어디까지 왔나. 올린 적이 없으면 status 'none'. */
+export async function fetchOfferApproval(ref: string):
+  Promise<{ ok: true; offer: CoreOffer } | CoreFail> {
+  const r = await coreJson(`/api/offers/approval?ref=${encodeURIComponent(ref)}`)
+  if (!r.ok) return r
+  if (r.body.ok !== true)
+    return { ok: false, reason: 'rejected', detail: String(r.body.error ?? `HTTP ${r.status}`) }
+  return { ok: true, offer: asOffer(r.body) }
+}
+
+/** 결재를 내린다 — 오퍼를 초안으로 되돌릴 때. */
+export async function cancelOfferApproval(ref: string):
+  Promise<{ ok: true; status: string } | CoreFail> {
+  const r = await coreJson('/api/offers/approval/cancel', { method: 'POST', body: { ref } })
+  if (!r.ok) return r
+  if (r.body.ok !== true)
+    return { ok: false, reason: 'rejected', detail: String(r.body.error ?? '') }
+  return { ok: true, status: String(r.body.status ?? '') }
+}

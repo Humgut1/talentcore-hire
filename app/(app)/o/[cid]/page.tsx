@@ -5,11 +5,15 @@ import OfferClient from '../../../components/OfferClient'
 import { hydrateData } from '../../../lib/db'
 import { offerHeadHTML, offerFootHTML } from '../../../lib/render'
 import { offerOf, cands } from '../../../lib/data'
-import { listSeats, type SeatView } from '../../../lib/actions'
+import { listSeats, syncOfferApproval, type SeatView } from '../../../lib/actions'
 
 export default async function Page({ params }: { params: Promise<{ cid: string }> }) {
   const { cid } = await params
   await hydrateData()
+
+  /* 밴드 초과 결재는 TalentCore 결재함에서 눌린다 — 화면을 그리기 전에
+     어디까지 왔는지 물어본다(결재 칸이 없으면 아무 것도 하지 않는다). */
+  await syncOfferApproval(cid)
 
   const o = offerOf(cid)
   const c = cands.find(x => x.id === cid)

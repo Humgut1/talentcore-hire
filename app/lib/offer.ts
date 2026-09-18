@@ -128,11 +128,19 @@ export const isHeld = (o: Offer) => o.chain.some(a => a.s === 'hold')
 export const isApproved = (o: Offer) =>
   o.chain.length > 0 && o.chain.every(a => a.s === 'ok')
 
-/** 이 사람이 지금 승인 버튼을 누를 수 있는가. */
+/* TalentCore 결재로 올라간 단계 — 승인·반려는 TalentCore 결재함에서 누른다.
+   Hire 는 그 결과를 받아 적기만 한다(uid 가 'tc-offer:<결재번호>'). */
+export const CORE_UID = 'tc-offer:'
+export const CORE_ROLE = 'TalentCore 결재 (밴드 초과)'
+export const isCoreStep = (a: { uid: string }) => a.uid.startsWith(CORE_UID)
+export const coreStepOf = (o: Offer): Approval | null => o.chain.find(isCoreStep) ?? null
+
+/** 이 사람이 지금 승인 버튼을 누를 수 있는가.
+    TalentCore 로 올라간 단계는 Hire 에서 누를 수 없다 — 저쪽이 진짜 결재다. */
 export function canAct(o: Offer, uid: string): boolean {
   if (o.st !== 'approval') return false
   const cur = currentApprover(o)
-  return !!cur && cur.uid === uid
+  return !!cur && cur.uid === uid && !isCoreStep(cur)
 }
 
 /** 진행률 라벨 — '2 / 3 승인' */

@@ -15,11 +15,13 @@ import { useRouter } from 'next/navigation'
 import { Icon } from './IconSprite'
 import {
   DECLINE_REASONS, currentApprover, isHeld, isApproved, overBand, won,
+  isCoreStep, coreStepOf,
   type DeclineCode, type Offer,
 } from '../lib/offer'
 import {
   saveOfferDraft, submitOfferForApproval, approveOffer, holdOffer,
-  resumeOffer, sendOffer, respondOffer, type SeatView, type HandoffResult,
+  resumeOffer, sendOffer, respondOffer, withdrawOfferApproval,
+  type SeatView, type HandoffResult,
 } from '../lib/actions'
 
 /* 서버가 돌려준 거부 사유 → 사람 말. */
@@ -32,6 +34,12 @@ const REASON: Record<string, string> = {
   'not-sent': '아직 후보자에게 나가지 않은 오퍼입니다.',
   'need-reason': '거절 사유를 골라야 저장됩니다.',
   'bad-start': '입사일은 TalentCore 입사 가능일(월·수, 공휴일 제외) 중에서 골라야 합니다.',
+  'not-approval': '승인 대기 중일 때만 결재를 내릴 수 있습니다.',
+  /* 밴드 초과 오퍼는 TalentCore 결재를 받아야 한다 — 연결이 없으면 진행을 막는다.
+     여기서 Hire 가 임의로 승인자를 만들어 붙이면 결재가 아니라 형식이 된다. */
+  'core-off': 'TalentCore 가 연결돼 있지 않아 밴드 초과 결재를 올릴 수 없습니다. '
+    + '밴드 안으로 금액을 낮추거나, 설정에서 TalentCore 연결을 먼저 맞춰주세요.',
+  'core-fail': 'TalentCore 에 결재를 올리지 못했습니다. 잠시 뒤 다시 눌러주세요.',
 }
 
 const WD = ['일', '월', '화', '수', '목', '금', '토']
@@ -76,6 +84,10 @@ export default function OfferClient(
   const rule = seats?.startRule ?? null
 
   const cur = currentApprover(offer)
+  /* 밴드 초과 결재는 TalentCore 결재함에서 눌린다. 여기서는 어디까지 왔는지만 보여준다. */
+  const core = coreStepOf(offer)
+  const coreWaiting = offer.st === 'approval' && !!cur && isCoreStep(cur)
+  const coreRejected = !!core && core.s === 'hold'
   const held = isHeld(offer)
   const approved = isApproved(offer)
   const draftBase = Number(base) || 0
@@ -84,7 +96,7 @@ export default function OfferClient(
   /* 액션 한 번 = 서버에 맡기고, 성공하면 서버 화면을 다시 그린다.
      낙관적 갱신을 하지 않는 이유: 승인 차례·상태 전이는 서버가 진짜 판단자다. */
   async function run(
-    fn: () => Promise<{ ok: boolean; reason?: string; handoff?: HandoffResult }>,
+    fn: () => Promise<{ ok: boolean; reason?: string; detail?: string; handoff?: HandoffResult }>,
     done: string,
   ) {
     if (busy) return
@@ -92,7 +104,8 @@ export default function OfferClient(
     try {
       const r = await fn()
       if (!r.ok && !softFail(r.reason)) {
-        setErr(REASON[r.reason ?? ''] ?? `저장하지 못했습니다 (${r.reason ?? '알 수 없는 오류'})`)
+        setErr((REASON[r.reason ?? ''] ?? `저장하지 못했습니다 (${r.reason ?? '알 수 없는 오류'})`)
+          + (r.detail ? ` (${r.detail})` : ''))
         return
       }
       setOpen(''); setMemo(''); setCode(''); setDMemo('')
@@ -183,9 +196,22 @@ export default function OfferClient(
   let body: React.ReactNode = null
 
   if (offer.st === 'draft') {
-    head = '처우안 작성'
+    head = coreRejected ? '처우안 수정 (반려됨)' : '처우안 작성'
     body = (
       <>
+        {coreRejected ? (
+          <div style={{
+            fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6, marginBottom: 14,
+            padding: '10px 12px', borderLeft: '2px solid var(--esc)', background: 'var(--sunken)',
+          }}>
+            <b style={{ color: 'var(--esc)' }}>TalentCore 에서 반려되었습니다</b>
+            {core?.memo ? <> — {core.memo}</> : null}
+            <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 4 }}>
+              조건을 고쳐 다시 올리면 새 결재가 올라갑니다 — 앞선 승인도 다시 받습니다.
+            </div>
+          </div>
+        ) : null}
+
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <label className="field" style={{ marginBottom: 0 }}>
             <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>직급</div>
@@ -232,7 +258,7 @@ export default function OfferClient(
 
         <div style={{ fontSize: 11.5, color: draftOver ? 'var(--esc)' : 'var(--t3)', marginTop: 10 }}>
           {draftOver
-            ? <>밴드 상한 {won(offer.band[1])}을 <b>{won(draftBase - offer.band[1])}</b> 넘습니다 — 승인 요청 시 <b>본부 승인 단계가 자동으로 하나 추가</b>됩니다.</>
+            ? <>밴드 상한 {won(offer.band[1])}을 <b>{won(draftBase - offer.band[1])}</b> 넘습니다 — 승인 요청을 누르면 <b>TalentCore 오퍼 결재</b>가 올라갑니다(결재선·대결은 TalentCore 규칙을 따릅니다).</>
             : <>밴드 {won(offer.band[0])} ~ {won(offer.band[1])} 안입니다. 승인 단계는 {offer.chain.length}명입니다.</>}
         </div>
 
@@ -279,6 +305,27 @@ export default function OfferClient(
         </div>
       </>
     )
+  } else if (coreWaiting && cur) {
+    /* 여기서는 누를 수 없다 — 승인·반려는 TalentCore 결재함에서 눌린다.
+       Hire 가 할 수 있는 건 '내려서 조건을 다시 짜는 것'뿐이다. */
+    head = 'TalentCore 결재 대기'
+    body = (
+      <>
+        <div style={{ fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }}>
+          밴드 초과 오퍼라 <b>TalentCore 오퍼 결재</b>로 올라갔습니다 — {cur.role}.
+          <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 4 }}>
+            승인·반려는 TalentCore 의 <b>오퍼 결재</b> 화면에서 누릅니다. 이 화면은 결과를
+            받아 적기만 합니다 — 결재가 끝나면 여기서 오퍼를 발송할 수 있습니다.
+          </div>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <button className="btn" disabled={busy}
+            onClick={() => run(() => withdrawOfferApproval(offer.cid), '결재를 내리고 초안으로 되돌렸습니다')}>
+            결재 내리기
+          </button>
+        </div>
+      </>
+    )
   } else if (offer.st === 'approval' && cur) {
     head = '승인'
     body = (
@@ -304,12 +351,19 @@ export default function OfferClient(
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 14, flexWrap: 'wrap' }}>
             <button className="btn solid" disabled={busy}
               onClick={() => run(() => approveOffer(offer.cid, cur.uid), `${cur.nm} 승인으로 기록했습니다`)}>
               <Icon id="i-check-sq" className="ic-sm" />승인
             </button>
             <button className="btn" disabled={busy} onClick={() => setOpen('hold')}>보류</button>
+            {/* 뒤에 TalentCore 결재가 걸려 있으면, 조건을 다시 짜려면 먼저 내려야 한다. */}
+            {core ? (
+              <button className="btn quiet" disabled={busy}
+                onClick={() => run(() => withdrawOfferApproval(offer.cid), '결재를 내리고 초안으로 되돌렸습니다')}>
+                결재 내리기
+              </button>
+            ) : null}
           </div>
         )}
       </>

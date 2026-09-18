@@ -20,7 +20,8 @@ import { verdictOf, VERDICT_LABEL } from './scorecard'
 import { rejectDef, REJECT_REASONS, type RejectCode } from './decision'
 import {
   canAct, canSend, isApproved, overBand, declineDef,
-  type Offer, type DeclineCode,
+  isCoreStep, coreStepOf, CORE_UID, CORE_ROLE,
+  type Offer, type DeclineCode, type Approval,
 } from './offer'
 import {
   scheduleFor, configFor, businessDays, findSlots, slotLabel,
@@ -40,7 +41,11 @@ import { sendCandMail } from './maillog'
 import { tplByCode } from './cand-mail'
 import { rejectMailDraft, type StageLite } from './decision'
 import { syncDirectory, lastSyncedAt, type SyncReport } from './directory'
-import { coreState, coreLabel, fetchSeats, fetchStartRule, pushHire, type CoreSeat, type StartRule } from './core'
+import {
+  coreState, coreLabel, fetchSeats, fetchStartRule, pushHire,
+  pushOfferApproval, fetchOfferApproval, cancelOfferApproval,
+  type CoreSeat, type StartRule, type CoreOffer,
+} from './core'
 
 const TODAY_ISO = '2026-08-12' // 데모 기준일 (daysSince 계산 일관성 유지)
 
@@ -266,7 +271,7 @@ async function saveOffer(o: Offer): Promise<{ ok: boolean; reason?: string }> {
    지금까지 오퍼는 씨앗 데이터에만 있었고, 새 후보자에게는 만들 길이 없었다.
    금액은 공고 밴드의 가운데를 초안으로 깔아 둔다(사람이 고치라고 두는 값이다).
    승인 줄은 하이어링 매니저 한 명으로 시작하고, 밴드를 넘기면
-   승인 요청을 누를 때 본부 승인이 저절로 붙는다. */
+   승인 요청을 누를 때 TalentCore 결재 한 칸이 붙는다. */
 export async function createOffer(cid: string): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
   if (offerOf(cid)) return { ok: false, reason: 'exists' }
@@ -312,30 +317,128 @@ export async function saveOfferDraft(
   })
 }
 
+/* ---------------------------------------------------------
+   밴드 초과 결재는 TalentCore 가 한다 (오퍼 O1)
+   ---------------------------------------------------------
+   전에는 Hire 가 명부에서 '본부장'을 찾아 승인 줄에 붙였다. 이름만
+   결재였다 — 결재선·대결·기한은 TalentCore 에만 있다. 이제 결재 건을
+   TalentCore 에 올리고(승인 줄에는 한 칸으로 들어간다), 승인·반려는
+   TalentCore 결재함에서 누른다. Hire 는 화면을 그릴 때마다 물어본다.
+   --------------------------------------------------------- */
+
+/** 결재 한 칸에 적을 말 — "1/2 인사 승인 (CHRO) 대기" 처럼. */
+function coreRoleLabel(st: CoreOffer): string {
+  const done = st.steps.filter(s => s.status === 'approved').length
+  const n = st.steps.length || 1
+  if (st.status === 'approved') return `${CORE_ROLE} · ${n}단계 승인 완료`
+  if (st.status === 'rejected') return `${CORE_ROLE} · 반려`
+  if (st.status === 'cancelled') return `${CORE_ROLE} · 내려감`
+  const cur = st.current
+  return `${CORE_ROLE} · ${done}/${n} · ${cur ? `${cur.label} 대기` : '대기'}`
+}
+
+/** TalentCore 결재 상태를 승인 줄 한 칸으로 옮겨 적는다. */
+function coreApproval(st: CoreOffer): Approval {
+  const cur = st.current
+  const last = st.steps.filter(s => s.status !== 'waiting').slice(-1)[0]
+  return {
+    uid: `${CORE_UID}${st.id}`,
+    nm: cur?.name || st.reject_by || last?.name || 'TalentCore 결재',
+    role: coreRoleLabel(st),
+    s: st.status === 'approved' ? 'ok' : st.status === 'rejected' ? 'hold' : 'pending',
+    ...(st.decided_at ? { at: st.decided_at.slice(5, 16) } : {}),
+    ...(st.status === 'rejected' && st.reject_reason ? { memo: st.reject_reason } : {}),
+  }
+}
+
 /* 승인 요청 — 초안을 승인 체인에 올린다.
-   밴드를 넘겼는데 본부 승인이 체인에 없으면 여기서 자동으로 붙인다. */
+   밴드를 넘겼으면 TalentCore 에 결재 건을 만들고 그 한 칸을 붙인다. */
 export async function submitOfferForApproval(
   cid: string,
-): Promise<{ ok: boolean; reason?: string; added?: string }> {
+): Promise<{ ok: boolean; reason?: string; added?: string; detail?: string }> {
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
   if (o.st !== 'draft') return { ok: false, reason: 'not-draft' }
 
-  let chain = o.chain
+  /* 사람 결재는 그대로, 지난 TalentCore 칸(반려 기록)은 떼고 다시 올린다. */
+  let chain: Approval[] = o.chain.filter(a => !isCoreStep(a)).map(a => ({ ...a, s: 'pending' as const }))
   let added: string | undefined
-  if (overBand(o) && !chain.some(a => a.role.indexOf('밴드 초과') >= 0)) {
+
+  if (overBand(o)) {
+    if (coreState() !== 'configured')
+      return { ok: false, reason: 'core-off' }
+
     const c = cands.find(x => x.id === cid)
-    const dept = c ? posById(c.p).dept : ''
-    const head = people.find(p => p.dept === dept && (p.tt || '').indexOf('본부장') >= 0)
-      ?? people.find(p => (p.tt || '').indexOf('CTO') >= 0)
-    if (head) {
-      chain = [...chain, { uid: head.id, nm: head.nm, role: '본부 승인 (밴드 초과)', s: 'pending' }]
-      added = head.nm
-    }
+    const pos = c ? posById(c.p) : null
+    const s = await currentSession()
+    const coreId = Number((s?.uid ?? '').split(':')[2] || 0) || undefined
+
+    const r = await pushOfferApproval({
+      ref: cid,
+      cand_name: c?.nm ?? cid,
+      ...(pos?.title ? { position_title: pos.title } : {}),
+      ...(pos?.dept ? { department_name: pos.dept } : {}),
+      ...(o.openingCode ? { opening_code: o.openingCode } : {}),
+      level: o.level,
+      base: o.base, sign: o.sign, band_lo: o.band[0], band_hi: o.band[1],
+      ...(o.start ? { start_date: o.start } : {}),
+      ...(coreId ? { requester_core_id: coreId } : {}),
+      requester_name: s?.nm || '채용 담당자 (Hire)',
+      note: `공고 밴드 상한 ${o.band[1].toLocaleString()}만원 대비 `
+        + `${(o.base - o.band[1]).toLocaleString()}만원 초과`,
+    })
+    if (!r.ok) return { ok: false, reason: 'core-fail', ...(r.detail ? { detail: r.detail } : {}) }
+
+    chain = [...chain, coreApproval(r.offer)]
+    added = r.offer.current?.name ?? 'TalentCore 결재'
   }
+
   const r = await saveOffer({ ...o, st: 'approval', chain })
   return added ? { ...r, added } : r
+}
+
+/* TalentCore 결재가 어디까지 왔는지 받아 적는다.
+   화면을 그릴 때마다 부른다(웹훅이 없으니 물어보는 쪽이 어긋나지 않는다).
+   · 승인   → 그 칸이 '승인'이 되고, 사람 결재까지 끝났으면 발송할 수 있다.
+   · 반려   → 오퍼를 초안으로 되돌리고 반려 사유를 남긴다. 금액을 고쳐
+              다시 올리면 새 결재가 올라간다(앞선 승인은 다시 받는다).
+   TalentCore 에 닿지 못하면 아무것도 바꾸지 않는다 — 모르는 것과 반려는 다르다. */
+export async function syncOfferApproval(cid: string): Promise<{ changed: boolean }> {
+  const o = offerOf(cid)
+  if (!o) return { changed: false }
+  const step = coreStepOf(o)
+  if (!step || step.s === 'ok') return { changed: false }
+  if (coreState() !== 'configured') return { changed: false }
+
+  const r = await fetchOfferApproval(cid)
+  if (!r.ok || r.offer.status === 'none') return { changed: false }
+  const next = coreApproval(r.offer)
+  if (next.uid === step.uid && next.s === step.s && next.role === step.role) return { changed: false }
+
+  const chain = o.chain.map(a => isCoreStep(a) ? next : a)
+  /* 반려면 초안으로 되돌린다 — 고쳐서 다시 올리라는 뜻이다. */
+  const st = next.s === 'hold' ? 'draft' as const : o.st
+  await saveOffer({ ...o, st, chain })
+  return { changed: true }
+}
+
+/* 결재 내리기 — 올린 쪽에서 되돌린다(조건을 다시 짜기로 했을 때).
+   TalentCore 결재함에서도 사라진다. 이미 승인이 끝났으면 내리지 않는다. */
+export async function withdrawOfferApproval(
+  cid: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  await hydrateData()
+  const o = offerOf(cid)
+  if (!o) return { ok: false, reason: 'no-offer' }
+  if (o.st !== 'approval') return { ok: false, reason: 'not-approval' }
+  const step = coreStepOf(o)
+  if (step && step.s === 'pending') {
+    const r = await cancelOfferApproval(cid)
+    if (!r.ok) return { ok: false, reason: 'core-fail' }
+  }
+  const chain = o.chain.filter(a => !isCoreStep(a)).map(a => ({ ...a, s: 'pending' as const }))
+  return saveOffer({ ...o, st: 'draft', chain })
 }
 
 /* 승인 — 순차이므로 '지금 차례인 사람'만 누를 수 있다. */

@@ -22,7 +22,7 @@ import { mailsOf, type MailRow } from './maillog'
 import { mailerStatus } from './mailer'
 import { coordRows, coordLog, type CoordRow } from './iv-view'
 import { ivSearch, type IvPlanView } from './iv-actions'
-import { listSeats, type SeatView } from './actions'
+import { listSeats, syncOfferApproval, type SeatView } from './actions'
 import type { IvEvent } from './iv-store'
 import type { Offer } from './offer'
 
@@ -93,6 +93,11 @@ export async function drawerData(
     ?? rows.find(r => r.need)
     ?? rows.filter(r => r.st !== 'done' && r.st !== 'canceled').slice(-1)[0]
     ?? rows[rows.length - 1]
+
+  /* 밴드 초과 오퍼의 승인·반려는 TalentCore 결재함에서 눌린다(웹훅 없음).
+     서랍을 열 때 한 번 물어봐서 받아 적는다 — 아래에서 읽는 offerOf 가
+     최신이어야 하므로 먼저 끝낸다. 결재 칸이 없으면 아무 것도 하지 않는다. */
+  await syncOfferApproval(cid)
 
   const [rawDocs, mails, seats, detail] = await Promise.all([
     docsOf(cid),

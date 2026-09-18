@@ -15,7 +15,7 @@ import {
 } from './scorecard'
 import {
   offerStateDef, declineDef, chainLabel,
-  currentApprover, isHeld, overBand, bandPct, won, totalComp, canSend,
+  currentApprover, isHeld, overBand, bandPct, won, totalComp, canSend, isCoreStep,
   type Offer, type OfferState,
 } from './offer'
 import { rejectDef, SIDE_LABEL } from './decision'
@@ -903,7 +903,9 @@ function ballWith(o: Offer): string {
   if (o.st === 'approval') {
     if (isHeld(o)) {
       const h = o.chain.find(a => a.s === 'hold')!
-      return `<span style="color:var(--esc)">보류 · ${esc(h.nm)}</span>`
+      return isCoreStep(h)
+        ? '<span style="color:var(--esc)">TalentCore 반려</span>'
+        : `<span style="color:var(--esc)">보류 · ${esc(h.nm)}</span>`
     }
     const cur = currentApprover(o)
     return cur
@@ -935,7 +937,7 @@ export function offerHeadHTML(cid: string) {
     `background:${over ? 'var(--esc)' : 'var(--t3)'}"></div></div>` +
     `<div style="font-size:11.5px;margin-top:6px;color:${over ? 'var(--esc)' : 'var(--t3)'}">` +
     (over
-      ? `밴드 상한을 <b>${esc(won(o.base - o.band[1]))}</b> 초과 — 본부 승인이 추가로 필요합니다`
+      ? `밴드 상한을 <b>${esc(won(o.base - o.band[1]))}</b> 초과 — TalentCore 결재가 필요합니다`
       : `밴드 내 ${pct}% 지점`) + '</div></div>'
 
   const comp = '<div class="sheet"><div class="sec-h" style="padding:16px 18px 0"><h3>처우</h3>' +
@@ -953,12 +955,14 @@ export function offerHeadHTML(cid: string) {
     `<small style="color:var(--t4)">${esc(chainLabel(o))}</small></div>` +
     o.chain.map((a, i) => {
       const tone = a.s === 'ok' ? 'var(--done)' : a.s === 'hold' ? 'var(--esc)' : 'var(--idle)'
-      const lbl = a.s === 'ok' ? '승인' : a.s === 'hold' ? '보류' : (o.st === 'approval' && currentApprover(o)?.uid === a.uid ? '대기 중' : '차례 아님')
+      /* TalentCore 로 올라간 칸은 '보류'가 아니라 '반려'다 — 저쪽이 진짜 결재다. */
+      const core = isCoreStep(a)
+      const lbl = a.s === 'ok' ? '승인' : a.s === 'hold' ? (core ? '반려' : '보류') : (o.st === 'approval' && currentApprover(o)?.uid === a.uid ? '대기 중' : '차례 아님')
       return `<div style="display:flex;gap:10px;align-items:flex-start;padding:12px 18px;border-top:1px solid var(--line)">` +
         `<div style="width:7px;height:7px;border-radius:50%;background:${tone};margin-top:5px;flex:none"></div>` +
         `<div style="flex:1;min-width:0"><b style="font-size:12.5px">${i + 1}. ${esc(a.nm)}</b>` +
         `<div style="font-size:11.5px;color:var(--t3);margin-top:1px">${esc(a.role)}</div>` +
-        (a.memo ? `<div style="font-size:11.5px;color:var(--esc);margin-top:5px">보류 사유 — ${esc(a.memo)}</div>` : '') +
+        (a.memo ? `<div style="font-size:11.5px;color:var(--esc);margin-top:5px">${core ? 'TalentCore 반려 사유' : '보류 사유'} — ${esc(a.memo)}</div>` : '') +
         '</div>' +
         `<div style="text-align:right;flex:none"><span style="font-size:11.5px;color:${tone};font-weight:600">${esc(lbl)}</span>` +
         (a.at ? `<div class="mono" style="font-size:10.5px;color:var(--t4)">${esc(a.at)}</div>` : '') +
