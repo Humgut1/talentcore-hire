@@ -38,6 +38,8 @@ import { resolveProvider } from './google'
 import { sendNowFor, sendDueReminders as runDueReminders, type SendReport } from './send-reminders'
 import { mailerStatus, type MailerStatus } from './mailer'
 import { sendCandMail } from './maillog'
+import { letterViewOf, letterUrl, letterMail, LETTER_KIND } from './offer-letter'
+import { readLinkToken } from './gate'
 import { tplByCode } from './cand-mail'
 import { rejectMailDraft, type StageLite } from './decision'
 import { syncDirectory, lastSyncedAt, type SyncReport } from './directory'
@@ -245,6 +247,7 @@ function offerRow(o: Offer) {
     base: o.base, sign: o.sign, band_lo: o.band[0], band_hi: o.band[1],
     start_date: o.start ?? null, chain: o.chain, created_at: o.createdAt,
     opening_code: o.openingCode ?? null,
+    equity_units: o.equityUnits ?? null, equity_strike: o.equityStrike ?? null,
     sent_at: o.sentAt ?? null, resp_at: o.respAt ?? null,
     decline_code: o.declineCode ?? null, decline_memo: o.declineMemo ?? null,
   }
@@ -256,11 +259,14 @@ async function saveOffer(o: Offer): Promise<{ ok: boolean; reason?: string }> {
   if (!sb) return { ok: false, reason: 'not-configured' }
   const row = offerRow(o)
   const { error } = await sb.from('offers').upsert(row, { onConflict: 'candidate_id' })
-  /* opening_code 는 009 에서 추가된 칸이다. 아직 없는 DB 에서는 upsert 전체가
-     실패해 오퍼가 통째로 저장되지 않는다 → 그 칸만 빼고 한 번 더 저장한다.
-     (exit_stage 때와 같은 처리) */
-  if (error && error.message.includes('opening_code')) {
-    const { opening_code: _drop, ...rest } = row
+  /* opening_code 는 009, equity_* 는 016 에서 추가된 칸이다. 아직 없는 DB 에서는
+     upsert 전체가 실패해 오퍼가 통째로 저장되지 않는다 → 없다고 하는 칸만 빼고
+     한 번 더 저장한다. (exit_stage 때와 같은 처리) */
+  if (error && /opening_code|equity_units|equity_strike/.test(error.message)) {
+    const rest = { ...row } as Record<string, unknown>
+    for (const k of ['opening_code', 'equity_units', 'equity_strike']) {
+      if (error.message.includes(k)) delete rest[k]
+    }
     const retry = await sb.from('offers').upsert(rest, { onConflict: 'candidate_id' })
     return retry.error ? { ok: false, reason: retry.error.message } : { ok: true }
   }
@@ -297,7 +303,10 @@ export async function createOffer(cid: string): Promise<{ ok: boolean; reason?: 
    승인이 시작된 뒤 금액이 바뀌면 앞서 승인한 사람의 결재가 무의미해진다. */
 export async function saveOfferDraft(
   cid: string,
-  patch: { level: string; base: number; sign: number; start: string; openingCode?: string },
+  patch: {
+    level: string; base: number; sign: number; start: string; openingCode?: string
+    equityUnits?: number; equityStrike?: number
+  },
 ): Promise<{ ok: boolean; reason?: string }> {
   await hydrateData()
   const o = offerOf(cid)
@@ -310,10 +319,17 @@ export async function saveOfferDraft(
     const r = await fetchStartRule(52)
     if (r.ok && !r.rule.dates.includes(patch.start)) return { ok: false, reason: 'bad-start' }
   }
+  /* 스톡옵션은 수량이 있어야 조건이다 — 수량 없이 행사가만 적힌 오퍼레터는
+     후보자에게 아무 말도 하지 않는다. 수량을 지우면 행사가도 같이 지운다. */
+  const units = patch.equityUnits && patch.equityUnits > 0 ? Math.round(patch.equityUnits) : undefined
+  const strike = units && patch.equityStrike && patch.equityStrike > 0
+    ? Math.round(patch.equityStrike) : undefined
   return saveOffer({
     ...o, ...patch,
     start: patch.start || undefined,
     openingCode: patch.openingCode || undefined,
+    equityUnits: units,
+    equityStrike: strike,
   })
 }
 
@@ -486,13 +502,48 @@ export async function resumeOffer(cid: string): Promise<{ ok: boolean; reason?: 
   return saveOffer({ ...o, chain })
 }
 
-/* 발송 — 승인이 전부 끝나야만 나간다. 여기서부터 수락률의 분모에 들어간다. */
-export async function sendOffer(cid: string): Promise<{ ok: boolean; reason?: string }> {
+/* 발송 — 승인이 전부 끝나야만 나간다. 여기서부터 수락률의 분모에 들어간다.
+   ---------------------------------------------------------
+   상태만 바꾸지 않는다. 오퍼레터를 만들어 후보자에게 실제로 보내고,
+   보낸 것도 못 보낸 것도 연락 기록에 남긴다(메일 키가 없으면 '미발송'으로).
+   메일이 못 나갔다고 오퍼를 되돌리지는 않는다 — 담당자가 링크를 복사해
+   직접 보낼 수 있어야 하고, 기록에 사실이 남아 있으면 그걸로 충분하다.
+   화면이 "메일은 안 나갔습니다"라고 말할 수 있게 사유만 돌려준다. */
+export async function sendOffer(
+  cid: string,
+): Promise<{ ok: boolean; reason?: string; mailed?: boolean; mailReason?: string; url?: string }> {
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
   if (!canSend(o)) return { ok: false, reason: 'not-approved' }
-  return saveOffer({ ...o, st: 'sent', sentAt: TODAY_ISO })
+
+  const r = await saveOffer({ ...o, st: 'sent', sentAt: TODAY_ISO })
+  if (!r.ok) return r
+
+  const v = await letterViewOf(cid)
+  const url = await letterUrl(cid)
+  if (!v) return { ...r, mailed: false, mailReason: 'no-letter' }
+
+  const c = cands.find(x => x.id === cid)
+  const s = await currentSession()
+  const mail = letterMail(v, url)
+  const sent = await sendCandMail({
+    cid, kind: 'offer',
+    ...(c?.email ? { to: c.email } : {}),
+    subject: mail.subject, body: mail.body,
+    byNm: s?.nm ?? '채용 담당자',
+  })
+  return {
+    ...r,
+    mailed: sent.ok,
+    ...(sent.reason ? { mailReason: sent.reason } : {}),
+    ...(url ? { url } : {}),
+  }
+}
+
+/** 오퍼레터 주소만 다시 받아온다 — 담당자가 복사해서 직접 보낼 때. */
+export async function offerLetterLink(cid: string): Promise<{ url: string }> {
+  return { url: await letterUrl(cid) }
 }
 
 /* 후보자 응답 기록.
@@ -544,6 +595,42 @@ export async function respondOffer(
     }
   }
   return handoff ? { ...r, handoff } : r
+}
+
+/* 후보자가 직접 누른다 — 로그인 없이 링크 토큰만으로 (오퍼 O2).
+   ---------------------------------------------------------
+   담당자가 대신 눌러 주던 [수락]·[거절]을 후보자 손에 돌려준다.
+   답이 언제 왔는지, 무엇 때문에 거절인지가 전해 들은 말이 아니라
+   기록이 된다. 토큰이 틀리거나 기한이 지났으면 아무것도 하지 않는다.
+   결과는 후보자에게 필요한 만큼만 돌려준다 — TalentCore 로 넘기다
+   생긴 문제는 후보자가 알 일이 아니다(담당자 화면에서 보인다). */
+export async function respondOfferByToken(
+  token: string, accept: boolean, code?: string, memo?: string,
+): Promise<{ ok: boolean; reason?: string }> {
+  const cid = await readLinkToken(LETTER_KIND, token)
+  if (!cid) return { ok: false, reason: 'bad-token' }
+  await hydrateData()
+  const o = offerOf(cid)
+  if (!o) return { ok: false, reason: 'no-offer' }
+  if (o.st === 'accepted' || o.st === 'declined') return { ok: false, reason: 'already' }
+  if (o.st !== 'sent') return { ok: false, reason: 'not-sent' }
+
+  const r = await respondOffer(cid, accept, code, memo)
+  if (!r.ok) return { ok: false, ...(r.reason ? { reason: r.reason } : {}) }
+
+  /* 담당자가 보는 기록에 '후보자가 직접' 이라고 남긴다 —
+     같은 수락이라도 누가 눌렀는지가 나중에 반드시 궁금해진다. */
+  const now = new Date()
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  await pushTrail(cid, {
+    at: `${now.getMonth() + 1}/${p2(now.getDate())} ${p2(now.getHours())}:${p2(now.getMinutes())}`,
+    b: accept ? '오퍼 수락 (후보자)' : '오퍼 거절 (후보자)',
+    p: accept
+      ? '후보자가 오퍼레터 링크에서 수락했습니다'
+      : `후보자가 오퍼레터 링크에서 거절했습니다 — ${declineDef(code as DeclineCode).l}`,
+    s: accept ? 'done' : 'bad',
+  })
+  return { ok: true }
 }
 
 /* =========================================================

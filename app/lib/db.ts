@@ -205,6 +205,8 @@ function mapOffer(r: any): Offer {
     createdAt: r.created_at ?? '',
     ...(r.start_date ? { start: r.start_date } : {}),
     ...(r.opening_code ? { openingCode: r.opening_code } : {}),
+    ...(r.equity_units ? { equityUnits: r.equity_units } : {}),
+    ...(r.equity_strike ? { equityStrike: r.equity_strike } : {}),
     ...(r.sent_at ? { sentAt: r.sent_at } : {}),
     ...(r.resp_at ? { respAt: r.resp_at } : {}),
     ...(r.decline_code ? { declineCode: r.decline_code } : {}),

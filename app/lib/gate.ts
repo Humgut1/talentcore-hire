@@ -149,6 +149,40 @@ export async function readSession(raw: string | undefined | null): Promise<GateS
 }
 
 /* ---------------------------------------------------------
+   링크 열쇠 — 계정 없이 여는 주소 (오퍼 O2)
+   ---------------------------------------------------------
+   후보자에게 보내는 오퍼레터 주소(/offer/…)에는 로그인이 없다. 대신
+   주소 자체가 열쇠다. 후보자 번호를 그대로 쓰면 c51 → c52 로 바꿔
+   남의 처우안이 열리므로, 서명과 기한을 붙인 토큰으로 만든다.
+   면접 링크(/pick /iv)는 표에 토큰 칸이 있지만 오퍼에는 없다 —
+   칸을 늘리지 않고 서명만으로 같은 일을 한다.
+   --------------------------------------------------------- */
+
+/** `종류.값.만료.서명` — 값에 점(.)이 없는 id 만 싣는다(후보자 번호). */
+export async function issueLinkToken(kind: string, id: string, days: number): Promise<string> {
+  if (!secret()) return ''
+  const exp = Date.now() + Math.round(days * 86_400_000)
+  const body = `${kind}.${id}.${exp}`
+  return `${body}.${await hmac(body)}`
+}
+
+/** 토큰을 읽는다. 종류가 다르거나·위조·기한이 지났으면 null. */
+export async function readLinkToken(kind: string, raw: string | undefined | null): Promise<string | null> {
+  if (!raw || !secret()) return null
+  const parts = raw.split('.')
+  if (parts.length !== 4) return null
+  const [k, id, expStr, sig] = parts
+  if (k !== kind || !id) return null
+  const exp = Number(expStr)
+  if (!Number.isFinite(exp) || exp <= Date.now()) return null
+  const want = await hmac(`${k}.${id}.${expStr}`)
+  if (sig.length !== want.length) return null
+  let diff = 0
+  for (let i = 0; i < want.length; i++) diff |= sig.charCodeAt(i) ^ want.charCodeAt(i)
+  return diff === 0 ? id : null
+}
+
+/* ---------------------------------------------------------
    문지기를 지나지 않는 길
    --------------------------------------------------------- */
 
@@ -162,6 +196,7 @@ const OPEN_PREFIX = [
   '/pick/',                // 후보자: 면접 시간 고르기 (링크 토큰이 열쇠)
   '/book/',                // 후보자: 셀프 예약
   '/iv/',                  // 면접관: 시간 확정 / 불가 사유
+  '/offer/',               // 후보자: 오퍼레터 보기·수락·거절 (링크 토큰이 열쇠)
   '/avail/',               // 면접관: 가능한 시간 저장
   '/_next/',               // 프레임워크가 쓰는 정적 파일
   '/assets/',

@@ -20,7 +20,7 @@ import {
 } from '../lib/offer'
 import {
   saveOfferDraft, submitOfferForApproval, approveOffer, holdOffer,
-  resumeOffer, sendOffer, respondOffer, withdrawOfferApproval,
+  resumeOffer, sendOffer, respondOffer, withdrawOfferApproval, offerLetterLink,
   type SeatView, type HandoffResult,
 } from '../lib/actions'
 
@@ -72,8 +72,14 @@ export default function OfferClient(
   const [base, setBase] = useState(String(offer.base))
   const [sign, setSign] = useState(String(offer.sign))
   const [start, setStart] = useState(offer.start ?? '')
+  /* 스톡옵션은 조건만 적는다 — 수량과 행사가. 현재가치는 계산하지 않는다.
+     베스팅·클리프·안내 문구는 회사 공통이라 TalentCore 설정에 있다. */
+  const [eqUnits, setEqUnits] = useState(offer.equityUnits ? String(offer.equityUnits) : '')
+  const [eqStrike, setEqStrike] = useState(offer.equityStrike ? String(offer.equityStrike) : '')
   /* 어느 자리에 앉히는가 (T5). 이미 찬 카드는 고를 수 없다. */
   const [seat, setSeat] = useState(offer.openingCode ?? '')
+  /* 후보자에게 보낸 오퍼레터 주소 — 메일이 못 나갔을 때 직접 보내라고 꺼내준다. */
+  const [link, setLink] = useState('')
 
   // 보류 · 거절 입력값
   const [memo, setMemo] = useState('')
@@ -130,6 +136,67 @@ export default function OfferClient(
       setBusy(false)
     }
   }
+
+  /* 초안 화면의 입력값 한 벌 — [저장]과 [승인 요청]이 같은 값을 보낸다. */
+  const draftPatch = () => ({
+    level: level.trim(), base: draftBase, sign: Number(sign) || 0, start,
+    openingCode: seat,
+    equityUnits: Number(eqUnits) || 0,
+    equityStrike: Number(eqStrike) || 0,
+  })
+
+  /* 발송은 '상태 바꾸기'가 아니라 '메일 보내기'다 — 나갔는지 못 나갔는지를
+     반드시 말해 준다. 못 나갔어도 오퍼는 되돌리지 않고(후보자에게 두 번
+     보내는 사고를 막는다) 담당자가 링크를 복사해 직접 보낼 수 있게 한다. */
+  async function doSend() {
+    if (busy) return
+    setBusy(true); setErr(''); setMsg('')
+    try {
+      const r = await sendOffer(offer.cid)
+      if (!r.ok && !softFail(r.reason)) {
+        setErr(REASON[r.reason ?? ''] ?? `발송하지 못했습니다 (${r.reason ?? '알 수 없는 오류'})`)
+        return
+      }
+      if (r.url) setLink(r.url)
+      if (r.mailed) {
+        setMsg('오퍼레터를 보냈습니다 — 후보자가 링크에서 바로 수락·거절할 수 있습니다')
+      } else {
+        setMsg('오퍼를 발송으로 기록했습니다')
+        setErr(r.mailReason === 'not-configured'
+          ? '메일 키가 없어 메일은 나가지 않았습니다 — 아래 오퍼레터 주소를 복사해 직접 보내주세요.'
+          : r.mailReason === 'no-address'
+            ? '후보자 메일 주소가 없어 메일은 나가지 않았습니다 — 아래 주소를 복사해 직접 보내주세요.'
+            : `메일을 보내지 못했습니다 (${r.mailReason ?? '원인 미상'}) — 아래 주소를 복사해 직접 보내주세요.`)
+      }
+      router.refresh()
+    } catch {
+      setErr('발송하지 못했습니다. 잠시 뒤 다시 눌러주세요.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function showLink() {
+    if (busy) return
+    setBusy(true)
+    try {
+      const r = await offerLetterLink(offer.cid)
+      setLink(r.url)
+      if (!r.url) setErr('오퍼레터 주소를 만들지 못했습니다 — 서버 설정(세션 비밀값)을 확인해 주세요.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const linkBox = link ? (
+    <div style={{ marginTop: 12 }}>
+      <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>
+        후보자에게 보낼 오퍼레터 주소 (60일)
+      </div>
+      <input className="in sm" readOnly value={link} style={{ width: '100%', maxWidth: 520 }}
+        onFocus={e => e.currentTarget.select()} />
+    </div>
+  ) : null
 
   /* ---------- 자리 선택 (T5) ----------
      한 요청서에서 레벨이 다른 카드가 나온다("L5 1명 · L3 2명").
@@ -247,6 +314,27 @@ export default function OfferClient(
           </label>
         </div>
 
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)' }}>
+          <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 6 }}>스톡옵션 (선택)</div>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label className="field" style={{ marginBottom: 0 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>수량 (주)</div>
+              <input className="in sm w-sm mono" inputMode="numeric" value={eqUnits}
+                onChange={e => setEqUnits(e.target.value.replace(/[^0-9]/g, ''))} disabled={busy} />
+            </label>
+            <label className="field" style={{ marginBottom: 0 }}>
+              <div style={{ fontSize: 11.5, color: 'var(--t3)', marginBottom: 4 }}>1주 행사가 (원)</div>
+              <input className="in sm w-sm mono" inputMode="numeric" value={eqStrike}
+                onChange={e => setEqStrike(e.target.value.replace(/[^0-9]/g, ''))} disabled={busy} />
+            </label>
+          </div>
+          <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 6, lineHeight: 1.6 }}>
+            베스팅·클리프·안내 문구는 TalentCore 설정(오퍼레터)에서 회사 공통으로 정합니다.
+            <b> 현재가치는 적지 않습니다</b> — 비상장 주식은 근거 있는 값을 낼 수 없고,
+            숫자를 적으면 회사가 그 가치를 보장한 것으로 읽힙니다.
+          </div>
+        </div>
+
         {rule && start && rule.orientation.start ? (
           <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 8 }}>
             첫날 {rule.orientation.start}~{rule.orientation.end}{' '}
@@ -264,20 +352,13 @@ export default function OfferClient(
 
         <div style={{ display: 'flex', gap: 6, marginTop: 14 }}>
           <button className="btn" disabled={busy}
-            onClick={() => run(
-              () => saveOfferDraft(offer.cid, {
-                level: level.trim(), base: draftBase, sign: Number(sign) || 0, start,
-                openingCode: seat,
-              }),
+            onClick={() => run(() => saveOfferDraft(offer.cid, draftPatch()),
               '처우안을 저장했습니다')}>
             <Icon id="i-check-sq" className="ic-sm" />저장
           </button>
           <button className="btn solid" disabled={busy || !level.trim() || !draftBase}
             onClick={() => run(async () => {
-              const r = await saveOfferDraft(offer.cid, {
-                level: level.trim(), base: draftBase, sign: Number(sign) || 0, start,
-                openingCode: seat,
-              })
+              const r = await saveOfferDraft(offer.cid, draftPatch())
               if (!r.ok && !softFail(r.reason)) return r
               return submitOfferForApproval(offer.cid)
             }, '승인 요청을 올렸습니다')}>
@@ -373,17 +454,18 @@ export default function OfferClient(
     body = (
       <>
         <div style={{ fontSize: 12.5, color: 'var(--t2)' }}>
-          승인이 모두 끝났습니다. 지금 보내면 <b>{candName}</b> 님에게 오퍼가 전달된 것으로 기록됩니다.
+          승인이 모두 끝났습니다. 지금 보내면 <b>{candName}</b> 님에게 오퍼레터 메일이 나갑니다.
           <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 4 }}>
-            발송된 시점부터 이 오퍼가 수락률 계산에 들어갑니다.
+            메일에는 조건 요약과 전용 링크가 들어가고, 후보자는 그 링크에서 직접 수락·거절합니다.
+            문안(인사말·복리후생·서명자)은 TalentCore 설정을 따릅니다.
           </div>
         </div>
         <div style={{ marginTop: 14 }}>
-          <button className="btn solid" disabled={busy}
-            onClick={() => run(() => sendOffer(offer.cid), '오퍼를 발송한 것으로 기록했습니다')}>
-            <Icon id="i-mail" className="ic-sm" />오퍼 발송
+          <button className="btn solid" disabled={busy} onClick={doSend}>
+            <Icon id="i-mail" className="ic-sm" />오퍼레터 발송
           </button>
         </div>
+        {linkBox}
       </>
     )
   } else if (offer.st === 'sent') {
@@ -391,8 +473,16 @@ export default function OfferClient(
     body = (
       <>
         <div style={{ fontSize: 12.5, color: 'var(--t2)' }}>
-          {candName} 님의 답을 받으면 여기에 기록합니다. 기록하면 보드의 카드도 같이 이동합니다.
+          {candName} 님이 오퍼레터 링크에서 직접 답하면 자동으로 기록됩니다.
+          전화나 메일로 답을 받았을 때만 아래에서 대신 기록하세요.
+          <div style={{ fontSize: 11.5, color: 'var(--t3)', marginTop: 4 }}>
+            기록하면 보드의 카드도 같이 이동합니다.
+          </div>
         </div>
+        <div style={{ marginTop: 10 }}>
+          <button className="btn quiet" disabled={busy} onClick={showLink}>오퍼레터 주소 보기</button>
+        </div>
+        {linkBox}
 
         {open === 'decline' ? (
           <div style={{ marginTop: 12 }}>

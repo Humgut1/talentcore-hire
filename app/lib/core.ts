@@ -527,3 +527,76 @@ export async function cancelOfferApproval(ref: string):
     return { ok: false, reason: 'rejected', detail: String(r.body.error ?? '') }
   return { ok: true, status: String(r.body.status ?? '') }
 }
+
+/* =========================================================
+   오퍼레터 문안 — 당겨오기 (오퍼 O2)
+   ---------------------------------------------------------
+   오퍼레터의 뼈대(처우·입사일·회신 기한)는 Hire 가 그린다. 회사마다
+   달라지는 말 — 인사말·복리후생·서명자·스톡옵션 공통 조건 — 은
+   TalentCore 설정(설정 > 오퍼레터)에 있다. 회사 이름·대표·주소도 같다.
+   Hire 에 따로 적어 두면 회사 정보를 두 곳에서 고쳐야 한다.
+
+   닿지 못하면 letter 없이 돌려준다 — 오퍼레터는 문안이 없어도 나가야 한다
+   (처우와 입사일이 본문이고, 나머지는 인사말이다).
+   ========================================================= */
+export interface CoreLetter {
+  company: { name: string; ceo: string; address: string }
+  greeting: string
+  benefits: string[]
+  signer: string
+  signerTitle: string
+  replyDays: number
+  equity: { vestYears: number; cliffMonths: number; note: string }
+}
+
+export type LetterResult =
+  | { ok: true; letter: CoreLetter }
+  | { ok: false; reason: 'not-configured' | 'unauthorized' | 'unreachable' | 'bad-response'; detail?: string }
+
+export async function fetchOfferLetter(): Promise<LetterResult> {
+  const { url, token } = conf()
+  if (!url || !token) return { ok: false, reason: 'not-configured' }
+
+  let res: Response
+  try {
+    res = await fetch(`${url}/api/offers/letter`, {
+      headers: { 'X-API-Token': token, Accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(10_000),
+    })
+  } catch (e) {
+    return { ok: false, reason: 'unreachable', detail: e instanceof Error ? e.message : String(e) }
+  }
+  if (res.status === 401) return { ok: false, reason: 'unauthorized' }
+  if (!res.ok) return { ok: false, reason: 'bad-response', detail: `HTTP ${res.status}` }
+
+  let body: unknown
+  try { body = await res.json() } catch { return { ok: false, reason: 'bad-response', detail: 'JSON 아님' } }
+  const d = body as {
+    ok?: boolean
+    company?: { name?: string; ceo?: string; address?: string }
+    greeting?: string; benefits?: string[]; signer?: string; signer_title?: string
+    reply_days?: number
+    equity?: { vest_years?: number; cliff_months?: number; note?: string }
+  }
+  if (!d || d.ok !== true) return { ok: false, reason: 'bad-response', detail: '문안 모양이 다릅니다' }
+
+  const c = d.company ?? {}
+  const e = d.equity ?? {}
+  return {
+    ok: true,
+    letter: {
+      company: { name: c.name ?? '', ceo: c.ceo ?? '', address: c.address ?? '' },
+      greeting: d.greeting ?? '',
+      benefits: Array.isArray(d.benefits) ? d.benefits.filter(Boolean) : [],
+      signer: d.signer ?? '',
+      signerTitle: d.signer_title ?? '',
+      replyDays: Number(d.reply_days) > 0 ? Number(d.reply_days) : 7,
+      equity: {
+        vestYears: Number(e.vest_years) > 0 ? Number(e.vest_years) : 4,
+        cliffMonths: Number(e.cliff_months) >= 0 ? Number(e.cliff_months) : 12,
+        note: e.note ?? '',
+      },
+    },
+  }
+}

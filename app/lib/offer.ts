@@ -97,6 +97,12 @@ export interface Offer {
   /* 어느 자리에 앉는가 (T5). TalentCore 자리 카드 코드(OP-12-2).
      마이그레이션 009 전 DB 에는 없다 → 비어 있으면 '정원 밖'으로 넘어간다. */
   openingCode?: string
+  /* 스톡옵션 — 조건만 적는다(수량·행사가). 현재가치는 계산하지 않는다:
+     비상장 주식은 근거 있는 값을 낼 수 없고, 숫자를 적으면 회사가 그
+     가치를 보장한 것으로 읽힌다. 베스팅·클리프는 회사 공통이라
+     TalentCore 설정에 있다. 마이그레이션 016 전 DB 에는 이 칸이 없다. */
+  equityUnits?: number    // 주
+  equityStrike?: number   // 1주 행사가(원)
   chain: Approval[]
   createdAt: string     // YYYY-MM-DD
   sentAt?: string
