@@ -959,6 +959,11 @@ export function offerHeadHTML(cid: string) {
     kv('기본 연봉', won(o.base)) +
     (o.sign ? kv('사이닝', won(o.sign)) : '') +
     (o.sign ? kv('총 보상', `${won(totalComp(o))} (첫해)`) : '') +
+    /* 스톡옵션은 조건만 — 총 보상에 더하지 않는다(가치를 매기지 않으므로). */
+    (o.equityUnits
+      ? kv('스톡옵션', `${o.equityUnits.toLocaleString('ko-KR')}주` +
+          (o.equityStrike ? ` · 행사가 ${o.equityStrike.toLocaleString('ko-KR')}원` : ''))
+      : '') +
     kv('입사 예정', o.start ? o.start : '미정') +
     bandBar + '</div></div>'
 
