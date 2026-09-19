@@ -42,7 +42,10 @@ function isActive(r: string, pathname: string) {
 }
 
 export default function Sidebar(
-  { posList = [], who = null }: { posList?: SidePos[]; who?: { nm: string; role: string } | null },
+  { posList = [], who = null, staff = true }:
+  { posList?: SidePos[]; who?: { nm: string; role: string } | null
+    /* false = 하이어링 매니저·면접관 — 운영 메뉴·인재풀·공고 만들기를 숨긴다 */
+    staff?: boolean },
 ) {
   const pathname = usePathname()
   const [q, setQ] = useState('')
@@ -84,7 +87,7 @@ export default function Sidebar(
       </div>
 
       <div className="nav-sec">
-        {TOP.map(it => (
+        {TOP.filter(it => staff || it.r !== '/pool').map(it => (
           <Link className={'nav-i' + (isActive(it.r, pathname) ? ' on' : '')} href={it.r} key={it.r}>
             <Icon id={it.i} />{it.n}
           </Link>
@@ -112,14 +115,16 @@ export default function Sidebar(
           )}
           {showClosed && closed.map(row)}
         </div>
-        <Link className="nav-i pos-new" href="/positions/new">
-          <Icon id="i-plus" />공고 만들기
-        </Link>
+        {staff && (
+          <Link className="nav-i pos-new" href="/positions/new">
+            <Icon id="i-plus" />공고 만들기
+          </Link>
+        )}
       </div>
 
       <div className="nav-sec">
         <p>운영</p>
-        {BOTTOM.map(it => (
+        {(staff ? BOTTOM : []).map(it => (
           <Link className={'nav-i' + (isActive(it.r, pathname) ? ' on' : '')} href={it.r} key={it.r}>
             <Icon id={it.i} />{it.n}
           </Link>

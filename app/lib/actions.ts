@@ -1,4 +1,5 @@
 'use server'
+import { need } from './access'
 /* =========================================================
    서버 액션 — 보드에서 카드를 옮기면 DB에 저장한다.
    DB 미설정이면 조용히 no-op (앱은 화면 상태만 바뀜).
@@ -54,6 +55,7 @@ const TODAY_ISO = '2026-08-12' // 데모 기준일 (daysSince 계산 일관성 �
 export async function persistMove(
   cid: string, toStage: string, status: string, why: string | null,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb
@@ -66,6 +68,7 @@ export async function persistMove(
 export async function persistCand(
   cid: string, status: string, why: string | null,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb
@@ -86,6 +89,7 @@ export interface NewCandidate {
 export async function addCandidate(
   c: NewCandidate,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb.from('candidates').insert({
@@ -108,6 +112,7 @@ export async function addCandidate(
 export async function escalateCand(
   cid: string, why: string, act: string[],
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb
@@ -218,18 +223,21 @@ export async function submitEval(
 
 /* 후보자 한 명의 다음 리마인드 회차를 지금 보낸다(보드 드로어 버튼). */
 export async function sendReminderNow(cid: string): Promise<SendReport> {
+  await need(['cand', cid])
   await hydrateData()
   return sendNowFor(cid)
 }
 
 /* 임박(due)한 리마인드를 전부 보낸다(크론/설정 화면 버튼). */
 export async function sendDueReminders(): Promise<SendReport> {
+  await need('staff')
   await hydrateData()
   return runDueReminders()
 }
 
 /* 설정 화면에 보여줄 발송 연동 상태. */
 export async function getMailerStatus(): Promise<MailerStatus> {
+  await need('user')
   return mailerStatus()
 }
 
@@ -279,6 +287,7 @@ async function saveOffer(o: Offer): Promise<{ ok: boolean; reason?: string }> {
    승인 줄은 하이어링 매니저 한 명으로 시작하고, 밴드를 넘기면
    승인 요청을 누를 때 TalentCore 결재 한 칸이 붙는다. */
 export async function createOffer(cid: string): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   await hydrateData()
   if (offerOf(cid)) return { ok: false, reason: 'exists' }
   const c = cands.find(x => x.id === cid)
@@ -308,6 +317,7 @@ export async function saveOfferDraft(
     equityUnits?: number; equityStrike?: number
   },
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -372,6 +382,7 @@ function coreApproval(st: CoreOffer): Approval {
 export async function submitOfferForApproval(
   cid: string,
 ): Promise<{ ok: boolean; reason?: string; added?: string; detail?: string }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -421,6 +432,7 @@ export async function submitOfferForApproval(
               다시 올리면 새 결재가 올라간다(앞선 승인은 다시 받는다).
    TalentCore 에 닿지 못하면 아무것도 바꾸지 않는다 — 모르는 것과 반려는 다르다. */
 export async function syncOfferApproval(cid: string): Promise<{ changed: boolean }> {
+  await need(['cand', cid])
   const o = offerOf(cid)
   if (!o) return { changed: false }
   const step = coreStepOf(o)
@@ -444,6 +456,7 @@ export async function syncOfferApproval(cid: string): Promise<{ changed: boolean
 export async function withdrawOfferApproval(
   cid: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -461,6 +474,7 @@ export async function withdrawOfferApproval(
 export async function approveOffer(
   cid: string, uid: string,
 ): Promise<{ ok: boolean; reason?: string; done?: boolean }> {
+  await need(['cand', cid])
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -479,6 +493,7 @@ export async function approveOffer(
 export async function holdOffer(
   cid: string, uid: string, memo: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -495,6 +510,7 @@ export async function holdOffer(
 
 /* 보류 해제 — 다시 대기 상태로 돌린다(사유는 기록에 남긴 채). */
 export async function resumeOffer(cid: string): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -512,6 +528,7 @@ export async function resumeOffer(cid: string): Promise<{ ok: boolean; reason?: 
 export async function sendOffer(
   cid: string,
 ): Promise<{ ok: boolean; reason?: string; mailed?: boolean; mailReason?: string; url?: string }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -543,6 +560,7 @@ export async function sendOffer(
 
 /** 오퍼레터 주소만 다시 받아온다 — 담당자가 복사해서 직접 보낼 때. */
 export async function offerLetterLink(cid: string): Promise<{ url: string }> {
+  await need(['cand', cid])
   return { url: await letterUrl(cid) }
 }
 
@@ -552,6 +570,7 @@ export async function offerLetterLink(cid: string): Promise<{ url: string }> {
 export async function respondOffer(
   cid: string, accept: boolean, code?: string, memo?: string,
 ): Promise<{ ok: boolean; reason?: string; handoff?: HandoffResult }> {
+  await need('staff')
   await hydrateData()
   const o = offerOf(cid)
   if (!o) return { ok: false, reason: 'no-offer' }
@@ -720,6 +739,7 @@ export interface SeatView {
 }
 
 export async function listSeats(pid: string): Promise<SeatView> {
+  await need(['pos', pid])
   await hydrateData()
   const pos = posById(pid)
   const pending = cands.filter(c => {
@@ -778,6 +798,7 @@ function needComment(c: Candidate): boolean {
 export async function saveStageComment(
   cid: string, verdict: string, body: string, by: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['see', cid])
   await hydrateData()
   by = (await actorFor(by)) || by
   const c = cands.find(x => x.id === cid)
@@ -899,6 +920,7 @@ export async function advanceCand(
   ok: boolean; reason?: string; to?: string; offerMade?: boolean
   mtg?: { nm: string; v: string }[]
 }> {
+  await need(['cand', cid])
   await hydrateData()
   by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
@@ -946,6 +968,7 @@ export async function advanceCand(
 export async function holdCand(
   cid: string, memo: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   await hydrateData()
   by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
@@ -968,6 +991,7 @@ export async function holdCand(
 export async function rejectCand(
   cid: string, code: string, memo?: string, by?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   await hydrateData()
   by = await actorFor(by)
   const c = cands.find(x => x.id === cid)
@@ -1013,6 +1037,7 @@ export async function rejectCand(
    (오퍼 수락·거절에 되돌리기를 두지 않은 것과 다른 이유: 그건 후보자의 답이다.
     그래서 오퍼가 거절로 끝난 건은 여기서도 되돌릴 수 없다.) */
 export async function undoReject(cid: string): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
@@ -1043,6 +1068,7 @@ export async function undoReject(cid: string): Promise<{ ok: boolean; reason?: s
 export async function searchSlots(
   cid: string, widen: boolean,
 ): Promise<{ outcome: SearchOutcome; source: 'google' | 'manual' }> {
+  await need(['cand', cid])
   await hydrateData()
   const cand = cands.find(c => c.id === cid)
   if (!cand) return { outcome: { kind: 'no-interviewer' }, source: 'manual' }
@@ -1067,6 +1093,7 @@ export async function searchSlots(
 export async function editCandidate(
   cid: string, patch: { nm: string; yr: number; role: string; src: string },
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb.from('candidates').update(patch).eq('id', cid)
@@ -1087,6 +1114,7 @@ export interface StagePatch {
 export async function persistStageEdit(
   pid: string, id: string, patch: StagePatch,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb
@@ -1100,6 +1128,7 @@ export async function persistStageEdit(
 export async function persistStageLayout(
   pid: string, rows: { id: string; ord: number; color: string }[],
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   for (const r of rows) {
@@ -1119,6 +1148,7 @@ export interface NewStage {
 export async function persistAddStage(
   pid: string, s: NewStage,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb.from('stages').insert({
@@ -1134,6 +1164,7 @@ export async function persistAddStage(
 export async function persistDeleteStage(
   pid: string, id: string,
 ): Promise<{ ok: boolean; reason?: string; count?: number }> {
+  await need('staff')
   await hydrateData()
   const n = cands.filter(c => c.p === pid && c.st === id).length
   if (n > 0) return { ok: false, reason: 'has-candidates', count: n }
@@ -1163,6 +1194,7 @@ function autoRow(pid: string, a: AutoConfig) {
 export async function persistAuto(
   pid: string, patch: Partial<AutoConfig>,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   _patchAuto(pid, patch)
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
@@ -1175,6 +1207,7 @@ export async function persistAuto(
 export async function persistAutoRules(
   pid: string, rules: Rule[],
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   _patchAuto(pid, { rules })
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
@@ -1191,6 +1224,7 @@ export interface PositionPatch {
 export async function persistPosition(
   pid: string, patch: PositionPatch,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const { error } = await sb.from('positions').update(patch).eq('id', pid)
@@ -1211,6 +1245,7 @@ export interface PublicPatch { pub?: boolean; loc?: string; exp?: string; due?: 
 export async function savePositionPublic(
   pid: string, patch: PublicPatch,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   _patchPositionPublic(pid, patch)
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
@@ -1230,6 +1265,7 @@ export interface HmPatch { hm?: string; hmProxy?: string | null; hmFrom?: string
 export async function savePositionHm(
   pid: string, patch: HmPatch,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   await hydrateData()
   const pos = posById(pid)
   const row: Record<string, unknown> = {}
@@ -1266,6 +1302,7 @@ export async function savePositionHm(
 export async function savePositionBand(
   pid: string, bandLo: number, bandHi: number,
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const lo = Math.max(0, bandLo)
   const hi = Math.max(0, bandHi)
   _patchPositionBand(pid, [lo, hi])
@@ -1314,6 +1351,7 @@ export interface NewPositionInput {
 export async function createPosition(
   input: NewPositionInput,
 ): Promise<{ ok: boolean; id?: string; reason?: string }> {
+  await need('staff')
   await hydrateData()
 
   const title = input.title.trim()
@@ -1434,6 +1472,7 @@ export async function cancelInterview(
     notifyIv: boolean
   },
 ): Promise<{ ok: boolean; reason?: string; why?: string; status?: string; recalled?: number }> {
+  await need(['cand', cid])
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   if (!c) return { ok: false, reason: 'no-candidate' }
@@ -1499,6 +1538,7 @@ function findMeeting(pid: string, mid: string) {
 export async function assignMeeting(
   pid: string, mid: string, uids: string[],
 ): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
+  await need('staff')
   await hydrateData()
   const m = findMeeting(pid, mid)
   if (!m) return { ok: false, reason: 'no-meeting' }
@@ -1519,6 +1559,7 @@ export async function assignMeeting(
 export async function meetingPicker(
   pid: string, mid: string,
 ): Promise<{ uids: string[]; pool: PoolRow[] }> {
+  await need('staff')
   await hydrateData()
   const m = findMeeting(pid, mid)
   if (!m) return { uids: [], pool: [] }
@@ -1534,6 +1575,7 @@ export async function searchMeetingSlots(
   slots?: { date: string; start: number; end: number; label: string }[]
   scanned?: number; source?: 'google' | 'manual'; ea?: string[]
 }> {
+  await need('staff')
   await hydrateData()
   const m = findMeeting(pid, mid)
   if (!m) return { ok: false, reason: 'no-meeting' }
@@ -1582,6 +1624,7 @@ async function setMeetingTime(
 export async function confirmMeeting(
   pid: string, mid: string, date: string, start: number,
 ): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
+  await need('staff')
   await hydrateData()
   return setMeetingTime(pid, mid, date, start, false)
 }
@@ -1642,6 +1685,7 @@ async function autoOne(
 }
 
 export async function autoSetupMeetings(pid: string): Promise<AutoMtgReport> {
+  await need(['pos', pid])
   await hydrateData()
   const out: AutoMtgReport = { set: [], stuck: [] }
   for (const m of meetings[pid] || []) {
@@ -1658,6 +1702,7 @@ export async function autoSetupMeetings(pid: string): Promise<AutoMtgReport> {
 export async function reautoMeeting(
   pid: string, mid: string,
 ): Promise<{ ok: boolean; reason?: string; view?: MtgView }> {
+  await need('staff')
   await hydrateData()
   const m = findMeeting(pid, mid)
   if (!m) return { ok: false, reason: 'no-meeting' }
@@ -1694,6 +1739,7 @@ async function setPersonKey(cid: string, pk: string): Promise<string | undefined
 export async function recallToPosition(
   cid: string, pid: string,
 ): Promise<{ ok: boolean; reason?: string; id?: string; nm?: string }> {
+  await need('staff')
   await hydrateData()
   const src = cands.find(c => c.id === cid)
   if (!src) return { ok: false, reason: 'no-candidate' }
@@ -1743,12 +1789,14 @@ export async function recallToPosition(
    ========================================================= */
 
 export async function syncDirectoryNow(): Promise<SyncReport> {
+  await need('staff')
   return syncDirectory()
 }
 
 export async function directoryStatus(): Promise<{
   state: 'unconfigured' | 'configured'; url: string; last: string | null
 }> {
+  await need('user')
   return { state: coreState(), url: coreLabel(), last: await lastSyncedAt() }
 }
 
@@ -1756,6 +1804,7 @@ export async function directoryStatus(): Promise<{
 export async function setPersonRoles(
   uid: string, roles: string[],
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const clean = [...new Set(roles.map(r => r.trim()).filter(Boolean))]
   _patchPerson(uid, { roles: clean })
   const sb = serverClient()
@@ -1768,6 +1817,7 @@ export async function setPersonRoles(
 export async function setPersonPrefs(
   uid: string, prefs: { ea?: boolean; eaNm?: string; ch?: string; sla?: number },
 ): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   const patch: Partial<Person> = {}
   const row: Record<string, unknown> = {}
   if (prefs.ea !== undefined) { patch.ea = prefs.ea; row.ea = prefs.ea }
@@ -1862,6 +1912,7 @@ async function mailReject(
 /** 한 명을 다음 단계로 + 통보. 후보자 카드에서 쓴다.
     메일이 실패해도 판정은 이미 저장돼 있다 — 그래서 ok 와 mail 을 따로 돌려준다. */
 export async function advanceAndNotify(cid: string, mailCode?: string | null, by?: string) {
+  await need(['cand', cid])
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   if (c && needComment(c)) {
@@ -1877,6 +1928,7 @@ export async function advanceAndNotify(cid: string, mailCode?: string | null, by
 export async function rejectAndNotify(
   cid: string, code: string, memo?: string, notify: string | null = 'auto', by?: string,
 ) {
+  await need(['cand', cid])
   await hydrateData()
   const c = cands.find(x => x.id === cid)
   const at = c ? stageById(c.p, c.st) : null
@@ -1894,6 +1946,7 @@ export async function rejectAndNotify(
     mailCode 를 주면 옮겨진 사람에게만 그 템플릿으로 안내 메일이 나간다.
     null 이면 판정만 하고 통보하지 않는다(이미 다른 채널로 알린 경우). */
 export async function bulkAdvance(cids: string[], mailCode?: string | null): Promise<BulkReport> {
+  await need(['cand', cids])
   await hydrateData()
   const fail: BulkReport['fail'] = []
   const t = mailCode ? tplByCode(mailCode) : null
@@ -1921,6 +1974,7 @@ export async function bulkAdvance(cids: string[], mailCode?: string | null): Pro
 export async function bulkReject(
   cids: string[], code: string, memo?: string, notify: string | null = 'auto',
 ): Promise<BulkReport> {
+  await need(['cand', cids])
   await hydrateData()
   if (!code || !REJECT_REASONS.some(r => r.v === code)) {
     return { ok: 0, fail: cids.map(cid => ({ cid, nm: nameOf(cid), reason: 'need-reason' })) }
@@ -1949,6 +2003,7 @@ export async function bulkReject(
     본문은 사람마다 다시 만든다 — 이름·단계가 각자 다르기 때문에
     한 명의 본문을 복사해 돌리면 남의 단계가 적힌 메일이 나간다. */
 export async function bulkMail(cids: string[], code: string): Promise<BulkReport> {
+  await need(['cand', cids])
   await hydrateData()
   const t = tplByCode(code)
   if (!t) return { ok: 0, fail: cids.map(cid => ({ cid, nm: nameOf(cid), reason: 'no-template' })) }

@@ -11,6 +11,7 @@ import { redirect } from 'next/navigation'
 import { GATE_COOKIE, readSession } from '../lib/gate'
 import { viewerLabel } from '../lib/session'
 import { getUser } from '../lib/users'
+import { scopeOf, seePos, isAll } from '../lib/access'
 
 export const metadata: Metadata = {
   title: 'Hire',
@@ -40,7 +41,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     }
   }
 
-  const posList: SidePos[] = positions.map(p => {
+  /* 사이드바 공고 목록도 역할대로 — 하이어링 매니저는 자기 공고만(access.ts). */
+  const sc = scopeOf(sess)
+  const posList: SidePos[] = positions.filter(p => seePos(sc, p.id)).map(p => {
     const act = cands.filter(c => c.p === p.id && !stageById(p.id, c.st).rail)
     return {
       id: p.id, title: p.title, dept: p.dept, team: p.team, st: p.st,
@@ -76,7 +79,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <a href="/login">비밀번호로 들어가기</a>
             </div>
           )}
-          <Sidebar posList={posList} who={viewerLabel(sess)} />
+          <Sidebar posList={posList} who={viewerLabel(sess)} staff={isAll(sc)} />
           <main className="main">{children}</main>
         </div>
       </body>

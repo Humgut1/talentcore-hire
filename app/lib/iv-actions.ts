@@ -1,4 +1,5 @@
 'use server'
+import { need } from './access'
 /* =========================================================
    Cadence — 면접 조율 서버 액션
    ---------------------------------------------------------
@@ -144,6 +145,7 @@ async function mail(
    부서장·차상위·협업 리더가 내려오면 그 값이 이 자리를 채우게 된다.
    ========================================================= */
 export async function ivEnsure(cid: string, round?: number): Promise<{ ok: boolean; id?: string; reason?: string }> {
+  await need(['cand', cid])
   await hydrateData()
   const cand = cands.find(c => c.id === cid)
   if (!cand) return { ok: false, reason: 'no-candidate' }
@@ -202,6 +204,7 @@ export async function ivEnsure(cid: string, round?: number): Promise<{ ok: boole
     "후보자를 면접 단계로 옮기면 시스템이 알아서 줄에 세운다"가 이 기능의 출발점이라,
     공고 보드가 열릴 때 한 번 훑는다. 이미 있는 건은 건드리지 않는다. */
 export async function ivEnsureAll(): Promise<{ ok: boolean; made: number }> {
+  await need('user')
   await hydrateData()
   let made = 0
   for (const c of cands) {
@@ -222,6 +225,7 @@ export async function ivEnsureAll(): Promise<{ ok: boolean; made: number }> {
     잡혀 있는 것이 이 기능이 막으려던 바로 그 문제이기 때문이다.
     이미 정리된 건은 만료로 걸리지 않으므로 몇 번을 다시 돌려도 같은 결과다. */
 export async function ivBoardOpen(): Promise<{ ok: boolean; released: number; swept: number; made: number }> {
+  await need('user')
   const sw = await ivSweepHolds()
   const en = await ivEnsureAll()
   return { ok: true, released: sw.released, swept: sw.swept.length, made: en.made }
@@ -235,6 +239,7 @@ export async function ivBoardOpen(): Promise<{ ok: boolean; released: number; sw
 export async function ivIdsOfCands(
   cids: string[],
 ): Promise<{ ids: string[]; skip: { nm: string; why: string }[] }> {
+  await need('staff')
   await hydrateData()
   const ids: string[] = []
   const skip: { nm: string; why: string }[] = []
@@ -275,6 +280,7 @@ export interface IvPlanView {
   mail?: IvMailBundle            // 화면이 '나갈 메일'을 그대로 미리 보여 주기 위한 재료
 }
 export async function ivSearch(ivId: string, widen = false): Promise<IvPlanView> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -410,6 +416,7 @@ async function commitSend(
 export async function ivSend(
   ivId: string, picks?: number[], ack = false,
 ): Promise<R & { held?: number; sim?: boolean }> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -541,6 +548,7 @@ export async function ivRespondPart(
   ivId: string, ord: number, resp: 'accepted' | 'declined',
   code?: DeclineCode, memo?: string,
 ): Promise<R & { act?: string[] }> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -585,6 +593,7 @@ ${alert.text}`)
    면접관 캘린더를 무한정 잡아 두는 게 조율에서 가장 미움받는 지점이다.
    ========================================================= */
 export async function ivSweepHolds(): Promise<{ ok: boolean; released: number; swept: string[] }> {
+  await need('user')
   await hydrateData()
   const { interviews } = await import('./iv-store')
   const now = nowIso()
@@ -625,12 +634,14 @@ export async function ivSweepHolds(): Promise<{ ok: boolean; released: number; s
 
 /** 화면에서 쓰는 요약 — 지금 캘린더에 실제로 쓸 수 있는 상태인가. */
 export async function ivWriterStatus(): Promise<{ state: WriterState; msg: string; real: boolean }> {
+  await need('user')
   const w = await resolveWriter()
   return { state: w.state, msg: writerNote(w.state), real: w.state === 'ready' }
 }
 
 /** 정책 기본값을 화면에서도 쓴다(설정 화면에 그대로 보여 주기 위해). */
 export async function ivPolicyOf(pid: string) {
+  await need(['pos', pid])
   await hydrateData()
   return { ...DEFAULT_POLICY, ...policyFor(pid) }
 }
@@ -719,6 +730,7 @@ function groupGate(
 
 /** 화면용 — 고른 후보자들을 무리로 묶고, 무리마다 보낼 수 있는지 판단해 돌려준다. */
 export async function ivBulkView(ids: string[], widen = false): Promise<BulkGroup[]> {
+  await need('staff')
   const gs = await bulkPlans(ids, widen)
   return gs.map(g => ({
     key: g.key,
@@ -739,6 +751,7 @@ export async function ivBulkView(ids: string[], widen = false): Promise<BulkGrou
 export async function ivSendBulk(
   ids: string[], ack = false, widen = false,
 ): Promise<R & { sent?: number; names?: string[] }> {
+  await need('staff')
   const gs = await bulkPlans(ids, widen)
   if (!gs.length) return { ok: false, reason: 'empty' }
 
@@ -832,6 +845,7 @@ function whenOf(iv: Interview) {
 }
 
 export async function ivRoomView(ivId: string): Promise<IvRoomView> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview', mode: '대면', people: 0 }
@@ -847,6 +861,7 @@ export async function ivRoomView(ivId: string): Promise<IvRoomView> {
 }
 
 export async function ivBookRoom(ivId: string, code: string): Promise<R & { detail?: string; label?: string }> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -877,6 +892,7 @@ export async function ivBookRoom(ivId: string, code: string): Promise<R & { deta
 }
 
 export async function ivReleaseRoom(ivId: string): Promise<R> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -896,6 +912,7 @@ export async function ivReleaseRoom(ivId: string): Promise<R> {
     메일 키가 없는 환경에서는 한 통도 나가지 않고 기록만 남는다 — 화면이 "보냈다"고 말하지 않게
     실제로 나간 통수를 돌려준다. */
 export async function ivSendPlace(ivId: string): Promise<R & { sent?: number; total?: number }> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }
@@ -931,6 +948,7 @@ export async function ivSendPlace(ivId: string): Promise<R & { sent?: number; to
 export async function ivSetTime(
   ivId: string, date: string, start: number, end: number, force = false,
 ): Promise<R & { label?: string; clash?: string }> {
+  await need(['iv', ivId])
   await hydrateData()
   const iv = ivById(ivId)
   if (!iv) return { ok: false, reason: 'no-interview' }

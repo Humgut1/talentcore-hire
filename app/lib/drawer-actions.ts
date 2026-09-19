@@ -1,4 +1,5 @@
 'use server'
+import { need } from './access'
 /* =========================================================
    Cadence — 후보자 서랍에서 누르는 것들 (서버 액션)
    ---------------------------------------------------------
@@ -12,19 +13,23 @@ import { signDoc, recordDoc, dropDoc, docUrl, type DocKind } from './docs'
 import { sendCandMail } from './maillog'
 
 export async function startDoc(cid: string, kind: DocKind, name: string, size: number) {
+  await need(['cand', cid])
   return signDoc({ cid, kind, name, size })
 }
 
 export async function finishDoc(a: { cid: string; kind: DocKind; nm: string; path: string; size: number; mime?: string; by?: string }) {
+  await need(['cand', a.cid])
   return recordDoc({ cid: a.cid, kind: a.kind, nm: a.nm, path: a.path, size: a.size, mime: a.mime ?? null, ...(a.by ? { byNm: a.by } : {}) })
 }
 
 export async function removeDoc(id: string): Promise<{ ok: boolean; reason?: string }> {
+  await need('staff')
   return dropDoc(id)
 }
 
 /** 파일을 열 때마다 잠깐 살아 있는 주소를 새로 만든다(버킷이 비공개라서). */
 export async function openDoc(path: string): Promise<{ ok: boolean; url?: string }> {
+  await need(['see', path.split('/')[0]])
   const url = await docUrl(path)
   return url ? { ok: true, url } : { ok: false }
 }
@@ -33,6 +38,7 @@ export async function openDoc(path: string): Promise<{ ok: boolean; url?: string
 export async function sendMail(a: {
   cid: string; kind: string; subject: string; body: string
 }): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', a.cid])
   await hydrateData()
   const c = cands.find(x => x.id === a.cid)
   if (!c) return { ok: false, reason: 'no-candidate' }

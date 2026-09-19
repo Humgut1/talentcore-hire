@@ -4,10 +4,13 @@ import MtgSetup from '../../../../components/MtgSetup'
 import { hydrateData } from '../../../../lib/db'
 import { stagesOf, posById, people, cands, auto } from '../../../../lib/data'
 import { mtgViews, attendeePool } from '../../../../lib/meetings'
+import NoAccess from '../../../../components/NoAccess'
+import { allow } from '../../../../lib/access'
 
 /* 공고 설정 = 전형 단계 + 공개 정보 + 자동화.
    예전에는 자동화가 따로 탭이었는데, 둘 다 "이 공고를 어떻게 굴릴지" 라서 한 화면에 둔다. */
 export default async function Page({ params }: { params: Promise<{ pid: string }> }) {
+  if (!(await allow('staff'))) return <NoAccess />
   const { pid } = await params
   await hydrateData()
   const stages = stagesOf(pid)

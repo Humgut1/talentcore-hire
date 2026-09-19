@@ -8,7 +8,7 @@ import {
   funnelRows, dwellRows, sourceRows, kpis, exportCols,
   LABEL, KIND, stagesOf, stageById, posById, activeCands, byRisk,
   md, daysSince, offerOf, offerList, rejectRows,
-  type Candidate, type Person,
+  type Candidate, type Person, type Position,
 } from './data'
 import {
   ratingDef, isPositive, isGradable, tally, verdictOf, VERDICT_LABEL,
@@ -81,7 +81,7 @@ const kpi = (i: string, l: string, v: string, u: string, d: string, dir?: string
   `<div class="v">${v}<small>${esc(u)}</small></div><div class="dl ${dir || ''}">${esc(d)}</div></div>`
 
 /* ---------- 공고 헤더 (공고 하위 화면 공통) ---------- */
-export function posHeader(pid: string, tab: string) {
+export function posHeader(pid: string, tab: string, staff = true) {
   const p = posById(pid), cs = activeCands(pid)
   const risk = cs.filter(c => c.s === 'esc' || c.s === 'late').length
   const st = ({ open: ['ok', '오픈'], hold: ['warn', '홀드'], closed: ['', '마감'] } as Record<string, string[]>)[p.st]
@@ -97,8 +97,10 @@ export function posHeader(pid: string, tab: string) {
     (risk ? `<span class="pill bad">${ico('i-alert', 'ic-sm')}사람 대기 ${risk}</span>` : '') +
     '<div class="spacer">' +
     `<a class="btn" href="/careers/${pid}" target="_blank" rel="noreferrer">${ico('i-link', 'ic-sm')}공고 보기</a>` +
-    `<a class="btn" href="/p/${pid}/setup">${ico('i-sliders', 'ic-sm')}공고 설정</a>` +
-    `<a class="btn br" href="/p/${pid}/board?add=1">${ico('i-plus', 'ic-sm')}후보자 추가</a>` +
+    (staff
+      ? `<a class="btn" href="/p/${pid}/setup">${ico('i-sliders', 'ic-sm')}공고 설정</a>` +
+        `<a class="btn br" href="/p/${pid}/board?add=1">${ico('i-plus', 'ic-sm')}후보자 추가</a>`
+      : '') +
     '</div></div>' +
     '<div class="meta">' +
     `<i>${ico('i-users', 'ic-sm')}${esc(p.dept)} <b>${esc(p.team)}</b></i>` +
@@ -118,7 +120,7 @@ export function posHeader(pid: string, tab: string) {
 }
 
 /* ---------- 진행 매트릭스 ---------- */
-export function progressHTML(pid: string) {
+export function progressHTML(pid: string, staff = true) {
   const stages = stagesOf(pid).filter(s => s.kind !== 'reject')
   const list = activeCands(pid).concat(candsOf(pid).filter(c => stageById(pid, c.st).kind === 'hired')).sort(byRisk)
   const rail = stages.map(sg => {
@@ -144,7 +146,7 @@ export function progressHTML(pid: string) {
       (c.act ? c.act.map((a, i) => `<button class="btn${i === 0 ? ' solid' : ''}">${esc(a)}</button>`).join('')
         : `<button class="btn quiet">보기</button>`) + '</td></tr>'
   }).join('')
-  return posHeader(pid, 'progress') +
+  return posHeader(pid, 'progress', staff) +
     '<div class="stage">' +
     `<div class="railbar">${rail}</div>` +
     `<div class="sheet"><table class="mx"><thead><tr><th>후보자</th>${head}<th>상태 · 다음 행동</th></tr></thead><tbody>${rows}</tbody></table></div>` +
@@ -158,7 +160,8 @@ export function progressHTML(pid: string) {
 /* ---------- 후보자 상세 ----------
    이 화면도 오퍼처럼 가운데에 '실제로 누르는 패널'(DecisionClient)이 끼어든다.
    그래서 머리(header)와 몸통을 두 조각으로 나눠 준다. */
-export function candidateHeadHTML(cid: string) {
+/** canOffer = false 면 오퍼 버튼을 뺀다(면접관만인 사람 — 보상은 못 본다). */
+export function candidateHeadHTML(cid: string, canOffer = true) {
   const c = cands.find(x => x.id === cid)
   if (!c) return notFoundHTML()
   const p = posById(c.p), sg = stageById(c.p, c.st)
@@ -171,7 +174,7 @@ export function candidateHeadHTML(cid: string) {
       c.s === 'late' ? `<span class="pill warn">${ico('i-clock', 'ic-sm')}${esc(c.why)}</span>` : '') +
     '<div class="spacer">' +
     (ev.length ? `<a class="btn" href="/e/${c.id}">${ico('i-rows', 'ic-sm')}평가 비교</a>` : '') +
-    (offerOf(c.id) ? `<a class="btn" href="/o/${c.id}">${ico('i-flag', 'ic-sm')}오퍼</a>` : '') +
+    (canOffer && offerOf(c.id) ? `<a class="btn" href="/o/${c.id}">${ico('i-flag', 'ic-sm')}오퍼</a>` : '') +
     '</div></div>' +
     '<div class="meta">' +
     `<i>${ico('i-calendar', 'ic-sm')}유입 <b>${md(c.ap)}</b> (${daysSince(c.ap)}일 전)</i>` +
@@ -299,8 +302,9 @@ function otherAppsHTML(c: Candidate) {
 }
 
 /* ---------- 공고 목록 ---------- */
-export function positionsHTML() {
-  const rows = positions.map(p => {
+/** list·staff — 하이어링 매니저에게는 자기 공고만, 설정·생성 버튼 없이. */
+export function positionsHTML(list: Position[] = positions, staff = true) {
+  const rows = list.map(p => {
     const cs = cands.filter(c => c.p === p.id)
     const act = cs.filter(c => !stageById(p.id, c.st).rail)
     const risk = act.filter(c => c.s === 'esc' || c.s === 'late').length
@@ -326,17 +330,18 @@ export function positionsHTML() {
       `<td style="color:var(--t3);font-size:11.5px">${esc(bn)}</td>` +
       `<td class="num">${p.ttf}d</td>` +
       `<td style="color:var(--t2)">${esc(p.rec)}</td>` +
-      `<td style="text-align:right"><a class="btn quiet" href="/p/${p.id}/setup">${ico('i-sliders', 'ic-sm')}설정</a></td></tr>`
+      `<td style="text-align:right">` +
+      (staff ? `<a class="btn quiet" href="/p/${p.id}/setup">${ico('i-sliders', 'ic-sm')}설정</a>` : '') + '</td></tr>'
   }).join('')
   return '<header class="top">' +
     `<div class="crumb">${ico('i-briefcase', 'ic-sm')}채용</div>` +
-    `<div class="h-row"><h1>공고</h1><span class="pill">${positions.length}건</span>` +
+    `<div class="h-row"><h1>공고</h1><span class="pill">${list.length}건</span>` +
     `<div class="spacer"><button class="btn">${ico('i-filter', 'ic-sm')}필터</button>` +
-    `<a class="btn br" href="/positions/new">${ico('i-plus', 'ic-sm')}공고 생성</a></div></div>` +
+    (staff ? `<a class="btn br" href="/positions/new">${ico('i-plus', 'ic-sm')}공고 생성</a>` : '') + '</div></div>' +
     /* 건수는 세어서 쓴다 — 공고를 새로 열면 바로 반영돼야 한다. */
-    `<div class="meta"><i>${ico('i-check-circle', 'ic-sm')}오픈 <b>${positions.filter(p => p.st === 'open').length}</b></i>` +
-    `<i>${ico('i-clock', 'ic-sm')}홀드 <b>${positions.filter(p => p.st === 'hold').length}</b></i>` +
-    `<i>${ico('i-flag', 'ic-sm')}마감 <b>${positions.filter(p => p.st === 'closed').length}</b></i></div>` +
+    `<div class="meta"><i>${ico('i-check-circle', 'ic-sm')}오픈 <b>${list.filter(p => p.st === 'open').length}</b></i>` +
+    `<i>${ico('i-clock', 'ic-sm')}홀드 <b>${list.filter(p => p.st === 'hold').length}</b></i>` +
+    `<i>${ico('i-flag', 'ic-sm')}마감 <b>${list.filter(p => p.st === 'closed').length}</b></i></div>` +
     '</header>' +
     '<div class="stage"><div class="sheet"><table class="tb"><thead><tr>' +
     '<th>공고</th><th>상태</th><th class="num">진행</th><th>대응 필요</th><th>병목 단계</th>' +
@@ -346,8 +351,9 @@ export function positionsHTML() {
 }
 
 /* ---------- 후보자 목록 ---------- */
-export function candidatesHTML() {
-  const rows = cands.slice().sort(byRisk).map(c => {
+/** list — 하이어링 매니저·면접관에게는 볼 수 있는 후보자만. */
+export function candidatesHTML(list: Candidate[] = cands) {
+  const rows = list.slice().sort(byRisk).map(c => {
     const sg = stageById(c.p, c.st)
     return `<tr><td class="strong"><a href="/c/${c.id}">${esc(c.nm)}</a>` +
       `<div style="font-size:11px;color:var(--t4);margin-top:2px">${esc(c.role)} · ${c.yr}년차</div></td>` +
@@ -360,11 +366,11 @@ export function candidatesHTML() {
   }).join('')
   return '<header class="top">' +
     `<div class="crumb">${ico('i-users', 'ic-sm')}채용</div>` +
-    `<div class="h-row"><h1>후보자</h1><span class="pill">${cands.length}명</span>` +
+    `<div class="h-row"><h1>후보자</h1><span class="pill">${list.length}명</span>` +
     `<div class="spacer"><button class="btn">${ico('i-search', 'ic-sm')}검색</button>` +
     `<button class="btn">${ico('i-users', 'ic-sm')}중복 병합</button>` +
     `<button class="btn">${ico('i-download', 'ic-sm')}내보내기</button></div></div>` +
-    `<div class="meta"><i>${ico('i-alert', 'ic-sm')}대응 필요 <b>${cands.filter(c => c.s === 'esc' || c.s === 'late').length}명</b></i>` +
+    `<div class="meta"><i>${ico('i-alert', 'ic-sm')}대응 필요 <b>${list.filter(c => c.s === 'esc' || c.s === 'late').length}명</b></i>` +
     `<i>${ico('i-check-circle', 'ic-sm')}인재풀 이관 <b>4명</b></i></div></header>` +
     '<div class="stage"><div class="sheet"><table class="tb"><thead><tr><th>후보자</th><th>공고</th>' +
     '<th>단계</th><th>조율 상태</th><th class="num">유입일</th><th class="num">체류</th><th>출처</th>' +
@@ -818,7 +824,7 @@ function pendingIvs(c: Candidate): string[] {
 }
 
 /* ---------- 평가 비교(한 후보자) ---------- */
-export function evalCompareHTML(cid: string) {
+export function evalCompareHTML(cid: string, canJudge = true) {
   const c = cands.find(x => x.id === cid)
   if (!c) return notFoundHTML()
   const list = visibleEvals(cid)
@@ -862,7 +868,7 @@ export function evalCompareHTML(cid: string) {
   /* 평가를 읽고 끝나면 아무 일도 일어나지 않는다 — 이 화면의 끝은 항상 '판정'으로 이어져야 한다.
      단, 이미 종료·입사 확정된 후보자에게는 판정할 것이 없다. */
   const ended = c.st === 's0' || stage.kind === 'hired'
-  const judgeBar = ended ? '' :
+  const judgeBar = ended || !canJudge ? '' :
     '<div class="sheet" style="margin-top:12px;padding:14px 18px;display:flex;align-items:center;gap:14px">' +
     '<div><b style="font-size:12.5px">' +
     (pend.length
@@ -1220,4 +1226,12 @@ export function myHomeHTML(uid?: string | null, fixed = false) {
       '병목은 <b>기준 체류일 대비 몇 배</b>로 잡습니다. 기준 3일짜리 단계의 6일과 기준 7일짜리 단계의 8일은 심각도가 다르기 때문입니다.',
       '단계 막대는 <b>지금 어디에 몰려 있는지</b>만 보여줍니다. 옮기는 것은 보드에서 합니다.',
     ]) + '</div>'
+}
+
+/** 권한 밖 화면 — 무엇을 볼 수 없는지와 누구에게 물을지만. */
+export function noAccessHTML() {
+  return '<header class="top"><div class="h-row"><h1>볼 수 없는 화면입니다</h1></div></header>' +
+    '<div class="stage"><div class="zero" style="max-width:760px">' +
+    `${ico('i-shield', 'ic-lg')}<h3 style="margin:8px 0 4px">채용 담당자 또는 이 공고의 하이어링 매니저만 볼 수 있습니다</h3>` +
+    '<div style="font-size:12px">필요하면 HR 관리자에게 역할을 요청하세요. <a href="/todo">내 할 일로</a></div></div></div>'
 }

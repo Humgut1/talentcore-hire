@@ -12,10 +12,13 @@ import { coreState, coreLabel } from '../../lib/core'
 import { people, TODAY } from '../../lib/data'
 import { availGrid, capacity } from '../../lib/availability'
 import Directory, { type Row } from '../../components/Directory'
+import NoAccess from '../../components/NoAccess'
+import { allow } from '../../lib/access'
 
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
+  if (!(await allow('staff'))) return <NoAccess />
   /* 순서가 중요하다 — 먼저 맞추고, 그다음에 하이드레이트해야
      방금 들어온 직원이 이번 화면에 바로 보인다. */
   await maybeSync()

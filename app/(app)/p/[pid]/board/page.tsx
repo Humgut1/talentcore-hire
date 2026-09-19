@@ -6,6 +6,8 @@ import { mtgViews } from '../../../../lib/meetings'
 import { ivBoardOpen } from '../../../../lib/iv-actions'
 import { drawerData } from '../../../../lib/drawer'
 import { currentSession, evalViewer } from '../../../../lib/session'
+import NoAccess from '../../../../components/NoAccess'
+import { viewerScope, seePos, seeCand, isAll } from '../../../../lib/access'
 
 /* 공고 보드 = 하루 종일 열어 두는 유일한 화면.
    후보자 서랍은 별도 페이지가 아니라 이 화면의 주소 뒤에 붙는다(?c=후보자).
@@ -21,13 +23,17 @@ export default async function Page({
 
   // 서버에서 DB를 하이드레이트한 뒤, 그 결과를 클라이언트 보드에 넘긴다.
   await hydrateData()
+  /* 하이어링 매니저는 자기 공고만. 면접관만인 사람은 보드를 열지 않는다. */
+  const sc = await viewerScope()
+  if (!seePos(sc, pid)) return <NoAccess />
   /* 보드를 여는 것이 곧 정리다.
      만료된 가예약을 풀어 면접관 캘린더를 돌려주고, 면접 단계에 서 있는데
      아직 자리가 없는 후보자를 줄에 세운다. 둘 다 사람이 눌러 줄 일이 아니다. */
   await ivBoardOpen()
 
   const sess = await currentSession()
-  const d = c
+  /* 서랍은 이 공고의 후보자만 연다 — ?c= 에 다른 공고 후보자를 넣어 엿보지 못하게. */
+  const d = c && cands.some(x => x.id === c && x.p === pid) && seeCand(sc, c)
     ? await drawerData(c, iv, ivw === '1', evalViewer(sess), sess?.uid ? sess.urole : undefined)
     : null
 
@@ -35,10 +41,11 @@ export default async function Page({
     <>
       <Board
         pid={pid}
-        initialCands={cands}
+        initialCands={isAll(sc) ? cands : cands.filter(x => x.p === pid)}
         mtgs={mtgViews(pid)}
         initialStages={stagesOf(pid)}
         pos={posById(pid)}
+        staff={isAll(sc)}
       />
       {d ? <CandDrawer d={d} /> : null}
     </>

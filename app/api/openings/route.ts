@@ -22,6 +22,7 @@ import { checkInbound } from '../../lib/inbound'
 import { hydrateData } from '../../lib/db'
 import { positions, people, personById } from '../../lib/data'
 import { createPosition, setPersonRoles } from '../../lib/actions'
+import { asSystem } from '../../lib/access'
 
 export const dynamic = 'force-dynamic'
 
@@ -136,7 +137,7 @@ export async function POST(req: Request) {
     if (!uid) continue
     const cur = personById(uid)?.roles || []
     const add = extra.filter(r => !cur.includes(r))
-    if (add.length) await setPersonRoles(uid, [...cur, ...add])
+    if (add.length) await asSystem(() => setPersonRoles(uid, [...cur, ...add]))
   }
 
   /* 희망 입사일·채용 유형은 Hire 에 담을 칸이 없다. 칸을 새로 파기보다
@@ -149,7 +150,7 @@ export async function POST(req: Request) {
   ].filter(Boolean).join(' · ')
   const jd = [`※ ${head}`, '', (b.jd || '').trim()].join('\n').trim()
 
-  const r = await createPosition({
+  const r = await asSystem(() => createPosition({
     title,
     dept: (b.dept || '').trim(),
     team: (b.team || b.dept || '').trim(),
@@ -168,7 +169,7 @@ export async function POST(req: Request) {
         ? { r2: [upperId, collabId].filter(Boolean) as string[] }
         : {}),
     },
-  })
+  }))
 
   if (!r.ok || !r.id) return bad(r.reason || 'create-failed', 500)
 

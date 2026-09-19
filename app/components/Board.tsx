@@ -27,8 +27,10 @@ interface Toast { id: number; html: string; undo?: () => void }
 /* 서버 페이지가 DB에서 읽은 후보자/미팅을 props로 넘긴다.
    props가 없으면(예: 미연결) 정적 샘플 데이터로 동작한다. */
 export default function Board(
-  { pid = 'p1', initialCands, mtgs: mtgsProp, initialStages, pos }:
-  { pid?: string; initialCands?: Candidate[]; mtgs?: MtgView[]; initialStages?: Stage[]; pos?: Position },
+  { pid = 'p1', initialCands, mtgs: mtgsProp, initialStages, pos, staff = true }:
+  { pid?: string; initialCands?: Candidate[]; mtgs?: MtgView[]; initialStages?: Stage[]; pos?: Position
+    /* false = 하이어링 매니저 — 공고 설정·후보자 추가·미팅 세팅은 채용 담당자 몫이라 숨긴다 */
+    staff?: boolean },
 ) {
   const PID = pid
   const [list, setList] = useState<Candidate[]>(initialCands ?? staticCands)
@@ -411,8 +413,8 @@ export default function Board(
           {risk > 0 && <span className="pill bad"><Icon id="i-alert" className="ic-sm" />사람 대기 {risk}</span>}
           <div className="spacer">
             <a className="btn" href={`/careers/${PID}`} target="_blank" rel="noreferrer"><Icon id="i-link" className="ic-sm" />공고 보기</a>
-            <Link className="btn" href={`/p/${PID}/setup`}><Icon id="i-sliders" className="ic-sm" />공고 설정</Link>
-            <button className="btn br" onClick={() => openAdd()}><Icon id="i-plus" className="ic-sm" />후보자 추가</button>
+            {staff && <Link className="btn" href={`/p/${PID}/setup`}><Icon id="i-sliders" className="ic-sm" />공고 설정</Link>}
+            {staff && <button className="btn br" onClick={() => openAdd()}><Icon id="i-plus" className="ic-sm" />후보자 추가</button>}
           </div>
         </div>
         <div className="meta">
@@ -445,7 +447,7 @@ export default function Board(
           <button
             className={'mtg s-' + m.s + (m.phase === 'pending' ? ' idle' : '')}
             key={m.id}
-            onClick={() => openMtg(m)}
+            onClick={() => { if (staff) openMtg(m) }}
             title={m.note ?? m.v}
           >
             <i className="dot" />
@@ -486,7 +488,7 @@ export default function Board(
                 {hideIdle ? 'AI 진행 중 다시 보기' : `AI 진행 중 ${idleN}건 숨기기`}
               </button>
             )}
-            <Link className="btn" href={`/p/${PID}/setup`}><Icon id="i-sliders" className="ic-sm" />단계 편집</Link>
+            {staff && <Link className="btn" href={`/p/${PID}/setup`}><Icon id="i-sliders" className="ic-sm" />단계 편집</Link>}
           </div>
         </div>
 
@@ -509,9 +511,11 @@ export default function Board(
                   <h3>{sg.nm}</h3>
                   <span className="n">{mine.length}</span>
                   {colRisk > 0 && <span className="risk"><Icon id="i-alert" />{colRisk}</span>}
-                  <button className="add" title="후보자 추가" onClick={() => openAdd(sg.id)}>
-                    <Icon id="i-plus" className="ic-sm" />
-                  </button>
+                  {staff && (
+                    <button className="add" title="후보자 추가" onClick={() => openAdd(sg.id)}>
+                      <Icon id="i-plus" className="ic-sm" />
+                    </button>
+                  )}
                 </div>
                 <div className="col-b">
                   {shown.length

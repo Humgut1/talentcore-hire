@@ -6,10 +6,14 @@ import { hydrateData } from '../../../lib/db'
 import { offerHeadHTML, offerFootHTML } from '../../../lib/render'
 import { offerOf, cands } from '../../../lib/data'
 import { listSeats, syncOfferApproval, type SeatView } from '../../../lib/actions'
+import NoAccess from '../../../components/NoAccess'
+import { allow } from '../../../lib/access'
 
 export default async function Page({ params }: { params: Promise<{ cid: string }> }) {
   const { cid } = await params
   await hydrateData()
+  /* 보상은 채용 담당자와 그 공고의 하이어링 매니저만. 면접관은 못 본다. */
+  if (!(await allow(['cand', cid]))) return <NoAccess />
 
   /* 밴드 초과 결재는 TalentCore 결재함에서 눌린다 — 화면을 그리기 전에
      어디까지 왔는지 물어본다(결재 칸이 없으면 아무 것도 하지 않는다). */

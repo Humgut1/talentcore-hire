@@ -2,6 +2,8 @@ import { hydrateData } from '../../lib/db'
 import PoolClient from '../../components/PoolClient'
 import { poolFor, openPositions } from '../../lib/pool'
 import { posById } from '../../lib/data'
+import NoAccess from '../../components/NoAccess'
+import { allow } from '../../lib/access'
 
 /* 인재풀
    ---------------------------------------------------------
@@ -12,6 +14,7 @@ import { posById } from '../../lib/data'
 export default async function Page(
   { searchParams }: { searchParams: Promise<{ p?: string; all?: string; t?: string }> },
 ) {
+  if (!(await allow('staff'))) return <NoAccess />
   const { p, all } = await searchParams
   await hydrateData()
 

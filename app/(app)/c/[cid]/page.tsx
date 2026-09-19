@@ -15,6 +15,8 @@ import { cands, evals, me, personById, posById, stageById, stagesOf, commentsFor
 import { decisionFor } from '../../../lib/decision'
 import { docsOf, docUrl } from '../../../lib/docs'
 import { mailsOf } from '../../../lib/maillog'
+import NoAccess from '../../../components/NoAccess'
+import { viewerScope, seeCand, runCand } from '../../../lib/access'
 
 export default async function Page({ params }: { params: Promise<{ cid: string }> }) {
   const { cid } = await params
@@ -22,6 +24,10 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
 
   const c = cands.find(x => x.id === cid)
   if (!c) return <Screen html={candidateHeadHTML(cid)} />
+  /* 면접관은 자기가 면접 보는 후보자만 — 판정 버튼·오퍼는 빼고 평가·코멘트만. */
+  const sc = await viewerScope()
+  if (!seeCand(sc, cid)) return <NoAccess />
+  const run = runCand(sc, cid)
 
   /* 제출서류와 발송 기록은 DB에서 온다 — 화면이 '보낸 척'하지 않게. */
   const [docs, mails] = await Promise.all([docsOf(cid), mailsOf(cid)])
@@ -50,15 +56,15 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
 
   return (
     <>
-      <Screen html={candidateHeadHTML(cid)} />
+      <Screen html={candidateHeadHTML(cid, run)} />
       <StageComments wrap cid={c.id} actor={actor} stageNm={cur.nm}
         cur={cm.cur} prior={cm.prior} closed={!!cur.rail} />
-      <DecisionClient
+      {run && <DecisionClient
         view={view} cid={c.id} cand={c.nm} rj={c.rj}
         pos={posById(c.p).title} sender={actor}
         lock={lock}
         {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
-      />
+      />}
       {showEval && gate ? (
         <div className="stage" style={{ padding: '16px 26px 0' }}>
           <div className="ev-split">

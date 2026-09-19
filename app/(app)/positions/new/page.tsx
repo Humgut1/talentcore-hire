@@ -1,8 +1,11 @@
 import NewPosition, { type CopySource } from '../../../components/NewPosition'
 import { hydrateData } from '../../../lib/db'
 import { people, positions, stagesOf } from '../../../lib/data'
+import NoAccess from '../../../components/NoAccess'
+import { allow } from '../../../lib/access'
 
 export default async function Page() {
+  if (!(await allow('staff'))) return <NoAccess />
   await hydrateData()
   /* 부문 목록은 따로 관리하는 표가 없다 — 지금 있는 공고·사람에서 뽑아 쓴다.
      조직 트리는 TalentCore(HRIS)의 것이라, 연결되면 거기서 받아 온다. */

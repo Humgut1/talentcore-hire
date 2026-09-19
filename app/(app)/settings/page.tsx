@@ -6,8 +6,11 @@ import { mailerStatus } from '../../lib/mailer'
 import { inboundState } from '../../lib/inbound'
 import { listUsers } from '../../lib/users'
 import { currentSession, canManageUsers } from '../../lib/session'
+import NoAccess from '../../components/NoAccess'
+import { allow } from '../../lib/access'
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ google?: string }> }) {
+  if (!(await allow('staff'))) return <NoAccess />
   await hydrateData()
   const { google } = await searchParams
   const gs = await googleStatus()
