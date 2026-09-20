@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { hydrateData } from '../../lib/db'
-import { openPosts, facets, todayISO } from '../../lib/careers'
+import { openPosts, todayISO } from '../../lib/careers'
 import { orgName } from '../../lib/core'
-import CareersList from '../../components/CareersList'
-import { STATS } from './content'
+import CareersHome from '../../components/CareersHome'
+import { STEPS, WAYS, STORIES, FAQ } from './content'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,14 +16,14 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /* =========================================================
-   공고 — 채용 사이트의 첫 화면
+   채용 첫 화면
 
-   한 페이지에 회사 이야기를 다 쌓지 않는다. 여기는 자리를 보러 오는 곳이라
-   색면 하나 지나면 바로 공고다. 회사 이야기는 '일하는 방식'이 들고 있고,
-   절차와 질문은 '지원하기 전에'가 들고 있다.
+   화면은 CareersHome 이 그린다(브라우저에서 검색·거르개가 돌아야 해서).
+   여기서는 진짜 값만 챙겨 넘긴다 — 공고는 Hire 안의 실제 데이터,
+   절차·일하는 방식·팀 이야기·질문은 회사가 직접 쓰는 글(content.ts).
 
-   색면의 숫자 세 개 중 첫 칸(열려 있는 자리)만 진짜 값이다.
-   나머지 둘은 content.ts 의 예시 — 회사의 진짜 숫자로 바꿔야 한다.
+   이 페이지는 사이트 공통 머리글·바닥글을 감추고 직접 그린다.
+   위쪽 빛 번짐 위로 머리글이 떠 있어야 하기 때문이다(careers-home.css).
    ========================================================= */
 export default async function CareersPage() {
   await hydrateData()
@@ -32,23 +32,15 @@ export default async function CareersPage() {
 
   return (
     <main>
-      <section className="s-field">
-        <div className="s-wrap">
-          <h1 className="s-dsp">일하는 방식을<br />만드는 일</h1>
-          <p>{co}는 사람을 뽑고, 맞이하고, 함께 일하는 과정을 다시 설계합니다.</p>
-
-          <div className="s-bar">
-            <div><b>{posts.length}</b>열려 있는 공고</div>
-            {STATS.map(s => (
-              <div key={s.k}><b>{s.v}</b>{s.k}</div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <div className="s-wrap s-sheet">
-        <CareersList posts={posts} facets={facets(posts)} today={todayISO()} />
-      </div>
+      <CareersHome
+        posts={posts}
+        co={co}
+        steps={STEPS}
+        ways={WAYS}
+        stories={STORIES}
+        faq={FAQ}
+        today={todayISO()}
+      />
     </main>
   )
 }
