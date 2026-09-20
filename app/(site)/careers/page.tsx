@@ -3,7 +3,7 @@ import { hydrateData } from '../../lib/db'
 import { openPosts, todayISO } from '../../lib/careers'
 import { orgName } from '../../lib/core'
 import CareersHome from '../../components/CareersHome'
-import { STEPS, WAYS, STORIES, FAQ } from './content'
+import { STEPS, WAYS, STORIES, FAQ, HERO_PHOTO } from './content'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,6 +40,7 @@ export default async function CareersPage() {
         stories={STORIES}
         faq={FAQ}
         today={todayISO()}
+        photo={HERO_PHOTO}
       />
     </main>
   )

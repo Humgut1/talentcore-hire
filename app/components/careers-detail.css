@@ -1,0 +1,97 @@
+/* =========================================================
+   공고 상세 — .ch 안의 .cd 로만 쓴다.
+
+   첫 화면과 같은 언어다: 흰 바탕, 파랑 하나, 굵은 제목, 굴린 모서리.
+   다른 점은 여기가 '읽는 화면'이라는 것 하나뿐이라, 본문 줄 길이를
+   좁게 잡고(글이 길어도 눈이 줄을 놓치지 않게) 오른쪽에 지원 버튼을
+   붙여 둔다. 스크롤을 어디까지 내렸든 지원 버튼은 늘 화면에 있다.
+   ========================================================= */
+
+/* 머리글이 빛 위에 떠 있는 건 첫 화면뿐이다. 여기서는 제자리에 둔다 */
+.ch-top.fixed { margin-bottom: 0; }
+
+/* 띠 — 공고 이름과 조건. 옅은 파랑 한 겹만 깔아 본문과 나눈다 */
+.cd-head { position: relative; padding: 48px 0 40px; overflow: hidden; }
+.cd-head::before {
+  content: ''; position: absolute; inset: -64px 0 auto; height: 320px;
+  background: radial-gradient(ellipse at 50% 0%, #dbeafe, #f4f8ff 55%, #fff 80%);
+}
+.cd-head .ch-in { position: relative; }
+
+.cd-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 600; color: var(--ink2); text-decoration: none;
+}
+.cd-back:hover { color: var(--ink); }
+.cd-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.cd-dept { display: block; margin-top: 22px; font-size: 15px; font-weight: 600; color: var(--blue-d); }
+.site .cd h1 { margin-top: 8px; font-size: 44px; line-height: 1.25; font-weight: 800; letter-spacing: -.035em; }
+
+/* 조건 — 값이 주인공이라 라벨을 작게 위에 둔다 */
+.cd-facts { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px; }
+.cd-facts > div {
+  background: rgba(255, 255, 255, .72); border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 16px; min-width: 116px;
+}
+.cd-facts dt { font-size: 12.5px; font-weight: 600; color: var(--ink3); }
+.cd-facts dd { margin: 2px 0 0; font-size: 15.5px; font-weight: 700; letter-spacing: -.02em; }
+.cd-facts dd.near { color: var(--red); }
+
+/* 본문 + 오른쪽 붙박이 */
+.cd-body { padding: 44px 0 100px; }
+.cd-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 64px; align-items: start; }
+
+.cd-jd { max-width: 44em; font-size: 16.5px; line-height: 1.9; color: #333d4b; }
+.cd-jd > * + * { margin-top: 18px; }
+.site .cd-jd h2 {
+  margin-top: 44px; font-size: 22px; font-weight: 800; letter-spacing: -.03em; color: var(--ink);
+  padding-top: 26px; border-top: 1px solid var(--line);
+}
+.cd-jd > h2:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.site .cd-jd p { white-space: pre-line; }
+.site .cd-jd ul { list-style: none; margin-top: 16px; padding: 0; }
+.cd-jd li { position: relative; padding-left: 20px; }
+.cd-jd li + li { margin-top: 9px; }
+.cd-jd li::before {
+  content: ''; position: absolute; left: 4px; top: 13px;
+  width: 5px; height: 5px; border-radius: 50%; background: var(--blue);
+}
+
+/* 오른쪽 — 전형 절차와 지원 버튼 */
+.cd-side { position: sticky; top: 88px; display: grid; gap: 14px; }
+.cd-card { border: 1px solid var(--line); border-radius: 20px; padding: 22px; background: #fff; }
+.cd-card > strong { display: block; font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+.cd-plan { margin-top: 16px; }
+.cd-plan li { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; color: var(--ink2); }
+.cd-plan li + li { margin-top: 4px; }
+.cd-plan i {
+  flex: none; font-style: normal; display: grid; place-items: center;
+  width: 26px; height: 26px; border-radius: 50%; background: var(--soft);
+  font-size: 12.5px; font-weight: 700; color: var(--ink2);
+}
+
+.ch-cta.cd-go { display: block; text-align: center; }
+.ch-cta.cd-go.off { background: var(--soft); color: var(--ink3); cursor: default; }
+.cd .cd-note { margin-top: 10px; font-size: 13.5px; color: var(--ink3); text-align: center; }
+
+/* 좁은 화면에서만 띠 안에 지원 버튼을 하나 더 둔다.
+   넓은 화면에서는 오른쪽 붙박이가 늘 보이므로 필요 없다 */
+.cd-top-go { display: none; }
+
+/* 좁은 화면 ----------------------------------------------------- */
+@media (max-width: 960px) {
+  .cd-cols { grid-template-columns: minmax(0, 1fr) 280px; gap: 40px; }
+}
+@media (max-width: 760px) {
+  .cd-head { padding: 28px 0 32px; }
+  .site .cd h1 { font-size: 28px; }
+  .cd-facts > div { flex: 1 1 calc(50% - 5px); min-width: 0; }
+  .cd-body { padding: 32px 0 40px; }
+  .cd-cols { grid-template-columns: 1fr; gap: 32px; }
+  .cd-jd { font-size: 16px; }
+  .site .cd-jd h2 { font-size: 19px; margin-top: 32px; padding-top: 22px; }
+  /* 좁은 화면에서는 붙박이를 풀고 본문 아래로 내린다 */
+  .cd-side { position: static; }
+  .cd-top-go { display: block; width: 100%; margin-top: 18px; }
+}

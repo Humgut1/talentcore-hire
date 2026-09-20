@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { dueLabel, dueSoon, type CareerPost } from '../lib/careers'
 import type { Story } from '../(site)/careers/content'
+import { CareersTop, CareersFoot } from './CareersChrome'
 import './careers-home.css'
 
 /* =========================================================
@@ -13,10 +14,10 @@ import './careers-home.css'
    자주 묻는 질문. 바깥에서 온 사람이 가장 먼저 찾는 것이 '무슨 자리가
    열려 있나'라, 회사 이야기보다 공고가 먼저 온다.
 
-   숫자 띠(구성원 181명 · 평균 근속 3.4년)는 첫 화면에서 뺐다. 회사 자랑이
-   지원자의 첫 줄을 차지할 이유가 없고, 그 셋은 회사가 직접 채워야 하는
-   예시 값이라 사실이 아닌 것을 큰 글씨로 세우게 된다. 대신 바로 누를 수
-   있는 부서 바로 가기를 둔다.
+   첫 화면에는 제목 · 검색창 · 사진 한 장만 둔다. 숫자 띠(구성원 181명 ·
+   평균 근속 3.4년)는 회사가 직접 채워야 하는 예시 값이라 뺐고, 그 자리에
+   잠깐 두었던 부서 바로 가기와 '7일 안에' 안내도 뺐다 — 둘 다 바로 아래
+   구역에서 다시 나오는 말이라, 첫 화면이 같은 말을 두 번 하고 있었다.
 
    효과는 브라우저에서만 그린다 — 글자와 공고가 먼저 뜨고 빛이 뒤따른다.
    ========================================================= */
@@ -30,6 +31,7 @@ interface Props {
   stories: Story[]
   faq: { q: string; a: string }[]
   today: string
+  photo: string
 }
 
 function useStill() {
@@ -44,18 +46,10 @@ function useStill() {
   return still
 }
 
-export default function CareersHome({ posts, co, steps, ways, stories, faq, today }: Props) {
+export default function CareersHome({ posts, co, steps, ways, stories, faq, today, photo }: Props) {
   const [q, setQ] = useState('')
   const [dept, setDept] = useState('')
-  const [solid, setSolid] = useState(false)
   const still = useStill()
-
-  useEffect(() => {
-    const on = () => setSolid(window.scrollY > 24)
-    on()
-    window.addEventListener('scroll', on, { passive: true })
-    return () => window.removeEventListener('scroll', on)
-  }, [])
 
   const depts = useMemo(() => {
     const m = new Map<string, number>()
@@ -72,23 +66,10 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
 
   const soon = posts.filter(p => dueSoon(p.due, today)).length
   const toJobs = () => document.getElementById('jobs')?.scrollIntoView({ behavior: 'smooth' })
-  const pickDept = (d: string) => { setDept(d); setQ(''); toJobs() }
 
   return (
     <div className="ch">
-      <header className={`ch-top${solid ? ' solid' : ''}`}>
-        <div className="ch-in">
-          <Link href="/careers" className="ch-mark">{co} <span>채용</span></Link>
-          <nav>
-            <a href="#jobs">공고</a>
-            <a href="#steps">전형 절차</a>
-            <a href="#stories">팀 이야기</a>
-            <a href="#ways">일하는 방식</a>
-            <a href="#faq">자주 묻는 질문</a>
-          </nav>
-          <a className="ch-cta" href="#jobs">공고 {posts.length}건 보기</a>
-        </div>
-      </header>
+      <CareersTop co={co} count={posts.length} />
 
       <section className="ch-hero">
         <div className="ch-fx"><Glow still={still} /></div>
@@ -108,19 +89,16 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
             />
           </label>
 
-          {/* 숫자를 세우는 대신, 눌러서 바로 걸러 보게 한다 */}
-          {depts.length > 0 && (
-            <div className="ch-quick">
-              {depts.slice(0, 4).map(([d, n]) => (
-                <button type="button" key={d} onClick={() => pickDept(d)}>{d} {n}</button>
-              ))}
-              <button type="button" onClick={() => pickDept('')}>전체 공고 {posts.length}</button>
-            </div>
-          )}
-          <p className="ch-note">
-            면접은 두 번으로 끝냅니다. 지원 결과는 영업일 기준 <b>7일 안에</b> 알려 드립니다.
-          </p>
         </div>
+
+        {/* 아래 구역에서 다시 나올 말(부서 칩·7일 안내)을 첫 화면이 한 번 더
+            하지 않게 했다. 그 자리에는 사진 한 장만 둔다. */}
+        {photo && (
+          <div className="ch-in ch-hero-shot">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photo} alt="" />
+          </div>
+        )}
       </section>
 
       <section className="ch-sec" id="jobs">
@@ -252,12 +230,7 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
         </div>
       </section>
 
-      <footer className="ch-foot">
-        <div className="ch-in">
-          <span>© {new Date().getFullYear()} {co}</span>
-          <p>지원 과정에서 받은 개인정보는 채용 목적으로만 쓰이며, 채용 종료 후 파기합니다.</p>
-        </div>
-      </footer>
+      <CareersFoot co={co} />
     </div>
   )
 }

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { hydrateData } from '../../../../lib/db'
-import { postById, isClosed, todayISO } from '../../../../lib/careers'
+import { postById, openPosts, isClosed, todayISO } from '../../../../lib/careers'
 import { orgName } from '../../../../lib/core'
 import ApplyForm from '../../../../components/ApplyForm'
+import { CareersTop, CareersFoot } from '../../../../components/CareersChrome'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,9 +27,15 @@ export default async function ApplyPage({ params }: Params) {
 
   const co = (await orgName()) || 'TalentCore'
 
+  /* 머리글·바닥글은 첫 화면·공고 상세와 같은 것을 쓴다(.ch).
+     지원 폼 자체는 .s-* 그대로 — 색만 같이 파랑으로 바뀐다. */
   return (
-    <main className="s-wrap">
-      <ApplyForm pid={post.id} title={post.title} steps={post.steps} company={co} />
-    </main>
+    <div className="ch">
+      <CareersTop co={co} count={openPosts().length} base="/careers" always />
+      <main className="ch-in">
+        <ApplyForm pid={post.id} title={post.title} steps={post.steps} company={co} />
+      </main>
+      <CareersFoot co={co} />
+    </div>
   )
 }

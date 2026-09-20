@@ -69,16 +69,13 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .ch-search input::placeholder { color: var(--ink3); }
 .ch-search input:focus { background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 2px var(--blue) inset, 0 16px 50px -16px rgba(27, 100, 218, .4); }
 
-/* 검색창 아래 바로 가기 — 숫자를 세우는 대신 눌러서 걸러 보게 한다 */
-.ch-quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 22px; }
-.ch-quick button {
-  border: 1px solid rgba(255, 255, 255, .9); background: rgba(255, 255, 255, .55); color: #33415a;
-  border-radius: 999px; padding: 9px 15px; font: 600 14px var(--sans); cursor: pointer;
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); transition: background .15s, color .15s;
+/* 검색창 아래 사진 한 장. 빛 위에 얹혀 살짝 떠 보이게 둔다 */
+.ch-hero-shot { position: relative; margin-top: 60px; }
+.ch-hero-shot img {
+  display: block; width: 100%; aspect-ratio: 21 / 9; object-fit: cover;
+  border-radius: 24px; background: var(--soft);
+  box-shadow: 0 40px 80px -40px rgba(27, 100, 218, .45), 0 0 0 1px rgba(255, 255, 255, .7);
 }
-.ch-quick button:hover { background: #fff; color: var(--ink); }
-.ch .ch-note { margin-top: 26px; font-size: 14.5px; color: #4e5968; }
-.ch .ch-note b { font-weight: 700; color: var(--ink); }
 
 /* 공통 구역 */
 .ch-sec { padding: 96px 0; }
@@ -196,8 +193,10 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
   .ch-cta.big { margin: 0; }
   .site .ch h1 { font-size: 36px; }
   .ch .ch-sub { font-size: 16px; }
-  .ch-hero { padding: 104px 0 64px; }
+  .ch-hero { padding: 104px 0 56px; }
   .ch-search { margin-top: 26px; }
+  .ch-hero-shot { margin-top: 34px; }
+  .ch-hero-shot img { aspect-ratio: 5 / 4; border-radius: 18px; }
 
   .ch-sec { padding: 64px 0; }
   .ch .ch-h2 { font-size: 26px; }

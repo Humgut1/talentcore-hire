@@ -6,16 +6,15 @@
    여기는 처음 온 사람이 5 분 머무는 곳이다. 규칙이 달라야 한다.
 
    ---------------------------------------------------------
-   이 화면의 규칙 (시안 B · '색면과 굵은 글자')
+   이 화면의 규칙
 
+   · 흰 바탕에 파랑 하나. 첫 화면(.ch)과 공고 상세(.cd)를 새로 짜면서
+     여기 있는 나머지 페이지(지원·일하는 방식·전형 절차)도 같은 색으로
+     맞췄다. 예외는 '마감 임박' 하나뿐이고 그건 색이 아니라 경고다.
    · 색면(.s-field)이 페이지마다 하나씩 맨 위에 온다. 이게 척추다.
      흰 종이만 이어지면 어디까지 읽었는지 감이 사라진다.
-   · 색은 깊은 숲색 하나. 쨍한 원색을 넓게 칠하면 화면이 싸구려로 보인다 —
-     채도를 낮추고 명도를 내린 색이라야 넓은 면을 견딘다.
-     예외는 '마감 임박' 하나뿐이고 그건 색이 아니라 경고다.
    · 글꼴은 세 벌. 큰 제목 Noto Sans KR 900(.s-dsp), 본문 IBM Plex Sans KR,
      줄 맞춰 읽는 값(근무지·마감·소요 시간) IBM Plex Mono.
-   · 모서리는 거의 안 굴린다(3px). 굴릴수록 '색면'이 '카드'로 읽힌다.
 
    ---------------------------------------------------------
    ★ 함정 ★ 아래 초기화는 :where() 로 감싸 '무게 0'으로 둔다.
@@ -24,26 +23,30 @@
    ========================================================= */
 
 .site {
-  /* 숲색. --field 는 넓은 면, --hi 는 글자·선에 쓰는 같은 색이다.
-     둘을 따로 둔 이유는 나중에 색을 갈아탈 때 한 쪽만 바꾸는 일이 생겨서다. */
-  --field:      #123b2e;
-  --field-2:    #0e2f24;
-  --field-soft: rgba(255, 255, 255, .72);
-  --field-line: rgba(255, 255, 255, .22);
-  --hi:         #123b2e;
+  /* 파랑 하나. --field 는 넓은 면, --hi 는 글자·선에 쓰는 같은 색이다.
+     둘을 따로 둔 이유는 나중에 색을 갈아탈 때 한 쪽만 바꾸는 일이 생겨서다.
 
-  --paper:   #f7f7f5;
-  --paper-2: #efefeb;
-  --ink:     #0f1114;
-  --ink-2:   #63636d;
-  --ink-3:   #8c8c95;
-  --ink-4:   #b4b4bb;
-  --rule:    #e2e2de;
-  --rule-2:  #d0d0ca;
+     첫 화면(.ch)과 공고 상세(.cd)를 흰 바탕 + 파랑으로 다시 짜면서
+     나머지 페이지(지원·일하는 방식·전형 절차)도 같은 색으로 맞췄다.
+     한 사이트 안에서 페이지마다 색이 다르면 다른 회사처럼 보인다. */
+  --field:      #1b64da;
+  --field-2:    #174fae;
+  --field-soft: rgba(255, 255, 255, .78);
+  --field-line: rgba(255, 255, 255, .26);
+  --hi:         #1b64da;
 
-  /* 마감 임박에만 쓰는 예외. 숲색 옆에서 튀되 비명은 지르지 않는 톤 */
-  --warn:    #8a5a06;
-  --warn-bg: #f6eedd;
+  --paper:   #ffffff;
+  --paper-2: #f2f4f6;
+  --ink:     #191f28;
+  --ink-2:   #4e5968;
+  --ink-3:   #8b95a1;
+  --ink-4:   #b0b8c1;
+  --rule:    #e5e8eb;
+  --rule-2:  #d1d6db;
+
+  /* 마감 임박에만 쓰는 예외. 파랑 옆에서 '급하다'로 읽히는 유일한 색 */
+  --warn:    #f04452;
+  --warn-bg: #fdecee;
 
   --sans: 'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --dsp:  'Noto Sans KR', 'IBM Plex Sans KR', sans-serif;
@@ -119,7 +122,7 @@
 
 /* 머리글 버튼. .s-nav a 뒤에 오므로 padding 을 되돌려 준다 */
 .s-nav a.s-btn {
-  margin-left: 8px; padding: 10px 18px; border-radius: 3px;
+  margin-left: 8px; padding: 10px 18px; border-radius: 10px;
   background: var(--field); color: #fff; font-size: 13.5px; font-weight: 700;
   box-shadow: none; transition: background .12s;
 }
@@ -351,7 +354,7 @@
 
 .s-cta {
   display: flex; align-items: center; justify-content: center;
-  height: 48px; border-radius: 3px; background: var(--field); color: #fff;
+  height: 48px; border-radius: 10px; background: var(--field); color: #fff;
   font-size: 15px; font-weight: 700; width: 100%;
   transition: background .12s;
 }
@@ -377,20 +380,20 @@
 .s-f input[type='number'],
 .s-f select,
 .s-f textarea {
-  border: 1px solid var(--rule-2); border-radius: 3px; background: #fff;
+  border: 1px solid var(--rule-2); border-radius: 10px; background: #fff;
   padding: 11px 13px; outline: 0; width: 100%;
   transition: border-color .12s, box-shadow .12s;
 }
 .s-f textarea { resize: vertical; min-height: 104px; line-height: 1.7; }
 .s-f input:focus, .s-f select:focus, .s-f textarea:focus {
-  border-color: var(--hi); box-shadow: 0 0 0 2px rgba(18, 59, 46, .14);
+  border-color: var(--hi); box-shadow: 0 0 0 2px rgba(49, 130, 246, .2);
 }
 .s-f input[aria-invalid='true'], .s-f textarea[aria-invalid='true'] { border-color: var(--warn); }
 .s-two { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 
 .s-file {
   display: flex; align-items: center; gap: 12px;
-  border: 1px dashed var(--rule-2); border-radius: 3px; padding: 14px;
+  border: 1px dashed var(--rule-2); border-radius: 10px; padding: 14px;
   background: var(--paper-2); font-size: 13px; color: var(--ink-2);
 }
 .s-file input { flex: 1; min-width: 0; font-size: 13px; }
@@ -406,7 +409,7 @@
 
 .s-err {
   border: 1px solid var(--warn); background: var(--warn-bg); color: var(--warn);
-  border-radius: 3px; padding: 12px 14px; font-size: 13.5px; font-weight: 500;
+  border-radius: 10px; padding: 12px 14px; font-size: 13.5px; font-weight: 500;
 }
 .s-actions { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
 .s-actions .s-cta { width: auto; padding: 0 30px; }
