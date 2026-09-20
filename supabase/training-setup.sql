@@ -3,13 +3,16 @@
 -- ---------------------------------------------------------
 -- Grow 교육 모드가 쓸 '연습용 Hire' Supabase 프로젝트를 만들 때,
 -- 이 파일을 통째로 복사해 SQL Editor 에 붙여넣고 [Run] 하세요.
--- schema.sql + 마이그레이션 전부를 순서대로 이어 붙인 것입니다.
+--
+-- 순서: ① 표 만들기(schema + 마이그레이션 전부) ② 예시 데이터(seed)
 --
 -- 주의: 맨 앞에서 기존 표를 지웁니다(drop). 실제로 쓰는 프로젝트에는
 --       절대 돌리지 마세요 — 새로 만든 연습용 프로젝트에서만.
 --
--- 이 파일은 scripts/generate-training-sql.sh 가 만듭니다. 직접 고치지 마세요.
+-- 이 파일은 scripts/generate-training-sql.py 가 만듭니다. 직접 고치지 마세요.
 -- =========================================================
+
+-- ═════════ ① 표 만들기 ═════════
 
 -- ───────── schema.sql ─────────
 
@@ -306,23 +309,7 @@ begin
     execute format('create policy demo_all on %I for all using (true) with check (true);', t);
   end loop;
 end $$;
-
--- 5) 탈락 후보자가 '어디까지 갔었는지' 채우기 (퍼널 계산용) ---
-update candidates set exit_stage = v.ex from (values
-  ('c14','s2'),('c15','s2'),('c16','s3'),('c17','s3'),('c26','s2'),
-  ('c34','s3'),('c35','s2'),('c39','s2'),('c40','s2'),('c42','s3'),
-  ('c43','s2'),('c44','s4'),('c45','s2'),('c46','s3')
-) as v(id, ex) where candidates.id = v.id;
-
--- 6) 샘플 평가 6건 ------------------------------------------
-insert into evaluations (candidate_id, interviewer_id, iv, role, st, items, overall, memo, at) values
-  ('c11', 'u1', '최영수', 'HM', '1차 인터뷰', '[["직무 역량 깊이","syes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '분산 트랜잭션 경험이 우리 문제와 정확히 맞습니다.', '7/25 15:10'),
-  ('c11', 'u4', '서민재', '테크리드', '1차 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '코드 리뷰 문화에 대한 이해가 좋습니다.', '7/25 16:02'),
-  ('c24', 'u8', '김서진', 'HM', '과제 리뷰 인터뷰', '[["직무 역량 깊이","syes"],["문제 해결 방식","syes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'syes', '과제에서 문제를 다시 정의한 점이 인상적입니다.', '8/09 11:40'),
-  ('c24', 'u11', '유하린', '디자이너', '과제 리뷰 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","syes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '컴포넌트 체계를 스스로 만들어 본 경험이 있습니다.', '8/09 12:15'),
-  ('c30', 'u12', '강태윤', '테크리드', '기술 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","no"]]'::jsonb, 'no', '설계는 좋으나 대규모 장애 대응 경험은 더 확인이 필요합니다.', '8/08 17:30'),
-  ('c33', 'u5', '노아름', 'HM', '임원 인터뷰', '[["조직 적합성","syes"],["중장기 기여","syes"]]'::jsonb, 'syes', '팀을 세팅해 본 경험이 우리 상황과 맞습니다. 처우 밴드만 정리되면 진행.', '7/27 10:20')
-on conflict (candidate_id, interviewer_id) do nothing;
+-- (예시 데이터 2 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-003-offers.sql ─────────
 
@@ -362,16 +349,7 @@ create index if not exists idx_offers_st on offers(st);
 alter table offers enable row level security;
 drop policy if exists demo_all on offers;
 create policy demo_all on offers for all using (true) with check (true);
-
--- 3) 샘플 오퍼 6건 ------------------------------------------
-insert into offers (candidate_id, st, level, base, sign, band_lo, band_hi, start_date, chain, created_at, sent_at, resp_at, decline_code, decline_memo) values
-  ('c12', 'sent', '스태프 엔지니어', 9800, 1000, 8000, 10000, '2026-09-01', '[{"uid":"u1","nm":"최영수","role":"하이어링 매니저","s":"ok","at":"7/23 09:40"}]'::jsonb, '2026-07-22', '2026-07-24', null, null, null),
-  ('c13', 'accepted', '시니어 엔지니어', 8800, 0, 8000, 10000, '2026-09-01', '[{"uid":"u1","nm":"최영수","role":"하이어링 매니저","s":"ok","at":"7/25 17:20"}]'::jsonb, '2026-07-25', '2026-07-26', '2026-07-29', null, null),
-  ('c25', 'approval', '프로덕트 디자이너', 7800, 0, 6500, 8500, '2026-09-15', '[{"uid":"u8","nm":"김서진","role":"하이어링 매니저","s":"pending"}]'::jsonb, '2026-08-06', null, null, null, null),
-  ('c33', 'approval', '데이터 엔지니어링 리드', 10200, 1500, 7500, 9500, '2026-09-15', '[{"uid":"u5","nm":"노아름","role":"하이어링 매니저","s":"ok","at":"7/27 14:05"},{"uid":"u3","nm":"한도경","role":"본부 승인 (밴드 초과)","s":"pending"}]'::jsonb, '2026-07-27', null, null, null, null),
-  ('c41', 'accepted', 'QA 엔지니어 (계약)', 6200, 0, 5500, 7000, '2026-07-13', '[{"uid":"u13","nm":"임수정","role":"하이어링 매니저","s":"ok","at":"6/24 16:10"}]'::jsonb, '2026-06-24', '2026-06-25', '2026-06-30', null, null),
-  ('c44', 'declined', 'QA 리드 (계약)', 6400, 0, 5500, 7000, null, '[{"uid":"u13","nm":"임수정","role":"하이어링 매니저","s":"ok","at":"6/13 11:30"}]'::jsonb, '2026-06-13', '2026-06-14', '2026-06-20', 'comp', '현 직장 대비 인상폭이 작다는 이유. 정규직 전환 시점도 걸림돌이었습니다.')
-on conflict (candidate_id) do nothing;
+-- (예시 데이터 1 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-004-decision.sql ─────────
 
@@ -400,12 +378,6 @@ create index if not exists idx_candidates_reject on candidates(reject_code);
 alter table positions add column if not exists band_lo integer;
 alter table positions add column if not exists band_hi integer;
 
-update positions set band_lo = 8000,  band_hi = 10000 where id = 'p1';
-update positions set band_lo = 6500,  band_hi = 8500  where id = 'p2';
-update positions set band_lo = 7500,  band_hi = 9500  where id = 'p3';
-update positions set band_lo = 6000,  band_hi = 8000  where id = 'p4';
-update positions set band_lo = 5500,  band_hi = 7000  where id = 'p5';
-
 -- 3) 판정 기록 표 --------------------------------------------
 --  "누가 언제 왜"가 없으면 되돌린 뒤 아무도 이유를 모릅니다.
 --  s: done(통과) / now(보류·되돌림) / bad(불합격·이탈)
@@ -424,25 +396,7 @@ create index if not exists idx_stage_events_cand on stage_events(candidate_id);
 alter table stage_events enable row level security;
 drop policy if exists demo_all on stage_events;
 create policy demo_all on stage_events for all using (true) with check (true);
-
--- 4) 종료된 샘플 후보자 14명의 사유 --------------------------
---  화면(대시보드 '전형 종료 사유')이 지금 보여주는 값과 같은 값입니다.
-update candidates set exit_stage='s2', reject_code='skill',       decided_at=en::date where id='c14';
-update candidates set exit_stage='s2', reject_code='exp',         decided_at=en::date where id='c15';
-update candidates set exit_stage='s3', reject_code='skill',       decided_at=en::date where id='c16';
-update candidates set exit_stage='s3', reject_code='other-offer', decided_at=en::date,
-       reject_memo='경쟁사 오퍼 수락. 연봉보다 합류 시점이 빨랐던 점이 컸다고 합니다.' where id='c17';
-update candidates set exit_stage='s2', reject_code='skill',       decided_at=en::date where id='c26';
-update candidates set exit_stage='s3', reject_code='skill',       decided_at=en::date where id='c34';
-update candidates set exit_stage='s2', reject_code='career',      decided_at=en::date where id='c35';
-update candidates set exit_stage='s2', reject_code='exp',         decided_at=en::date where id='c39';
-update candidates set exit_stage='s2', reject_code='withdraw',    decided_at=en::date,
-       reject_memo='대기가 길어지며 이직 계획 자체를 미뤘습니다. 공고 홀드 기간이 원인.' where id='c40';
-update candidates set exit_stage='s3', reject_code='better-fit',  decided_at=en::date where id='c42';
-update candidates set exit_stage='s2', reject_code='skill',       decided_at=en::date where id='c43';
-update candidates set exit_stage='s4', reject_code='comp',        decided_at=en::date where id='c44';
-update candidates set exit_stage='s2', reject_code='exp',         decided_at=en::date where id='c45';
-update candidates set exit_stage='s3', reject_code='collab',      decided_at=en::date where id='c46';
+-- (예시 데이터 19 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-005-availability.sql ─────────
 
@@ -472,19 +426,7 @@ create table if not exists availability (
 alter table availability enable row level security;
 drop policy if exists demo_all on availability;
 create policy demo_all on availability for all using (true) with check (true);
-
--- 3) 샘플 7명 ------------------------------------------------
---  표가 비어 있으면 앱은 '아무도 시간을 안 냈다'로 읽습니다.
---  데모에서 일정 탐색이 계속 돌아가도록 기존 샘플을 그대로 옮겨 둡니다.
-insert into availability (uid, wh_lo, wh_hi, busy) values
-  ('u1', 600, 1080, '[{"date":"2026-08-12","start":600,"end":720},{"date":"2026-08-12","start":840,"end":900},{"date":"2026-08-13","start":600,"end":660},{"date":"2026-08-13","start":660,"end":720},{"date":"2026-08-14","start":840,"end":900},{"date":"2026-08-17","start":900,"end":960},{"date":"2026-08-18","start":600,"end":960},{"date":"2026-08-19","start":780,"end":840},{"date":"2026-08-20","start":600,"end":660},{"date":"2026-08-21","start":960,"end":1020}]'::jsonb),
-  ('u4', 600, 1080, '[{"date":"2026-08-12","start":780,"end":840},{"date":"2026-08-13","start":600,"end":660},{"date":"2026-08-13","start":900,"end":960},{"date":"2026-08-14","start":840,"end":900},{"date":"2026-08-14","start":960,"end":1020},{"date":"2026-08-17","start":660,"end":720},{"date":"2026-08-18","start":600,"end":660},{"date":"2026-08-19","start":780,"end":840},{"date":"2026-08-20","start":840,"end":900},{"date":"2026-08-21","start":600,"end":720}]'::jsonb),
-  ('u5', 600, 1080, '[{"date":"2026-08-13","start":780,"end":900},{"date":"2026-08-18","start":600,"end":720},{"date":"2026-08-20","start":900,"end":1020}]'::jsonb),
-  ('u8', 600, 1140, '[{"date":"2026-08-12","start":600,"end":660},{"date":"2026-08-12","start":900,"end":990},{"date":"2026-08-13","start":660,"end":720},{"date":"2026-08-14","start":600,"end":720},{"date":"2026-08-14","start":900,"end":960},{"date":"2026-08-17","start":840,"end":960},{"date":"2026-08-18","start":600,"end":660},{"date":"2026-08-19","start":900,"end":1020},{"date":"2026-08-20","start":600,"end":720}]'::jsonb),
-  ('u11', 600, 1140, '[{"date":"2026-08-12","start":840,"end":900},{"date":"2026-08-13","start":600,"end":660},{"date":"2026-08-14","start":780,"end":840},{"date":"2026-08-17","start":600,"end":720},{"date":"2026-08-19","start":600,"end":660},{"date":"2026-08-21","start":900,"end":1020}]'::jsonb),
-  ('u12', 540, 1080, '[{"date":"2026-08-12","start":540,"end":660},{"date":"2026-08-12","start":780,"end":840},{"date":"2026-08-13","start":540,"end":660},{"date":"2026-08-13","start":900,"end":1020},{"date":"2026-08-14","start":540,"end":660},{"date":"2026-08-17","start":540,"end":660},{"date":"2026-08-17","start":780,"end":900},{"date":"2026-08-18","start":540,"end":720},{"date":"2026-08-19","start":540,"end":660},{"date":"2026-08-19","start":840,"end":960},{"date":"2026-08-20","start":540,"end":660}]'::jsonb),
-  ('u13', 600, 1080, '[{"date":"2026-08-13","start":600,"end":660},{"date":"2026-08-18","start":840,"end":900},{"date":"2026-08-20","start":600,"end":660}]'::jsonb)
-on conflict (uid) do nothing;
+-- (예시 데이터 1 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-006-pool.sql ─────────
 
@@ -505,21 +447,7 @@ on conflict (uid) do nothing;
 alter table candidates add column if not exists person_key text;
 
 create index if not exists idx_candidates_person on candidates(person_key);
-
--- 2) 중복 정리 화면용 지원건 ---------------------------------
---  한 사람이 회사에 여러 번 지원하는 일은 흔합니다.
---  신호의 세기가 서로 다른 세 경우를 일부러 심어 둡니다.
---    c47 서지호 — c14 와 이메일이 같음          → 거의 확실
---    c48 조은비 — c16 과 이름·직무·연차가 겹침  → 가능성 높음
---    c49 남궁현 — c15 와 이름만 같음            → 동명이인일 수 있음
---  (email 칸은 마이그레이션 002 에서 이미 추가돼 있습니다.)
-update candidates set email = 'jiho.seo@example.com' where id = 'c14' and email is null;
-
-insert into candidates (id, position_id, nm, st, s, d, ap, en, why, src, yr, role, email) values
-  ('c47', 'p3', '서지호', 's2', 'idle', 2, '2026-08-08', '2026-08-10', '', '원티드',   4, '데이터 엔지니어 · 카카오',  'jiho.seo@example.com'),
-  ('c48', 'p1', '조은비', 's2', 'idle', 1, '2026-08-10', '2026-08-11', '', '자사채용', 6, '백엔드 · 핀테크',           null),
-  ('c49', 'p2', '남궁현', 's2', 'idle', 3, '2026-08-07', '2026-08-09', '', '링크드인', 5, '프로덕트 디자이너 · 토스',  null)
-on conflict (id) do nothing;
+-- (예시 데이터 2 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-007-core-link.sql ─────────
 
@@ -586,10 +514,7 @@ comment on column people.synced_at is '마지막으로 TalentCore 와 맞춘 시
 -- 사번은 있으면 유일해야 한다. 없는 사람(외부 면접관)은 여러 명이어도 된다.
 create unique index if not exists idx_people_emp_no on people(emp_no) where emp_no is not null;
 create index        if not exists idx_people_active on people(active);
-
--- 기존 데이터 정리 — 지금 들어 있는 사람은 전부 Hire 가 직접 만든 사람이다.
-update people set src = 'hire' where src is null;
-update people set active = true where active is null;
+-- (예시 데이터 2 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-009-seat.sql ─────────
 
@@ -725,8 +650,6 @@ comment on column automation.senior_lv   is '이 레벨 이상이 면접관에 �
 comment on column automation.r1_min      is '1차 길이(분)';
 comment on column automation.r2_min      is '2차 면접관 1명당 길이(분). 2명이면 이 값 × 2';
 comment on column automation.r2_gap      is '2차 두 면접 사이 쉬는 시간(분). 확정값 0 — 현장에서 조율한다';
-
-update automation set buf_in = 0, buf_out = 60, buf_unknown = 60 where buf_in is null;
 
 
 -- 3) 면접 1건 ------------------------------------------------
@@ -866,91 +789,13 @@ create policy demo_all on interview_parts  for all using (true) with check (true
 create policy demo_all on interview_slots  for all using (true) with check (true);
 create policy demo_all on interview_events for all using (true) with check (true);
 
-
--- 8) 면접관 직급 채우기 ---------------------------------------
---  TalentCore 동기화가 붙기 전까지 화면이 돌아가도록 넣어 둡니다.
-update people set core_level = 9 where id in ('u3','u7','u10') and core_level is null;
-update people set core_level = 6 where id in ('u1','u5','u8','u13') and core_level is null;
-update people set core_level = 5 where id in ('u4','u12') and core_level is null;
-update people set core_level = 4 where id in ('u11') and core_level is null;
-update people set core_level = 3 where id in ('u2','u6','u9') and core_level is null;
-
-
--- 9) 샘플 면접 5건 -------------------------------------------
---  지금 보드에 글자로만 적혀 있는 상태를 그대로 표로 옮깁니다.
---    c7  박지훈  1차 발송했는데 후보자 무응답 36h
---    c8  임채원  1차 슬롯 3개 발송, 가예약 중
---    c9  오시현  1차 8/14 14:00 확정
---    c10 김민준  2차 120분 연속 블록 탐색 중
---    c11 이서연  2차 면접관 전원 거절
-insert into interviews
-  (id, candidate_id, position_id, stage_id, round, kind, total_min, st, s, why,
-   sched_date, sched_start, sched_end, mode, loc,
-   sent_at, replied_at, hold_until, senior_ack, pick_token) values
-  ('iv1','c7' ,'p1','s3',1,'solo', 60,'proposed' ,'late','후보자 미확인 36h',
-     null,null,null,'화상',null,
-     '2026-08-11 10:20+09', null, '2026-08-13 10:20+09', false, 'demo-tok-c7'),
-  ('iv2','c8' ,'p1','s3',1,'solo', 60,'proposed' ,'idle','슬롯 3개 발송',
-     null,null,null,'화상',null,
-     '2026-08-12 09:05+09', null, '2026-08-14 09:05+09', false, 'demo-tok-c8'),
-  ('iv3','c9' ,'p1','s3',1,'solo', 60,'confirmed','done','8/14 14:00 확정',
-     '2026-08-14',840,900,'화상','https://meet.example.com/cadence-c9',
-     '2026-08-10 11:00+09', '2026-08-10 15:42+09', null, false, 'demo-tok-c9'),
-  ('iv4','c10','p1','s4',2,'seq' ,120,'searching','idle','2시간 연속 블록 탐색',
-     null,null,null,'대면',null,
-     null, null, null, false, null),
-  ('iv5','c11','p1','s4',2,'seq' ,120,'searching','esc' ,'면접관 전원 거절',
-     null,null,null,'대면',null,
-     null, null, null, true, null)
-on conflict (id) do nothing;
-
-insert into interview_parts
-  (interview_id, ord, interviewer_id, iv_nm, iv_role, src, core_level, off_min, dur,
-   resp, resp_at, decline_code, decline_memo) values
-  ('iv1',1,'u1','최영수','서버팀 팀장'      ,'hm'    ,6,  0,60,'accepted','2026-08-11 10:40+09',null,null),
-  ('iv2',1,'u1','최영수','서버팀 팀장'      ,'hm'    ,6,  0,60,'accepted','2026-08-12 09:30+09',null,null),
-  ('iv3',1,'u1','최영수','서버팀 팀장'      ,'hm'    ,6,  0,60,'accepted','2026-08-10 11:20+09',null,null),
-  ('iv4',1,'u3','한도경','플랫폼본부 본부장','upper' ,9,  0,60,'none'    ,null,null,null),
-  ('iv4',2,'u7','윤태경','CTO'              ,'collab',9, 60,60,'none'    ,null,null,null),
-  ('iv5',1,'u3','한도경','플랫폼본부 본부장','upper' ,9,  0,60,'declined','2026-08-11 16:10+09','conflict','같은 시간 본부 리뷰가 잡혀 있습니다.'),
-  ('iv5',2,'u7','윤태경','CTO'              ,'collab',9, 60,60,'declined','2026-08-11 17:35+09','calendar_missing','캘린더에 없는 외부 미팅이 있었습니다.')
-on conflict (interview_id, ord) do nothing;
-
-insert into interview_slots (interview_id, ord, d, st_min, en_min, st, buf_note)
-select v.iid, v.o, v.dt, v.a, v.b, v.stt, v.note
-from (values
-  ('iv1',1,date '2026-08-17', 600, 660,'offered',null),
-  ('iv1',2,date '2026-08-18', 840, 900,'offered','unknown'),
-  ('iv1',3,date '2026-08-19', 660, 720,'offered',null),
-  ('iv2',1,date '2026-08-17', 900, 960,'offered',null),
-  ('iv2',2,date '2026-08-19', 600, 660,'offered',null),
-  ('iv2',3,date '2026-08-20', 780, 840,'offered',null),
-  ('iv3',1,date '2026-08-14', 840, 900,'picked' ,null),
-  ('iv3',2,date '2026-08-14', 960,1020,'dropped',null),
-  ('iv3',3,date '2026-08-17', 660, 720,'dropped',null),
-  ('iv5',1,date '2026-08-18', 600, 720,'dropped',null),
-  ('iv5',2,date '2026-08-20', 840, 960,'dropped',null)
-) as v(iid, o, dt, a, b, stt, note)
-where not exists (select 1 from interview_slots x where x.interview_id = v.iid and x.ord = v.o);
-
-insert into interview_events (interview_id, at, b, p, s, actor)
-select v.iid, v.lbl, v.bb, v.pp, v.ss, v.who
-from (values
-  ('iv1','8/11 10:20','슬롯 3개 발송','최영수 확인 후 후보자에게 동시 발송','idle','auto'),
-  ('iv1','8/12 22:20','후보자 미확인 36h','리마인드 1회 발송. 다음은 리크루터 판단','late','auto'),
-  ('iv2','8/12 09:05','슬롯 3개 발송','가예약 48시간 — 8/14 09:05 까지','idle','auto'),
-  ('iv3','8/10 15:42','8/14 14:00 확정','후보자가 첫 번째 슬롯 선택. 나머지 가예약 해제','done','auto'),
-  ('iv4','8/12 08:00','2시간 연속 블록 탐색','한도경 + 윤태경 공통 공백 120분. 사이 휴식 없음','idle','auto'),
-  ('iv5','8/11 17:35','면접관 전원 거절','한도경 일정 충돌 · 윤태경 캘린더 밖 일정. 범위를 넓혀 재탐색해야 합니다','esc','auto')
-) as v(iid, lbl, bb, pp, ss, who)
-where not exists (select 1 from interview_events x where x.interview_id = v.iid and x.at = v.lbl);
-
 -- ── 자리 제시 정책 (2026-09-06 확정: 보내는 날부터 1주일 안에서 5개) ──
 -- 없어도 코드가 기본값(5 / 7)으로 돌아간다. 공고마다 다르게 하고 싶을 때만 필요하다.
 alter table automation add column if not exists slot_max  int default 5;
 alter table automation add column if not exists send_days int default 7;
 comment on column automation.slot_max  is '후보자에게 한 번에 제시하는 자리 수. 확정값 5';
 comment on column automation.send_days is '자리를 찾는 범위 — 보내는 날부터 며칠(달력일). 확정값 7';
+-- (예시 데이터 10 문장은 뺐습니다 — 아래 seed.sql 에서 한 번에 넣습니다)
 
 -- ───────── migration-011-docs-mail.sql ─────────
 
@@ -1185,3 +1030,177 @@ insert into schema_migrations (name) values ('migration-013-position-level.sql')
 insert into schema_migrations (name) values ('migration-014-app-tokens.sql') on conflict do nothing;
 insert into schema_migrations (name) values ('migration-015-hm-comments-users.sql') on conflict do nothing;
 insert into schema_migrations (name) values ('migration-016-offer-equity.sql') on conflict do nothing;
+
+-- ═════════ ② 예시 데이터 ═════════
+
+-- ───────── seed.sql ─────────
+
+-- =========================================================
+-- Cadence — 초기(샘플) 데이터
+-- schema.sql 을 먼저 실행한 뒤, 이 파일을 붙여넣고 [Run] 하세요.
+-- 자동 생성됨 (app/api/dev-seed) — 손으로 수정하지 마세요.
+-- =========================================================
+
+truncate stage_events, offers, evaluations, automation, candidates, meetings, stages, positions, people restart identity cascade;
+
+-- 사람
+insert into people (id, nm, tt, dept, roles, ea, ch, sla, resp, ea_nm) values
+  ('u1', '최영수', '서버팀 팀장', '플랫폼본부', array['하이어링 매니저','인터뷰어'], false, 'slack', 24, '4.2h', null),
+  ('u2', '정수민', '채용 담당', '피플팀', array['리크루터'], false, 'both', 12, '1.1h', null),
+  ('u3', '한도경', '플랫폼본부 본부장', '플랫폼본부', array['인터뷰어'], true, 'email', 48, '—', '김비서'),
+  ('u4', '서민재', '서버팀 테크리드', '플랫폼본부', array['인터뷰어'], false, 'slack', 24, '6.8h', null),
+  ('u5', '노아름', '데이터팀 팀장', '플랫폼본부', array['인터뷰어'], false, 'slack', 24, '11.4h', null),
+  ('u6', '배수진', 'HR 코디네이터', '피플팀', array['코디네이터'], false, 'both', 12, '0.6h', null),
+  ('u7', '윤태경', 'CTO', '경영진', array['인터뷰어'], true, 'email', 48, '—', '김비서'),
+  ('u8', '김서진', '디자인팀 팀장', '프로덕트본부', array['하이어링 매니저','인터뷰어'], false, 'slack', 24, '3.4h', null),
+  ('u9', '박현우', '채용 담당', '피플팀', array['리크루터'], false, 'both', 12, '2.3h', null),
+  ('u10', '이강민', '사업본부 본부장', '사업본부', array['하이어링 매니저','인터뷰어'], true, 'email', 48, '—', '박실장'),
+  ('u11', '유하린', '프로덕트 디자이너', '프로덕트본부', array['인터뷰어'], false, 'slack', 24, '5.1h', null),
+  ('u12', '강태윤', '데이터팀 테크리드', '플랫폼본부', array['인터뷰어'], false, 'slack', 24, '8.7h', null),
+  ('u13', '임수정', '품질팀 리드', '플랫폼본부', array['하이어링 매니저','인터뷰어'], false, 'both', 24, '2.9h', null);
+
+-- 공고
+insert into positions (id, title, dept, team, emp, st, rec, hm, opened, ttf, jd, band_lo, band_hi) values
+  ('p1', '백엔드 엔지니어 (시니어)', '플랫폼본부', '서버팀', '정규직', 'open', '정수민', '최영수', '2026-07-20', 23, '분산 트랜잭션 처리와 대용량 이벤트 파이프라인을 설계·운영할 시니어 백엔드 엔지니어를 찾습니다.', 8000, 10000),
+  ('p2', '프로덕트 디자이너', '프로덕트본부', '디자인팀', '정규직', 'open', '정수민', '김서진', '2026-07-28', 15, 'B2B SaaS 제품의 핵심 플로우를 설계합니다.', 6500, 8500),
+  ('p3', '데이터 엔지니어', '플랫폼본부', '데이터팀', '정규직', 'open', '박현우', '노아름', '2026-06-30', 43, '데이터 웨어하우스 구축과 파이프라인 운영.', 7500, 9500),
+  ('p4', '세일즈 매니저', '사업본부', '세일즈팀', '정규직', 'hold', '박현우', '이강민', '2026-07-02', 41, '엔터프라이즈 신규 고객 발굴.', 6000, 8000),
+  ('p5', 'QA 엔지니어', '플랫폼본부', '품질팀', '계약직', 'closed', '정수민', '임수정', '2026-05-11', 58, '자동화 테스트 설계.', 5500, 7000);
+
+-- 단계 (p1)
+insert into stages (position_id, id, ord, nm, kind, sla, dur, mode, ivs, color, auto, rail) values
+  ('p1', 's1', 0, '지원 접수', 'apply', 1, 0, '—', '{}', '#c3c5e2', true, false),
+  ('p1', 's2', 1, '서류 검토', 'screen', 3, 0, '—', array['u1'], '#b0b3e3', true, false),
+  ('p1', 's3', 2, '1차 인터뷰', 'interview', 5, 60, '화상', array['u1','u4'], '#9a9be4', true, false),
+  ('p1', 's4', 3, '2차 인터뷰', 'interview', 7, 120, '대면', array['u3','u7'], '#7d7be0', false, false),
+  ('p1', 's5', 4, '오퍼', 'offer', 5, 0, '—', '{}', '#5b53d6', true, false),
+  ('p1', 's6', 5, '입사', 'hired', 0, 0, '—', '{}', '#0a9459', false, true),
+  ('p1', 's0', 6, '불합격', 'reject', 0, 0, '—', '{}', '#a8a8b2', false, true);
+
+-- 단계 (p2)
+insert into stages (position_id, id, ord, nm, kind, sla, dur, mode, ivs, color, auto, rail) values
+  ('p2', 's1', 0, '지원 접수', 'apply', 1, 0, '—', '{}', '#cdd0ec', true, false),
+  ('p2', 's2', 1, '포트폴리오 검토', 'screen', 3, 0, '—', array['u8'], '#b1b1e7', true, false),
+  ('p2', 's3', 2, '디자인 과제', 'task', 7, 0, '비대면', array['u8','u11'], '#9492e1', true, false),
+  ('p2', 's4', 3, '과제 리뷰 인터뷰', 'interview', 5, 90, '화상', array['u8','u11'], '#7872dc', true, false),
+  ('p2', 's5', 4, '오퍼', 'offer', 5, 0, '—', '{}', '#5b53d6', true, false),
+  ('p2', 's6', 5, '입사', 'hired', 0, 0, '—', '{}', '#0a9459', false, true),
+  ('p2', 's0', 6, '불합격', 'reject', 0, 0, '—', '{}', '#a8a8b2', false, true);
+
+-- 단계 (p3)
+insert into stages (position_id, id, ord, nm, kind, sla, dur, mode, ivs, color, auto, rail) values
+  ('p3', 's1', 0, '지원 접수', 'apply', 1, 0, '—', '{}', '#cdd0ec', true, false),
+  ('p3', 's2', 1, '서류 검토', 'screen', 3, 0, '—', array['u5'], '#b6b7e8', true, false),
+  ('p3', 's3', 2, '기술 과제', 'task', 7, 0, '비대면', array['u12'], '#9f9ee3', true, false),
+  ('p3', 's4', 3, '기술 인터뷰', 'interview', 5, 90, '화상', array['u5','u12'], '#8985df', true, false),
+  ('p3', 's5', 4, '임원 인터뷰', 'interview', 7, 60, '대면', array['u3'], '#726cda', false, false),
+  ('p3', 's6', 5, '오퍼', 'offer', 5, 0, '—', '{}', '#5b53d6', true, false),
+  ('p3', 's7', 6, '입사', 'hired', 0, 0, '—', '{}', '#0a9459', false, true),
+  ('p3', 's0', 7, '불합격', 'reject', 0, 0, '—', '{}', '#a8a8b2', false, true);
+
+-- 단계 (p4)
+insert into stages (position_id, id, ord, nm, kind, sla, dur, mode, ivs, color, auto, rail) values
+  ('p4', 's1', 0, '지원 접수', 'apply', 1, 0, '—', '{}', '#cdd0ec', true, false),
+  ('p4', 's2', 1, '서류 검토', 'screen', 3, 0, '—', array['u10'], '#b1b1e7', true, false),
+  ('p4', 's3', 2, '1차 인터뷰', 'interview', 5, 60, '화상', array['u10'], '#9492e1', false, false),
+  ('p4', 's4', 3, '최종 인터뷰', 'interview', 7, 60, '대면', array['u10'], '#7872dc', false, false),
+  ('p4', 's5', 4, '오퍼', 'offer', 5, 0, '—', '{}', '#5b53d6', true, false),
+  ('p4', 's6', 5, '입사', 'hired', 0, 0, '—', '{}', '#0a9459', false, true),
+  ('p4', 's0', 6, '불합격', 'reject', 0, 0, '—', '{}', '#a8a8b2', false, true);
+
+-- 단계 (p5)
+insert into stages (position_id, id, ord, nm, kind, sla, dur, mode, ivs, color, auto, rail) values
+  ('p5', 's1', 0, '지원 접수', 'apply', 1, 0, '—', '{}', '#cdd0ec', true, false),
+  ('p5', 's2', 1, '서류 검토', 'screen', 3, 0, '—', array['u13'], '#a7a6e5', true, false),
+  ('p5', 's3', 2, '실무 인터뷰', 'interview', 5, 60, '화상', array['u13','u4'], '#817ddd', true, false),
+  ('p5', 's4', 3, '오퍼', 'offer', 5, 0, '—', '{}', '#5b53d6', true, false),
+  ('p5', 's5', 4, '입사', 'hired', 0, 0, '—', '{}', '#0a9459', false, true),
+  ('p5', 's0', 5, '불합격', 'reject', 0, 0, '—', '{}', '#a8a8b2', false, true);
+
+-- 미팅
+insert into meetings (id, position_id, nm, s, v, ag, dur, who, act) values
+  ('m1', 'p1', '킥오프', 'done', '8/4 14:00 완료', '—', 30, array['최영수','한도경','서민재'], null),
+  ('m2', 'p1', '디브리프', 'esc', '참석자 미지정', '52h', 30, '{}', array['참석자 지정 요청']),
+  ('m3', 'p2', '킥오프', 'done', '7/29 10:00 완료', '—', 30, array['김서진','유하린'], null),
+  ('m4', 'p2', '과제 기준 정렬', 'idle', '8/13 16:00 예정', '—', 30, array['김서진','유하린'], null),
+  ('m5', 'p3', '킥오프', 'done', '7/2 11:00 완료', '—', 30, array['노아름','강태윤','한도경'], null),
+  ('m6', 'p3', '디브리프', 'late', '평가지 미제출 3건', '72h', 30, array['노아름','강태윤'], array['면접관에 리마인드','직접 취합']),
+  ('m7', 'p4', '킥오프', 'done', '7/6 14:00 완료', '—', 30, array['이강민'], null),
+  ('m8', 'p4', '보류 재검토', 'esc', '보류 사유 미기재', '36d', 30, '{}', array['사업본부에 확인','공고 종료 검토']),
+  ('m9', 'p5', '킥오프', 'done', '5/13 10:00 완료', '—', 30, array['임수정','최영수'], null),
+  ('m10', 'p5', '디브리프', 'done', '7/2 15:00 완료', '—', 30, array['임수정','서민재'], null);
+
+-- 후보자
+insert into candidates (id, position_id, nm, st, s, d, ap, en, why, src, yr, role, act, exit_stage, reject_code, reject_memo, decided_at) values
+  ('c1', 'p1', '한지우', 's1', 'idle', 0, '2026-08-12', '2026-08-12', '', '리멤버', 7, '백엔드 엔지니어 · 카카오', null, null, null, null, null),
+  ('c2', 'p1', '배준영', 's1', 'idle', 1, '2026-08-11', '2026-08-11', '', '자사채용', 5, '서버 개발자 · 토스', null, null, null, null, null),
+  ('c3', 'p1', '강도윤', 's2', 'idle', 2, '2026-08-06', '2026-08-10', '', '원티드', 9, '테크리드 · 당근', null, null, null, null, null),
+  ('c4', 'p1', '윤서아', 's2', 'late', 6, '2026-08-01', '2026-08-06', 'HM 미응답 48h', '추천', 6, '백엔드 · 라인', array['HM에게 리마인드','직접 검토'], null, null, null, null),
+  ('c5', 'p1', '문태오', 's2', 'idle', 1, '2026-08-09', '2026-08-11', '', '자사채용', 4, '백엔드 · 스타트업', null, null, null, null, null),
+  ('c6', 'p1', '신하경', 's2', 'idle', 3, '2026-08-04', '2026-08-09', '', '링크드인', 8, '플랫폼 엔지니어 · 쿠팡', null, null, null, null, null),
+  ('c7', 'p1', '박지훈', 's3', 'late', 5, '2026-07-28', '2026-08-07', '후보자 미확인 36h', '원티드', 10, '시니어 백엔드 · 네이버', array['후보자에게 재발송','직접 연락'], null, null, null, null),
+  ('c8', 'p1', '임채원', 's3', 'idle', 3, '2026-07-30', '2026-08-09', '슬롯 3개 발송', '리멤버', 6, '백엔드 · 배민', null, null, null, null, null),
+  ('c9', 'p1', '오시현', 's3', 'done', 3, '2026-07-29', '2026-08-09', '8/14 14:00 확정', '추천', 7, '백엔드 · 야놀자', null, null, null, null, null),
+  ('c10', 'p1', '김민준', 's4', 'idle', 9, '2026-07-20', '2026-08-03', '2시간 블록 탐색', '링크드인', 11, '테크리드 · 우아한형제들', null, null, null, null, null),
+  ('c11', 'p1', '이서연', 's4', 'esc', 12, '2026-07-18', '2026-07-31', '면접관 전원 거절', '원티드', 9, '시니어 백엔드 · 카카오페이', array['범위 넓혀 재탐색','직접 조율'], null, null, null, null),
+  ('c12', 'p1', '최유나', 's5', 'esc', 21, '2026-07-05', '2026-07-22', '처우 재협의', '추천', 12, '백엔드 아키텍트 · 라인', array['처우안 수정','HM에 확인'], null, null, null, null),
+  ('c13', 'p1', '정하늘', 's6', 'done', 18, '2026-06-30', '2026-07-25', '9/1 입사 예정', '리멤버', 8, '백엔드 · 쏘카', null, null, null, null, null),
+  ('c14', 'p1', '서지호', 's0', 'done', 11, '2026-07-24', '2026-08-01', '서류 불합격', '원티드', 3, '주니어 백엔드', null, 's2', 'skill', null, '2026-08-01'),
+  ('c15', 'p1', '남궁현', 's0', 'done', 9, '2026-07-26', '2026-08-03', '서류 불합격', '링크드인', 2, '백엔드', null, 's2', 'exp', null, '2026-08-03'),
+  ('c16', 'p1', '조은비', 's0', 'done', 14, '2026-07-19', '2026-07-29', '1차 불합격', '자사채용', 5, '백엔드', null, 's3', 'skill', null, '2026-07-29'),
+  ('c17', 'p1', '백승우', 's0', 'done', 6, '2026-07-31', '2026-08-06', '후보자 사퇴', '추천', 7, '백엔드', null, 's3', 'other-offer', '경쟁사 오퍼 수락. 연봉보다 합류 시점이 빨랐던 점이 컸다고 합니다.', '2026-08-06'),
+  ('c18', 'p2', '문서윤', 's1', 'idle', 0, '2026-08-12', '2026-08-12', '', '원티드', 6, '프로덕트 디자이너 · 토스', null, null, null, null, null),
+  ('c19', 'p2', '하지민', 's1', 'idle', 1, '2026-08-11', '2026-08-11', '', '링크드인', 4, 'UX 디자이너 · 마켓컬리', null, null, null, null, null),
+  ('c20', 'p2', '권나영', 's2', 'idle', 2, '2026-08-07', '2026-08-10', '', '자사채용', 8, '시니어 프로덕트 디자이너 · 당근', null, null, null, null, null),
+  ('c21', 'p2', '오지환', 's2', 'late', 5, '2026-08-03', '2026-08-07', 'HM 미응답 48h', '추천', 5, '프로덕트 디자이너 · 리디', array['HM에게 리마인드','직접 검토'], null, null, null, null),
+  ('c22', 'p2', '유가온', 's3', 'idle', 4, '2026-08-01', '2026-08-08', '과제 발송 · 마감 8/15', '원티드', 7, '프로덕트 디자이너 · 카카오', null, null, null, null, null),
+  ('c23', 'p2', '심우진', 's3', 'late', 8, '2026-07-29', '2026-08-04', '과제 마감 초과 2d', '링크드인', 5, 'UX/UI 디자이너 · 무신사', array['마감 연장','후보자에 확인'], null, null, null, null),
+  ('c24', 'p2', '노유진', 's4', 'done', 3, '2026-07-30', '2026-08-09', '8/13 11:00 확정', '추천', 9, '디자인 리드 · 배민', null, null, null, null, null),
+  ('c25', 'p2', '배시우', 's5', 'idle', 6, '2026-07-22', '2026-08-06', '오퍼 승인 대기', '자사채용', 7, '프로덕트 디자이너 · 쿠팡', null, null, null, null, null),
+  ('c26', 'p2', '강예린', 's0', 'done', 10, '2026-07-28', '2026-08-02', '포트폴리오 불합격', '원티드', 3, '주니어 디자이너', null, 's2', 'skill', null, '2026-08-02'),
+  ('c27', 'p3', '임도현', 's1', 'idle', 0, '2026-08-12', '2026-08-12', '', '링크드인', 5, '데이터 엔지니어 · 야놀자', null, null, null, null, null),
+  ('c28', 'p3', '곽지원', 's2', 'idle', 3, '2026-08-05', '2026-08-09', '', '원티드', 7, '데이터 플랫폼 · 쏘카', null, null, null, null, null),
+  ('c29', 'p3', '서하늬', 's3', 'idle', 5, '2026-07-31', '2026-08-07', '과제 발송 · 마감 8/17', '자사채용', 6, '데이터 엔지니어 · 뱅크샐러드', null, null, null, null, null),
+  ('c30', 'p3', '진태호', 's4', 'idle', 4, '2026-07-28', '2026-08-08', '90분 블록 탐색 중', '리멤버', 9, '데이터 엔지니어 · 라인', null, null, null, null, null),
+  ('c31', 'p3', '홍세라', 's4', 'esc', 9, '2026-07-21', '2026-08-03', '면접관 전원 슬롯 거절', '원티드', 8, '시니어 데이터 엔지니어 · 네이버', array['범위 넓혀 재탐색','대체 면접관 지정'], null, null, null, null),
+  ('c32', 'p3', '남지후', 's5', 'idle', 11, '2026-07-15', '2026-08-01', 'EA 조율 요청 발송', '추천', 11, '데이터 아키텍트 · 카카오', null, null, null, null, null),
+  ('c33', 'p3', '표민경', 's6', 'esc', 16, '2026-07-06', '2026-07-27', '연봉 밴드 초과 승인 필요', '링크드인', 12, '데이터 엔지니어링 리드 · 우아한형제들', array['승인 요청','밴드 재검토'], null, null, null, null),
+  ('c34', 'p3', '최도경', 's0', 'done', 13, '2026-07-20', '2026-07-30', '기술 과제 불합격', '자사채용', 4, '데이터 엔지니어', null, 's3', 'skill', null, '2026-07-30'),
+  ('c35', 'p3', '윤하람', 's0', 'done', 7, '2026-07-25', '2026-08-05', '후보자 사퇴', '원티드', 6, '데이터 엔지니어', null, 's2', 'career', null, '2026-08-05'),
+  ('c36', 'p4', '방주원', 's1', 'idle', 14, '2026-07-29', '2026-07-29', '공고 보류 — 검토 대기', '원티드', 9, '엔터프라이즈 세일즈 · SAP', null, null, null, null, null),
+  ('c37', 'p4', '국지현', 's2', 'late', 19, '2026-07-18', '2026-07-24', '공고 보류 19d · 후보자 방치', '링크드인', 11, '세일즈 매니저 · 오라클', array['후보자에 상황 안내','공고 재개 검토'], null, null, null, null),
+  ('c38', 'p4', '천승호', 's3', 'idle', 21, '2026-07-14', '2026-07-22', '보류로 조율 중단', '추천', 8, 'AE · 세일즈포스', null, null, null, null, null),
+  ('c39', 'p4', '도경완', 's0', 'done', 24, '2026-07-09', '2026-07-19', '서류 불합격', '자사채용', 5, '세일즈', null, 's2', 'exp', null, '2026-07-19'),
+  ('c40', 'p4', '편서율', 's0', 'done', 17, '2026-07-16', '2026-07-26', '후보자 사퇴 — 대기 장기화', '원티드', 7, '세일즈', null, 's2', 'withdraw', '대기가 길어지며 이직 계획 자체를 미뤘습니다. 공고 홀드 기간이 원인.', '2026-07-26'),
+  ('c41', 'p5', '추민서', 's5', 'done', 31, '2026-05-20', '2026-07-08', '7/13 입사 완료', '원티드', 6, 'QA 엔지니어 · 넥슨', null, null, null, null, null),
+  ('c42', 'p5', '안겨울', 's0', 'done', 29, '2026-05-22', '2026-06-14', '최종 불합격', '링크드인', 4, 'QA', null, 's3', 'better-fit', null, '2026-06-14'),
+  ('c43', 'p5', '노건우', 's0', 'done', 35, '2026-05-18', '2026-06-10', '서류 불합격', '자사채용', 3, 'QA', null, 's2', 'skill', null, '2026-06-10'),
+  ('c44', 'p5', '마해원', 's0', 'done', 27, '2026-05-29', '2026-06-20', '오퍼 거절 — 처우', '추천', 8, 'QA 리드 · 엔씨', null, 's4', 'comp', null, '2026-06-20'),
+  ('c45', 'p5', '진소율', 's0', 'done', 33, '2026-05-21', '2026-06-12', '서류 불합격', '원티드', 2, 'QA', null, 's2', 'exp', null, '2026-06-12'),
+  ('c46', 'p5', '하동주', 's0', 'done', 22, '2026-06-03', '2026-06-25', '실무 불합격', '리멤버', 5, 'QA 엔지니어', null, 's3', 'collab', null, '2026-06-25');
+
+-- 자동화 설정
+insert into automation (position_id, win, hours, buffer, cand_sla, iv_sla, remind, tz, rules) values
+  ('p1', 10, '10:00–18:00', 15, 48, 24, '12h / 4h 전', '자동 감지', '[{"id":"r1","nm":"면접관 전원 슬롯 거절","d":"교집합이 0개일 때","on":true,"th":"즉시"},{"id":"r2","nm":"면접관 미응답","d":"응답 제한 시간 초과","on":true,"th":"24h"},{"id":"r3","nm":"후보자 미확인","d":"슬롯 발송 후 무응답","on":true,"th":"36h"},{"id":"r4","nm":"HM 평가지 미작성","d":"인터뷰 종료 후 미제출","on":true,"th":"48h"},{"id":"r5","nm":"킥오프 참석자 미지정","d":"지정 요청 후 무응답","on":true,"th":"48h"},{"id":"r6","nm":"EA 조율 대상 포함","d":"자동화 제외 → 코디네이터 라우팅","on":true,"th":"즉시","lock":true},{"id":"r7","nm":"일정 확정 후 취소 발생","d":"인비 취소 감지","on":true,"th":"즉시"},{"id":"r8","nm":"단계 SLA 초과","d":"단계별 기준 체류일 초과","on":false,"th":"기준 +2d"}]'::jsonb),
+  ('p2', 14, '10:00–19:00', 15, 48, 24, '24h / 2h 전', '자동 감지', '[{"id":"r1","nm":"면접관 전원 슬롯 거절","d":"교집합이 0개일 때","on":true,"th":"즉시"},{"id":"r2","nm":"면접관 미응답","d":"응답 제한 시간 초과","on":true,"th":"24h"},{"id":"r3","nm":"후보자 미확인","d":"슬롯 발송 후 무응답","on":true,"th":"36h"},{"id":"r4","nm":"HM 평가지 미작성","d":"인터뷰 종료 후 미제출","on":true,"th":"48h"},{"id":"r5","nm":"킥오프 참석자 미지정","d":"지정 요청 후 무응답","on":true,"th":"48h"},{"id":"r6","nm":"EA 조율 대상 포함","d":"자동화 제외 → 코디네이터 라우팅","on":true,"th":"즉시","lock":true},{"id":"r7","nm":"일정 확정 후 취소 발생","d":"인비 취소 감지","on":true,"th":"즉시"},{"id":"r8","nm":"단계 SLA 초과","d":"단계별 기준 체류일 초과","on":true,"th":"기준 +1d"}]'::jsonb),
+  ('p3', 15, '09:00–18:00', 30, 72, 48, '12h / 4h 전', '자동 감지', '[{"id":"r1","nm":"면접관 전원 슬롯 거절","d":"교집합이 0개일 때","on":true,"th":"즉시"},{"id":"r2","nm":"면접관 미응답","d":"응답 제한 시간 초과","on":true,"th":"48h"},{"id":"r3","nm":"후보자 미확인","d":"슬롯 발송 후 무응답","on":true,"th":"36h"},{"id":"r4","nm":"HM 평가지 미작성","d":"인터뷰 종료 후 미제출","on":true,"th":"48h"},{"id":"r5","nm":"킥오프 참석자 미지정","d":"지정 요청 후 무응답","on":true,"th":"48h"},{"id":"r6","nm":"EA 조율 대상 포함","d":"자동화 제외 → 코디네이터 라우팅","on":true,"th":"즉시","lock":true},{"id":"r7","nm":"일정 확정 후 취소 발생","d":"인비 취소 감지","on":true,"th":"즉시"},{"id":"r8","nm":"단계 SLA 초과","d":"단계별 기준 체류일 초과","on":true,"th":"기준 +3d"}]'::jsonb),
+  ('p4', 10, '09:00–18:00', 15, 48, 48, '12h / 1h 전', '자동 감지', '[{"id":"r1","nm":"면접관 전원 슬롯 거절","d":"교집합이 0개일 때","on":true,"th":"즉시"},{"id":"r2","nm":"면접관 미응답","d":"응답 제한 시간 초과","on":false,"th":"24h"},{"id":"r3","nm":"후보자 미확인","d":"슬롯 발송 후 무응답","on":false,"th":"36h"},{"id":"r4","nm":"HM 평가지 미작성","d":"인터뷰 종료 후 미제출","on":true,"th":"48h"},{"id":"r5","nm":"킥오프 참석자 미지정","d":"지정 요청 후 무응답","on":true,"th":"48h"},{"id":"r6","nm":"EA 조율 대상 포함","d":"자동화 제외 → 코디네이터 라우팅","on":true,"th":"즉시","lock":true},{"id":"r7","nm":"일정 확정 후 취소 발생","d":"인비 취소 감지","on":false,"th":"즉시"},{"id":"r8","nm":"단계 SLA 초과","d":"단계별 기준 체류일 초과","on":true,"th":"기준 +5d"}]'::jsonb),
+  ('p5', 10, '10:00–18:00', 15, 48, 24, '12h / 4h 전', '자동 감지', '[{"id":"r1","nm":"면접관 전원 슬롯 거절","d":"교집합이 0개일 때","on":false,"th":"즉시"},{"id":"r2","nm":"면접관 미응답","d":"응답 제한 시간 초과","on":false,"th":"24h"},{"id":"r3","nm":"후보자 미확인","d":"슬롯 발송 후 무응답","on":false,"th":"36h"},{"id":"r4","nm":"HM 평가지 미작성","d":"인터뷰 종료 후 미제출","on":false,"th":"48h"},{"id":"r5","nm":"킥오프 참석자 미지정","d":"지정 요청 후 무응답","on":false,"th":"48h"},{"id":"r6","nm":"EA 조율 대상 포함","d":"자동화 제외 → 코디네이터 라우팅","on":true,"th":"즉시","lock":true},{"id":"r7","nm":"일정 확정 후 취소 발생","d":"인비 취소 감지","on":false,"th":"즉시"},{"id":"r8","nm":"단계 SLA 초과","d":"단계별 기준 체류일 초과","on":false,"th":"기준 +2d"}]'::jsonb);
+
+-- 평가(스코어카드)
+insert into evaluations (candidate_id, interviewer_id, iv, role, st, items, overall, memo, at) values
+  ('c11', 'u1', '최영수', 'HM', '1차 인터뷰', '[["직무 역량 깊이","syes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '분산 트랜잭션 경험이 우리 문제와 정확히 맞습니다.', '7/25 15:10'),
+  ('c11', 'u4', '서민재', '테크리드', '1차 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '코드 리뷰 문화에 대한 이해가 좋습니다.', '7/25 16:02'),
+  ('c24', 'u8', '김서진', 'HM', '과제 리뷰 인터뷰', '[["직무 역량 깊이","syes"],["문제 해결 방식","syes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'syes', '과제에서 문제를 다시 정의한 점이 인상적입니다.', '8/09 11:40'),
+  ('c24', 'u11', '유하린', '디자이너', '과제 리뷰 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","syes"],["협업 · 이견 조율","yes"],["성장 가능성","yes"]]'::jsonb, 'yes', '컴포넌트 체계를 스스로 만들어 본 경험이 있습니다.', '8/09 12:15'),
+  ('c30', 'u12', '강태윤', '테크리드', '기술 인터뷰', '[["직무 역량 깊이","yes"],["문제 해결 방식","yes"],["협업 · 이견 조율","yes"],["성장 가능성","no"]]'::jsonb, 'no', '설계는 좋으나 대규모 장애 대응 경험은 더 확인이 필요합니다.', '8/08 17:30'),
+  ('c33', 'u5', '노아름', 'HM', '임원 인터뷰', '[["조직 적합성","syes"],["중장기 기여","syes"]]'::jsonb, 'syes', '팀을 세팅해 본 경험이 우리 상황과 맞습니다. 처우 밴드만 정리되면 진행.', '7/27 10:20');
+
+-- 오퍼
+insert into offers (candidate_id, st, level, base, sign, band_lo, band_hi, start_date, chain, created_at, sent_at, resp_at, decline_code, decline_memo) values
+  ('c12', 'sent', '스태프 엔지니어', 9800, 1000, 8000, 10000, '2026-09-01', '[{"uid":"u1","nm":"최영수","role":"하이어링 매니저","s":"ok","at":"7/23 09:40"}]'::jsonb, '2026-07-22', '2026-07-24', null, null, null),
+  ('c13', 'accepted', '시니어 엔지니어', 8800, 0, 8000, 10000, '2026-09-01', '[{"uid":"u1","nm":"최영수","role":"하이어링 매니저","s":"ok","at":"7/25 17:20"}]'::jsonb, '2026-07-25', '2026-07-26', '2026-07-29', null, null),
+  ('c25', 'approval', '프로덕트 디자이너', 7800, 0, 6500, 8500, '2026-09-15', '[{"uid":"u8","nm":"김서진","role":"하이어링 매니저","s":"pending"}]'::jsonb, '2026-08-06', null, null, null, null),
+  ('c33', 'approval', '데이터 엔지니어링 리드', 10200, 1500, 7500, 9500, '2026-09-15', '[{"uid":"u5","nm":"노아름","role":"하이어링 매니저","s":"ok","at":"7/27 14:05"},{"uid":"u3","nm":"한도경","role":"본부 승인 (밴드 초과)","s":"pending"}]'::jsonb, '2026-07-27', null, null, null, null),
+  ('c41', 'accepted', 'QA 엔지니어 (계약)', 6200, 0, 5500, 7000, '2026-07-13', '[{"uid":"u13","nm":"임수정","role":"하이어링 매니저","s":"ok","at":"6/24 16:10"}]'::jsonb, '2026-06-24', '2026-06-25', '2026-06-30', null, null),
+  ('c44', 'declined', 'QA 리드 (계약)', 6400, 0, 5500, 7000, null, '[{"uid":"u13","nm":"임수정","role":"하이어링 매니저","s":"ok","at":"6/13 11:30"}]'::jsonb, '2026-06-13', '2026-06-14', '2026-06-20', 'comp', '현 직장 대비 인상폭이 작다는 이유. 정규직 전환 시점도 걸림돌이었습니다.');
