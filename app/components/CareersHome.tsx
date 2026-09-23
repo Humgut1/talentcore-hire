@@ -34,6 +34,8 @@ interface Props {
   faq: { q: string; a: string }[]
   today: string
   photo: string
+  /** 시안 비교용(임시). a = 금속 빼고 평범한 로고 · b = 금속 + 어두운 배경 */
+  look?: 'a' | 'b'
 }
 
 function useStill() {
@@ -48,7 +50,7 @@ function useStill() {
   return still
 }
 
-export default function CareersHome({ posts, co, steps, ways, stories, faq, today, photo }: Props) {
+export default function CareersHome({ posts, co, steps, ways, stories, faq, today, photo, look }: Props) {
   const [q, setQ] = useState('')
   const [dept, setDept] = useState('')
   const still = useStill()
@@ -70,16 +72,16 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
   const toJobs = () => document.getElementById('jobs')?.scrollIntoView({ behavior: 'smooth' })
 
   return (
-    <div className="ch">
+    <div className={`ch${look ? ' lk-' + look : ''}`}>
       <CareersTop co={co} count={posts.length} />
 
       <section className="ch-hero">
-        <div className="ch-fx"><Glow still={still} /></div>
+        <div className="ch-fx"><Glow still={still} dark={look === 'b'} /></div>
         <div className="ch-in ch-hero-in">
           {/* 녹은 금속 로고. 밑의 평범한 로고는 효과를 못 그리는 기기에서 남는다 */}
           <div className="ch-logo">
             <BrandMark className="ch-logo-still" />
-            <MetalMark still={still} />
+            {look !== 'a' && <MetalMark still={still} dark={look === 'b'} />}
           </div>
           <p className="ch-eye">{co} 채용</p>
           <h1>일하는 방식을 만드는 일</h1>

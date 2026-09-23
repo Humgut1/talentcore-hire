@@ -237,3 +237,28 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
   .ch-stories::-webkit-scrollbar { display: none; }
   .ch-story { flex: none; width: 240px; scroll-snap-align: start; }
 }
+
+/* =========================================================
+   시안 비교(임시) — /careers?look=a · ?look=b. 고르면 지운다.
+   a = 금속 효과 없이 평범한 로고, 파란 빛 그대로
+   b = 금속 로고 그대로, 배경을 어두운 강철색으로
+   ========================================================= */
+.ch.lk-a .ch-logo { color: var(--ink); }
+
+.ch.lk-b .ch-fx { background: radial-gradient(ellipse at 50% 0%, #2d3a52, #0d1119 60%, #07090d); }
+.ch.lk-b .ch-fx::after { height: 30%; background: #fff; }
+.ch.lk-b .ch-logo { color: #dfe5ee; }
+.ch.lk-b .ch-eye { color: #9cc6ff; background: rgba(255, 255, 255, .08); }
+.site .ch.lk-b .ch-hero h1 { color: #fff; }
+.ch.lk-b .ch-sub { color: #a9b4c4; }
+.ch.lk-b .ch-search svg { stroke: #8b95a1; }
+.ch.lk-b .ch-search input {
+  color: #fff; background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .14);
+  box-shadow: 0 16px 50px -16px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+.ch.lk-b .ch-search input:focus { background: rgba(255, 255, 255, .11); box-shadow: 0 0 0 2px var(--blue) inset; }
+.ch.lk-b .ch-hero-shot img { box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .55); }
+.ch.lk-b .ch-top:not(.solid) .ch-mark { color: #fff; }
+.ch.lk-b .ch-top:not(.solid) .ch-mark span { color: #8b95a1; }
+.ch.lk-b .ch-top:not(.solid) nav a { color: #c5cdd8; }
+.ch.lk-b .ch-top:not(.solid) nav a:hover { color: #fff; }
