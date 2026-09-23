@@ -211,6 +211,7 @@ const OPEN_API = [
   '/api/google/callback',  // 구글이 되돌려 보내는 주소 — 우리 쿠키가 없다
   '/api/dev-seed',         // 스스로 개발 환경에서만 동작한다
   '/api/auth/core',        // TalentCore 계정 로그인 출발·도착 — 아직 표가 없는 사람이 지난다
+  '/api/training/',        // Grow 교육 모드 → 연습 배포 (TRAIN_RESET_TOKEN). 실제 배포엔 그 열쇠가 없다
 ]
 
 /** 이 주소는 표 없이 열리는가 */
