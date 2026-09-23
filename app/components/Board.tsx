@@ -27,10 +27,15 @@ interface Toast { id: number; html: string; undo?: () => void }
 /* 서버 페이지가 DB에서 읽은 후보자/미팅을 props로 넘긴다.
    props가 없으면(예: 미연결) 정적 샘플 데이터로 동작한다. */
 export default function Board(
-  { pid = 'p1', initialCands, mtgs: mtgsProp, initialStages, pos, staff = true }:
+  { pid = 'p1', initialCands, mtgs: mtgsProp, initialStages, pos, staff = true,
+    today = '2026-08-12', sample = true }:
   { pid?: string; initialCands?: Candidate[]; mtgs?: MtgView[]; initialStages?: Stage[]; pos?: Position
     /* false = 하이어링 매니저 — 공고 설정·후보자 추가·미팅 세팅은 채용 담당자 몫이라 숨긴다 */
-    staff?: boolean },
+    staff?: boolean
+    /* 서버의 기준일(연습 배포는 실제 날짜) — 옮기거나 추가한 카드에 바로 찍는 값 */
+    today?: string
+    /* false = 연습 배포. 샘플이 아니므로 '예시 데이터' 안내를 떼어 낸다 */
+    sample?: boolean },
 ) {
   const PID = pid
   const [list, setList] = useState<Candidate[]>(initialCands ?? staticCands)
@@ -78,7 +83,7 @@ export default function Board(
       : sg.kind === 'offer' ? '오퍼 승인 대기' : ''
     const nc: Candidate = {
       id: crypto.randomUUID(), nm, p: PID, st: addStage, s: 'idle', d: 0,
-      ap: '2026-08-12', en: '2026-08-12', why,
+      ap: today, en: today, why,
       src: form.src, yr: Number(form.yr) || 0, role: form.role.trim() || '—',
       ...(form.email.trim() ? { email: form.email.trim() } : {}),
       ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
@@ -329,7 +334,7 @@ export default function Board(
     const snapshot = list
     const from = c.st
     const sg = stageById(PID, to)
-    const nc: Candidate = { ...c, st: to, d: 0, en: '2026-08-12', act: undefined }
+    const nc: Candidate = { ...c, st: to, d: 0, en: today, act: undefined }
 
     if (sg.kind === 'interview') {
       const eaBlocked = sg.ivs.some(uid => personById(uid)?.ea)
@@ -560,7 +565,7 @@ export default function Board(
           </div>
         )}
 
-        <p className="disclaimer">※ 화면은 기능 설명을 위한 예시 데이터입니다. 실제 지표가 아닙니다.</p>
+        {sample ? <p className="disclaimer">※ 화면은 기능 설명을 위한 예시 데이터입니다. 실제 지표가 아닙니다.</p> : null}
       </div>
 
       {/* ===== 후보자 추가 모달 ===== */}

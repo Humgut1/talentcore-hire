@@ -18,6 +18,12 @@ import {
 import type { Offer } from './offer'
 import type { RejectCode } from './decision'
 
+/* 연습(교육) 배포에서는 DB 가 비어 있어도 그게 진실이다.
+   샘플(최영수·백엔드 엔지니어 시니어 …)을 채워 두면 되돌리기 직후 학습자가
+   가짜 공고를 보고, TalentCore 에서 넘어온 공고의 면접관도 샘플 사람으로 잡힌다.
+   공고 번호도 샘플 다음 번호(p6)부터 매겨져 샘플 자동화 설정과 겹친다. */
+const PURE_DB = process.env.TRAINING_MODE === '1'
+
 /* ---- DB row → 앱 타입 매핑 ---- */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function mapPerson(r: any): Person {
@@ -177,6 +183,7 @@ function mapCandidate(r: any): Candidate {
 function mergeCands(err: unknown, data: any[] | null): Candidate[] | undefined {
   if (err || !data) return undefined
   const rows = data.map(mapCandidate)
+  if (PURE_DB) return rows
   const have = new Set(rows.map(c => c.id))
   return [...rows, ...SEED_CANDS.filter(c => !have.has(c.id))]
 }
@@ -249,7 +256,7 @@ async function hydrateOnce(): Promise<boolean> {
     ])
     const err = people.error || positions.error || stages.error || meetings.error || candidates.error
     if (err) { console.error('[db] hydrate 오류:', err.message); return false }
-    if (!positions.data?.length) return false // 아직 seed 전 → 샘플 유지
+    if (!positions.data?.length && !PURE_DB) return false // 아직 seed 전 → 샘플 유지
 
     // 각 stage row 에 position_id 를 유지한 채 매핑용으로 보관
     const stageRows = (stages.data ?? []).map(r => ({ pid: r.position_id, stage: mapStage(r) }))
@@ -267,7 +274,7 @@ async function hydrateOnce(): Promise<boolean> {
       cands: mergeCands(candidates.error, candidates.data),
       // 자동화 설정: DB에 있는 공고만 덮고, 없으면 정적 샘플을 유지한다.
       auto: {
-        ...staticAuto,
+        ...(PURE_DB ? {} : staticAuto),
         ...Object.fromEntries((automation.data ?? []).map(r => [r.position_id, mapAuto(r)])),
       },
       /* 평가: 테이블이 있으면 DB가 유일한 출처다(비어 있으면 '평가 없음'이 맞다).

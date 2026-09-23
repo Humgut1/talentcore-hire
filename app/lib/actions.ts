@@ -8,7 +8,7 @@ import { currentSession } from './session'
 import { serverClient } from './supabase'
 import { hydrateData } from './db'
 import {
-  cands, stageById, stagesOf, personById, personByName, posById, people, TODAY, hmNow, actorLabel, _patchPositionHm,
+  cands, stageById, stagesOf, personById, personByName, posById, people, TODAY, TODAY_ISO, hmNow, actorLabel, _patchPositionHm,
   isHmOf, commentsAt, commentsLive, _pushComment, type CommentVerdict,
   auto, evals, offerOf, _patchAuto, _pushEval, _setOffer, _patchCand, _pushTrail,
   _addPosition, nextPositionId, defaultAuto, _setAvail, _patchMeeting, meetings,
@@ -50,7 +50,6 @@ import {
   type CoreSeat, type StartRule, type CoreOffer,
 } from './core'
 
-const TODAY_ISO = '2026-08-12' // 데모 기준일 (daysSince 계산 일관성 유지)
 
 export async function persistMove(
   cid: string, toStage: string, status: string, why: string | null,

@@ -8,7 +8,18 @@ import type { Rating } from './scorecard'
 import type { Offer } from './offer'
 import { rejectDef, REJECT_REASONS, type RejectCode, type RejectSide } from './decision'
 
-export const TODAY = new Date(2026, 7, 12)
+/* 연습(교육) 배포는 진짜 달력으로 산다. 연습 회사에는 샘플 세계가 없고,
+   학습자가 오늘 넣은 지원자·오늘 잡는 면접이 '며칠째'·'빈 시간'과 맞아야 한다.
+   한국 날짜로 잡는다(서버는 UTC 라 오전 9시 전이면 하루 밀린다).
+   서버가 켜진 날로 고정되므로 오래 켜 둔 서버는 날짜가 넘어가면 다시 띄운다. */
+export const REAL_CLOCK = process.env.TRAINING_MODE === '1'
+function kstToday(): Date {
+  const k = new Date(Date.now() + 9 * 3_600_000)
+  return new Date(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate())
+}
+export const TODAY = REAL_CLOCK ? kstToday() : new Date(2026, 7, 12)
+/** TODAY 를 'YYYY-MM-DD' 로 — 기록에 남기는 날짜는 전부 이 값. */
+export const TODAY_ISO = `${TODAY.getFullYear()}-${String(TODAY.getMonth() + 1).padStart(2, '0')}-${String(TODAY.getDate()).padStart(2, '0')}`
 
 /** 데모 시계 — 날짜는 TODAY, 시각은 실제 지금.
     엔진은 TODAY 기준으로 자리를 잡는데 '가예약 만료' 같은 비교만 진짜 오늘 날짜로

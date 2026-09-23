@@ -1,7 +1,7 @@
 import Board from '../../../../components/Board'
 import CandDrawer from '../../../../components/CandDrawer'
 import { hydrateData } from '../../../../lib/db'
-import { cands, stagesOf, posById } from '../../../../lib/data'
+import { cands, stagesOf, posById, TODAY_ISO, REAL_CLOCK } from '../../../../lib/data'
 import { mtgViews } from '../../../../lib/meetings'
 import { ivBoardOpen } from '../../../../lib/iv-actions'
 import { drawerData } from '../../../../lib/drawer'
@@ -46,6 +46,8 @@ export default async function Page({
         initialStages={stagesOf(pid)}
         pos={posById(pid)}
         staff={isAll(sc)}
+        today={TODAY_ISO}
+        sample={!REAL_CLOCK}
       />
       {d ? <CandDrawer d={d} /> : null}
     </>

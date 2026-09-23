@@ -9,6 +9,7 @@ import {
   LABEL, KIND, stagesOf, stageById, posById, activeCands, byRisk,
   md, daysSince, offerOf, offerList, rejectRows,
   type Candidate, type Person, type Position,
+  TODAY_ISO, REAL_CLOCK,
 } from './data'
 import {
   ratingDef, isPositive, isGradable, tally, verdictOf, VERDICT_LABEL,
@@ -467,7 +468,7 @@ export function dashboardHTML() {
       '<b>전형 종료 사유</b>를 우리 판단과 후보자 이탈로 갈라 놓아야, 같은 숫자를 보고 서로 다른 처방을 낼 수 있다.',
       '위 수치는 모두 <b>현재 후보자·공고 데이터에서 계산</b>한 값이다. 데이터가 바뀌면 즉시 따라 바뀐다.',
     ]) +
-    '<p class="disclaimer">※ 담겨 있는 후보자·공고 자체가 기능 설명용 예시 데이터입니다.</p></div>'
+    (REAL_CLOCK ? '' : '<p class="disclaimer">※ 담겨 있는 후보자·공고 자체가 기능 설명용 예시 데이터입니다.</p>') + '</div>'
 }
 
 /* ---------- Export ---------- */
@@ -1045,7 +1046,7 @@ export function offerFootHTML(cid: string) {
 }
 
 /* ---------- 조율 처리함 ---------- */
-export function inboxHTML(open: Record<string, boolean> = {}) {
+export function inboxHTML(open: Record<string, boolean> = {}, owner?: string) {
   const items = inboxAll()
   const escd = items.filter(i => i.s === 'esc')
   const late = items.filter(i => i.s === 'late')
@@ -1089,9 +1090,9 @@ export function inboxHTML(open: Record<string, boolean> = {}) {
     '<div class="h-row"><h1>조율 처리함</h1>' +
     (escd.length ? `<span class="pill bad">${ico('i-alert', 'ic-sm')}${escd.length}건 대기</span>` : '') +
     `<div class="spacer"><a class="btn" href="/settings">${ico('i-sliders', 'ic-sm')}규칙 설정</a></div></div>` +
-    `<div class="meta"><i>${ico('i-user', 'ic-sm')}담당 <b>${me.name}</b></i>` +
+    `<div class="meta"><i>${ico('i-user', 'ic-sm')}담당 <b>${owner || me.name}</b></i>` +
     `<i>${ico('i-briefcase', 'ic-sm')}공고 <b>${positions.filter(p => p.st === 'open').length}건</b></i>` +
-    `<i>${ico('i-clock', 'ic-sm')}기준 <b>2026-08-12</b></i></div>` +
+    `<i>${ico('i-clock', 'ic-sm')}기준 <b>${TODAY_ISO}</b></i></div>` +
     '</header>' +
     '<div class="stage">' + top +
     (late.length ? `<div class="grp"><div class="sec-h"><h3>곧 처리</h3><span class="n">${late.length}</span>` +
@@ -1104,7 +1105,7 @@ export function inboxHTML(open: Record<string, boolean> = {}) {
       '<b>전 공고를 가로질러</b> 모인다. 코디네이터는 공고를 옮겨다니지 않는다.',
       '이 화면의 목표 상태는 <b>맨 위 0건</b>이다.',
     ]) +
-    '<p class="disclaimer">※ 화면은 기능 설명을 위한 예시 데이터입니다.</p>' +
+    (REAL_CLOCK ? '' : '<p class="disclaimer">※ 화면은 기능 설명을 위한 예시 데이터입니다.</p>') +
     '</div>'
 }
 

@@ -4,6 +4,7 @@ import { hydrateData } from './db'
 import {
   cands, positions, stagesOf, stageById,
   nextCandId, _addCand, _pushTrail,
+  TODAY_ISO, // 내부 화면이 체류일을 세는 기준일과 같은 값 — 달리 넣으면 '며칠째'가 음수가 된다
   type Candidate,
 } from './data'
 import { postById } from './careers'
@@ -24,10 +25,6 @@ import { orgName } from './core'
      · 메일이 꺼져 있으면      → 지원은 접수하고, 확인 메일 미발송으로 기록
    지원자를 잃는 것보다 담당자가 나중에 기록을 보고 챙기는 편이 낫다.
    ========================================================= */
-
-/* 내부 화면이 체류일을 세는 기준일과 같은 값을 쓴다 — 여기만 실제 날짜를 넣으면
-   방금 들어온 지원건의 '며칠째'가 음수가 된다. */
-const TODAY_ISO = '2026-08-12'
 
 function nowLabel() {
   const n = new Date()
