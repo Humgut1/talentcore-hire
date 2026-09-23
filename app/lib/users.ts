@@ -9,6 +9,7 @@
 import { serverClient } from './supabase'
 import { people } from './data'
 import { APP_ROLES, type AppRole } from './gate'
+import { trainingOn, trainingSeat } from './training'
 
 export type UserSt = 'pending' | 'active' | 'blocked'
 
@@ -54,7 +55,9 @@ export async function loginUpsert(u: CoreUser): Promise<{ ok: true; user: AppUse
   const sb = serverClient()
   if (!sb) return { ok: false, reason: 'not-configured' }
   const now = new Date().toISOString()
-  const pid = matchPerson(u)
+  /* 연습 Hire — 배우는 사람은 기다리지 않고 바로 리크루터로 들어온다(training.ts trainingSeat). */
+  const practice = trainingOn()
+  const pid = (practice ? await trainingSeat(u) : null) || matchPerson(u)
 
   const got = await sb.from('app_users').select('*').eq('id', u.id).maybeSingle()
   if (got.error) return fail(got.error)
@@ -64,6 +67,9 @@ export async function loginUpsert(u: CoreUser): Promise<{ ok: true; user: AppUse
     const patch = {
       nm: u.name || cur.nm, email: u.email, dept: u.dept || null, last_login: now,
       person_id: cur.person_id || pid,
+      ...(practice && cur.st === 'pending' ? {
+        role: 'recruiter', st: 'active', approved_by: '연습 자동 승인', approved_at: now,
+      } : {}),
     }
     const up = await sb.from('app_users').update(patch).eq('id', u.id).select('*').single()
     if (up.error) return fail(up.error)
@@ -75,12 +81,13 @@ export async function loginUpsert(u: CoreUser): Promise<{ ok: true; user: AppUse
   if (admins.error) return fail(admins.error)
   const first = (admins.count ?? 0) === 0 && u.role === 'admin'
 
+  const auto = !first && practice
   const row = {
     id: u.id, email: u.email, nm: u.name || '이름 없음', dept: u.dept || null,
-    role: first ? 'admin' : null, st: first ? 'active' : 'pending',
+    role: first ? 'admin' : auto ? 'recruiter' : null, st: first || auto ? 'active' : 'pending',
     person_id: pid, last_login: now,
-    approved_by: first ? '첫 HR Admin (TalentCore 관리자)' : null,
-    approved_at: first ? now : null,
+    approved_by: first ? '첫 HR Admin (TalentCore 관리자)' : auto ? '연습 자동 승인' : null,
+    approved_at: first || auto ? now : null,
   }
   const ins = await sb.from('app_users').insert(row).select('*').single()
   if (ins.error) return fail(ins.error)

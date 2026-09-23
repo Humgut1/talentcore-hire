@@ -313,7 +313,7 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
   return (
     <>
       <div style={{ marginBottom: 14 }}>
-        <StageComments cid={d.cid} actor={d.sender} stageNm={d.stage.nm}
+        <StageComments cid={d.cid} actor={d.actor} stageNm={d.stage.nm}
           cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       </div>
       {d.others.length ? (
@@ -416,7 +416,7 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 function EvalTab({ d }: { d: DrawerData }) {
   return (
     <>
-      <StageComments cid={d.cid} actor={d.sender} stageNm={d.stage.nm}
+      <StageComments cid={d.cid} actor={d.actor} stageNm={d.stage.nm}
         cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       <DecisionClient
         view={d.decision} cid={d.cid} cand={d.nm} pos={d.pos.title} sender={d.sender}

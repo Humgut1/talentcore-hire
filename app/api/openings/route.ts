@@ -23,6 +23,7 @@ import { hydrateData } from '../../lib/db'
 import { positions, people, personById } from '../../lib/data'
 import { createPosition, setPersonRoles } from '../../lib/actions'
 import { asSystem } from '../../lib/access'
+import { trainingOn, trainingSeat } from '../../lib/training'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +45,7 @@ interface Body {
   level?: string          // 자리 카드의 직급 라벨 (L4 — Senior)
   openings?: OpeningIn[]
   recruiter?: string      // Hire 쪽 담당자 이름. 없으면 첫 리크루터가 맡는다.
+  recruiter_email?: string // 보낸 사람 메일 — 연습 Hire 에서 배우는 사람 본인을 담당자로 세울 때
   hiring_manager?: string
   /* 면접관 세 자리. TalentCore 요청서가 이미 알고 있는 사람들이다.
      hm = 부서장(1차) · upper = 차상위 리더 · collab = 요청서에서 고른 협업 리더(2차). */
@@ -67,6 +69,10 @@ export async function POST(req: Request) {
     .map(o => String(o.code || '').trim())
     .filter(Boolean)
   if (!codes.length) return bad('openings 가 비어 있습니다 — 보낼 포지션을 하나 이상 골라야 합니다')
+
+  /* 연습 Hire — 보낸 사람(배우는 사람의 연습 계정)은 아직 Hire 명부에 없을 수 있다.
+     명부를 당겨 와 리크루터로 세워 둬야 공고 담당자가 '첫 리크루터'로 새지 않는다. */
+  if (trainingOn() && b.recruiter_email) await trainingSeat({ email: b.recruiter_email })
 
   await hydrateData()
 

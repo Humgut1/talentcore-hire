@@ -8,7 +8,7 @@
    실제 채용 배포에는 둘 다 없으므로 503 으로 닫혀 있다.
    ========================================================= */
 import { NextResponse } from 'next/server'
-import { trainingAuth, resetTrainingHire } from '../../../lib/training'
+import { trainingAuth, resetTrainingHire, resetTrainingPositions } from '../../../lib/training'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +16,10 @@ export async function POST(req: Request) {
   const auth = trainingAuth(req)
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
 
-  const r = await resetTrainingHire()
+  /* body { positions: [...] } 면 그 공고만 — 한 사람의 [처음으로]. 없으면 전체. */
+  const body = await req.json().catch(() => ({})) as { positions?: unknown }
+  const r = Array.isArray(body.positions)
+    ? await resetTrainingPositions(body.positions.map(String))
+    : await resetTrainingHire()
   return NextResponse.json(r, { status: r.ok ? 200 : 502 })
 }

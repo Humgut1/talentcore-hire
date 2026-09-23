@@ -17,11 +17,13 @@ export async function POST(req: Request) {
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status })
 
   let pid = ''
+  let preset: 'screen' | 'finalist' = 'screen'
   try {
-    const b = await req.json() as { position_id?: string }
+    const b = await req.json() as { position_id?: string; preset?: string }
     pid = (b?.position_id || '').trim()
+    if (b?.preset === 'finalist') preset = 'finalist'
   } catch { /* 본문이 없어도 된다 — 그러면 가장 최근 공고 */ }
 
-  const r = await addTrainingApplicants(pid)
+  const r = await addTrainingApplicants(pid, preset)
   return NextResponse.json(r, { status: r.ok ? 200 : 400 })
 }

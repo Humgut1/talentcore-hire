@@ -25,6 +25,7 @@ import { ivSearch, type IvPlanView } from './iv-actions'
 import { listSeats, syncOfferApproval, type SeatView } from './actions'
 import type { IvEvent } from './iv-store'
 import type { Offer } from './offer'
+import { currentSession } from './session'
 
 export interface OtherApp {
   id: string; title: string; ap: string; src: string
@@ -64,6 +65,8 @@ export interface DrawerData {
   /* 배관 상태 — 화면이 '진짜인 척'하지 않기 위해 그대로 내려보낸다. */
   mailReady: boolean
   sender: string
+  /** 판정 코멘트가 남을 이름 — 로그인한 본인(서버 actorFor 와 같은 규칙). 공고 담당자가 아니다. */
+  actor: string
 }
 
 /**
@@ -163,5 +166,9 @@ export async function drawerData(
     ivLog: cur ? coordLog(cur.id) : [],
     mailReady: (await mailerStatus()).email,
     sender: p.rec,
+    actor: await (async () => {
+      const s = await currentSession()
+      return (s?.uid ? (s.pid ? personById(s.pid)?.nm : undefined) || s.nm : undefined) || p.rec
+    })(),
   }
 }
