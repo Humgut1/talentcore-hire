@@ -188,7 +188,7 @@ export async function readLinkToken(kind: string, raw: string | undefined | null
 
 const OPEN_EXACT = new Set([
   '/login', '/demo', '/logout',
-  '/favicon.ico', '/robots.txt', '/sitemap.xml',
+  '/favicon.ico', '/icon.svg', '/robots.txt', '/sitemap.xml',
 ])
 
 const OPEN_PREFIX = [
