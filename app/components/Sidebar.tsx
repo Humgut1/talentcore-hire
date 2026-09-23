@@ -11,6 +11,7 @@ import { useMemo, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Icon } from './IconSprite'
+import BrandMark from './BrandMark'
 import { me } from '../lib/data'
 
 /** 사이드바가 그리는 데 필요한 만큼만 추린 공고 한 줄. 서버가 만들어 넘긴다. */
@@ -81,9 +82,9 @@ export default function Sidebar(
   return (
     <aside className="side">
       <div className="brand">
-        <span className="brand-mark"><svg viewBox="0 0 24 24"><use href="#i-mark" /></svg></span>
+        <BrandMark className="brand-mark" />
         <span className="brand-name">Hire</span>
-        <span className="brand-tag">TalentCore</span>
+        <span className="brand-tag">talentcore</span>
       </div>
 
       <div className="nav-sec">

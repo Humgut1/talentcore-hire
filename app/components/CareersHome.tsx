@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { dueLabel, dueSoon, type CareerPost } from '../lib/careers'
 import type { Story } from '../(site)/careers/content'
 import { CareersTop, CareersFoot } from './CareersChrome'
+import BrandMark from './BrandMark'
 import './careers-home.css'
 
 /* =========================================================
@@ -22,6 +23,7 @@ import './careers-home.css'
    효과는 브라우저에서만 그린다 — 글자와 공고가 먼저 뜨고 빛이 뒤따른다.
    ========================================================= */
 const Glow = dynamic(() => import('./CareersFx').then(m => m.Glow), { ssr: false })
+const MetalMark = dynamic(() => import('./CareersFx').then(m => m.MetalMark), { ssr: false })
 
 interface Props {
   posts: CareerPost[]
@@ -74,6 +76,11 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
       <section className="ch-hero">
         <div className="ch-fx"><Glow still={still} /></div>
         <div className="ch-in ch-hero-in">
+          {/* 녹은 금속 로고. 밑의 평범한 로고는 효과를 못 그리는 기기에서 남는다 */}
+          <div className="ch-logo">
+            <BrandMark className="ch-logo-still" />
+            <MetalMark still={still} />
+          </div>
           <p className="ch-eye">{co} 채용</p>
           <h1>일하는 방식을 만드는 일</h1>
           <p className="ch-sub">사람을 뽑고, 맞이하고, 함께 일하는 과정을 다시 설계합니다.</p>

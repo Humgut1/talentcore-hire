@@ -78,15 +78,9 @@ ul { padding: 0; list-style: none; }
   display: flex; flex-direction: column; gap: 2px;
 }
 .brand { display: flex; align-items: center; gap: 9px; padding: 6px 8px 14px; }
-.brand-mark {
-  width: 24px; height: 24px; border-radius: 7px; flex: none;
-  background: linear-gradient(150deg, var(--brand) 0%, var(--brand-deep) 100%);
-  display: grid; place-items: center;
-  box-shadow: 0 1px 2px rgba(91,83,214,.35), inset 0 1px 0 rgba(255,255,255,.22);
-}
-.brand-mark svg { width: 13px; height: 13px; stroke: #fff; stroke-width: 2; stroke-linecap: round; fill: none; }
+.brand-mark { width: 24px; height: 24px; flex: none; color: var(--t1); }
 .brand-name { font-size: 14px; font-weight: 700; letter-spacing: -0.02em; }
-.brand-tag { margin-left: auto; font-size: 9.5px; font-weight: 600; color: var(--t4);
+.brand-tag { margin-left: auto; font-family: 'Unbounded', var(--sans); font-size: 9px; font-weight: 700; letter-spacing: -.02em; color: var(--t4);
              background: var(--sunken); padding: 2px 5px; border-radius: 4px; }
 
 .nav-sec { margin-top: 11px; }

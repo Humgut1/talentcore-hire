@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import BrandMark, { BrandLockup } from './BrandMark'
 import './careers-home.css'
 
 /* =========================================================
@@ -46,7 +47,7 @@ export function CareersTop({ co, count, base = '', always = false }: {
   return (
     <header className={`ch-top${solid ? ' solid' : ''}${always ? ' fixed' : ''}`}>
       <div className="ch-in">
-        <Link href="/careers" className="ch-mark">{co} <span>채용</span></Link>
+        <Link href="/careers" className="ch-mark"><BrandMark />{co} <span>채용</span></Link>
         <nav>
           {MENU.map(([h, t]) => <a key={h} href={`${base}${h}`}>{t}</a>)}
         </nav>
@@ -61,6 +62,9 @@ export function CareersFoot({ co }: { co: string }) {
     <footer className="ch-foot">
       <div className="ch-in">
         <span>© {new Date().getFullYear()} {co}</span>
+        <a className="ch-by" href="https://talentcore-hire.vercel.app/careers" aria-label="talentcore 로 만든 채용 사이트">
+          <BrandLockup />
+        </a>
         <p>지원 과정에서 받은 개인정보는 채용 목적으로만 쓰이며, 채용 종료 후 파기합니다.</p>
       </div>
     </footer>
