@@ -34,8 +34,6 @@ interface Props {
   faq: { q: string; a: string }[]
   today: string
   photo: string
-  /** 시안 비교용(임시). a = 금속 빼고 평범한 로고 · b = 금속 + 어두운 배경 */
-  look?: 'a' | 'b'
 }
 
 function useStill() {
@@ -50,7 +48,7 @@ function useStill() {
   return still
 }
 
-export default function CareersHome({ posts, co, steps, ways, stories, faq, today, photo, look }: Props) {
+export default function CareersHome({ posts, co, steps, ways, stories, faq, today, photo }: Props) {
   const [q, setQ] = useState('')
   const [dept, setDept] = useState('')
   const still = useStill()
@@ -72,16 +70,16 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
   const toJobs = () => document.getElementById('jobs')?.scrollIntoView({ behavior: 'smooth' })
 
   return (
-    <div className={`ch${look ? ' lk-' + look : ''}`}>
+    <div className="ch">
       <CareersTop co={co} count={posts.length} />
 
       <section className="ch-hero">
-        <div className="ch-fx"><Glow still={still} dark={look === 'b'} /></div>
+        <div className="ch-fx"><Glow still={still} /></div>
         <div className="ch-in ch-hero-in">
           {/* 녹은 금속 로고. 밑의 평범한 로고는 효과를 못 그리는 기기에서 남는다 */}
           <div className="ch-logo">
             <BrandMark className="ch-logo-still" />
-            {look !== 'a' && <MetalMark still={still} dark={look === 'b'} />}
+            <MetalMark still={still} />
           </div>
           <p className="ch-eye">{co} 채용</p>
           <h1>일하는 방식을 만드는 일</h1>
@@ -99,16 +97,16 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
           </label>
 
         </div>
-
-        {/* 아래 구역에서 다시 나올 말(부서 칩·7일 안내)을 첫 화면이 한 번 더
-            하지 않게 했다. 그 자리에는 사진 한 장만 둔다. */}
-        {photo && (
-          <div className="ch-in ch-hero-shot">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={photo} alt="" />
-          </div>
-        )}
       </section>
+
+      {/* 아래 구역에서 다시 나올 말(부서 칩·7일 안내)을 첫 화면이 한 번 더
+          하지 않게 했다. 사진은 어두운 첫 화면 밖, 흰 바탕에 둔다. */}
+      {photo && (
+        <div className="ch-in ch-hero-shot">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={photo} alt="" />
+        </div>
+      )}
 
       <section className="ch-sec" id="jobs">
         <div className="ch-in">

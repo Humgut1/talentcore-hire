@@ -23,11 +23,9 @@ export async function generateMetadata(): Promise<Metadata> {
    절차·일하는 방식·팀 이야기·질문은 회사가 직접 쓰는 글(content.ts).
 
    이 페이지는 사이트 공통 머리글·바닥글을 감추고 직접 그린다.
-   위쪽 빛 번짐 위로 머리글이 떠 있어야 하기 때문이다(careers-home.css).
+   위쪽 어두운 빛 위로 머리글이 떠 있어야 하기 때문이다(careers-home.css).
    ========================================================= */
-export default async function CareersPage({ searchParams }: { searchParams: Promise<{ look?: string }> }) {
-  const lk = (await searchParams).look
-  const look = lk === 'a' || lk === 'b' ? lk : undefined
+export default async function CareersPage() {
   await hydrateData()
   const posts = openPosts()
   const co = (await orgName()) || 'TalentCore'
@@ -43,7 +41,6 @@ export default async function CareersPage({ searchParams }: { searchParams: Prom
         faq={FAQ}
         today={todayISO()}
         photo={HERO_PHOTO}
-        look={look}
       />
     </main>
   )

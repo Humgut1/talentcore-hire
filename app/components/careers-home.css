@@ -1,8 +1,9 @@
 /* =========================================================
    채용 첫 화면 — .ch 안에서만 쓴다.
 
-   흰 바탕에 파랑 하나. 색은 상태에만 쓴다(마감 임박 = 빨강).
-   이 페이지는 머리글·바닥글을 직접 그린다 — 위쪽 빛 번짐 위로 머리글이
+   첫 화면만 어두운 강철색(은빛 금속 로고의 바탕), 아래는 흰 바탕에 파랑 하나.
+   색은 상태에만 쓴다(마감 임박 = 빨강).
+   이 페이지는 머리글·바닥글을 직접 그린다 — 위쪽 어두운 빛 위로 머리글이
    떠 있어야 해서, 사이트 공통 띠(.s-top)와 겹치면 둘 다 죽는다.
    ========================================================= */
 body:has(.ch) .s-top,
@@ -34,6 +35,11 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .ch-top nav { display: flex; gap: 26px; margin-left: auto; font-size: 14.5px; font-weight: 500; }
 .ch-top nav a { color: var(--ink2); text-decoration: none; }
 .ch-top nav a:hover { color: var(--ink); }
+/* 어두운 첫 화면 위에 떠 있을 때는 밝은 글자 */
+.ch-top:not(.solid) .ch-mark { color: #fff; }
+.ch-top:not(.solid) .ch-mark span { color: #8b95a1; }
+.ch-top:not(.solid) nav a { color: #c5cdd8; }
+.ch-top:not(.solid) nav a:hover { color: #fff; }
 .ch-cta {
   display: inline-block; font-size: 14px; font-weight: 600; padding: 10px 16px; border-radius: 10px;
   background: var(--blue); color: #fff; text-decoration: none; white-space: nowrap; transition: background .2s, transform .2s;
@@ -42,15 +48,14 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .ch-cta:active { transform: scale(.97); }
 .ch-cta.big { font-size: 17px; padding: 17px 30px; border-radius: 14px; }
 
-/* 첫 화면 — 위쪽 전체에 파란 빛이 번지고, 가운데 유리 검색창 */
+/* 첫 화면 — 어두운 강철빛 위에 금속 로고, 가운데 유리 검색창 */
 .ch-hero { position: relative; padding: 150px 0 96px; text-align: center; overflow: hidden; }
-.ch-fx { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, #9cc6ff, #e8f2ff 60%, #fff); }
-.ch-fx::after { content: ''; position: absolute; inset: auto 0 0; height: 45%; background: linear-gradient(transparent, #fff); }
+.ch-fx { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 0%, #2d3a52, #0d1119 60%, #07090d); }
 .ch-hero-in { position: relative; }
 
 /* 녹은 금속 로고 — 캔버스가 그려지면(.on) 밑의 평범한 로고를 감춘다.
    캔버스 안에서 로고는 1.2배(METAL_FILL)라 평범한 로고도 같게 키운다. */
-.ch-logo { position: relative; width: 136px; height: 136px; margin: -24px auto 8px; color: var(--ink); }
+.ch-logo { position: relative; width: 136px; height: 136px; margin: -24px auto 8px; color: #dfe5ee; }
 .ch-logo-still { position: absolute; inset: -10%; width: 120%; height: 120%; transition: opacity .3s; }
 .ch-logo-gl { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity .6s; }
 .ch-logo-gl.on { opacity: 1; }
@@ -63,34 +68,35 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .ch .ch-by { display: inline-flex; margin-top: 14px; color: var(--ink3); text-decoration: none; }
 .ch .ch-by:hover { color: var(--ink); }
 .ch .ch-eye {
-  font-size: 15px; font-weight: 700; color: var(--blue-d);
-  background: rgba(255, 255, 255, .7); display: inline-block; padding: 5px 11px; border-radius: 999px;
+  font-size: 15px; font-weight: 700; color: #9cc6ff;
+  background: rgba(255, 255, 255, .08); display: inline-block; padding: 5px 11px; border-radius: 999px;
 }
 .site .ch h1 { margin-top: 14px; font-size: 64px; line-height: 1.2; font-weight: 800; }
-.ch .ch-sub { margin-top: 18px; font-size: 18px; line-height: 1.7; color: #33415a; }
+.site .ch .ch-hero h1 { color: #fff; }
+.ch .ch-sub { margin-top: 18px; font-size: 18px; line-height: 1.7; color: #a9b4c4; }
 
 .ch-search { position: relative; display: block; margin: 38px auto 0; max-width: 580px; }
 .ch-search svg {
   position: absolute; left: 18px; top: 50%; width: 20px; height: 20px; transform: translateY(-50%);
-  fill: none; stroke: var(--ink3); stroke-width: 2; stroke-linecap: round;
+  fill: none; stroke: #8b95a1; stroke-width: 2; stroke-linecap: round;
 }
 .ch-search input {
-  width: 100%; border: 1px solid rgba(255, 255, 255, .8); outline: 0; border-radius: 20px;
-  padding: 21px 20px 21px 50px; font: 500 16px var(--sans); color: var(--ink);
-  background: rgba(255, 255, 255, .6);
-  box-shadow: 0 16px 50px -16px rgba(27, 100, 218, .4), inset 0 1px 0 #fff;
+  width: 100%; border: 1px solid rgba(255, 255, 255, .14); outline: 0; border-radius: 20px;
+  padding: 21px 20px 21px 50px; font: 500 16px var(--sans); color: #fff;
+  background: rgba(255, 255, 255, .07);
+  box-shadow: 0 16px 50px -16px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .08);
   -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
   transition: box-shadow .2s, background .2s;
 }
 .ch-search input::placeholder { color: var(--ink3); }
-.ch-search input:focus { background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 2px var(--blue) inset, 0 16px 50px -16px rgba(27, 100, 218, .4); }
+.ch-search input:focus { background: rgba(255, 255, 255, .11); box-shadow: 0 0 0 2px var(--blue) inset; }
 
-/* 검색창 아래 사진 한 장. 빛 위에 얹혀 살짝 떠 보이게 둔다 */
-.ch-hero-shot { position: relative; margin-top: 60px; }
+/* 첫 화면 바로 아래, 흰 바탕에 사진 한 장 */
+.ch-hero-shot { position: relative; margin-top: 56px; }
 .ch-hero-shot img {
   display: block; width: 100%; aspect-ratio: 21 / 9; object-fit: cover;
   border-radius: 24px; background: var(--soft);
-  box-shadow: 0 40px 80px -40px rgba(27, 100, 218, .45), 0 0 0 1px rgba(255, 255, 255, .7);
+  box-shadow: 0 30px 60px -36px rgba(0, 0, 0, .3);
 }
 
 /* 공통 구역 */
@@ -212,7 +218,7 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
   .ch-hero { padding: 104px 0 56px; }
   .ch-logo { width: 100px; height: 100px; margin-top: -10px; }
   .ch-search { margin-top: 26px; }
-  .ch-hero-shot { margin-top: 34px; }
+  .ch-hero-shot { margin-top: 28px; }
   .ch-hero-shot img { aspect-ratio: 5 / 4; border-radius: 18px; }
 
   .ch-sec { padding: 64px 0; }
@@ -238,27 +244,3 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
   .ch-story { flex: none; width: 240px; scroll-snap-align: start; }
 }
 
-/* =========================================================
-   시안 비교(임시) — /careers?look=a · ?look=b. 고르면 지운다.
-   a = 금속 효과 없이 평범한 로고, 파란 빛 그대로
-   b = 금속 로고 그대로, 배경을 어두운 강철색으로
-   ========================================================= */
-.ch.lk-a .ch-logo { color: var(--ink); }
-
-.ch.lk-b .ch-fx { background: radial-gradient(ellipse at 50% 0%, #2d3a52, #0d1119 60%, #07090d); }
-.ch.lk-b .ch-fx::after { height: 30%; background: #fff; }
-.ch.lk-b .ch-logo { color: #dfe5ee; }
-.ch.lk-b .ch-eye { color: #9cc6ff; background: rgba(255, 255, 255, .08); }
-.site .ch.lk-b .ch-hero h1 { color: #fff; }
-.ch.lk-b .ch-sub { color: #a9b4c4; }
-.ch.lk-b .ch-search svg { stroke: #8b95a1; }
-.ch.lk-b .ch-search input {
-  color: #fff; background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .14);
-  box-shadow: 0 16px 50px -16px rgba(0, 0, 0, .6), inset 0 1px 0 rgba(255, 255, 255, .08);
-}
-.ch.lk-b .ch-search input:focus { background: rgba(255, 255, 255, .11); box-shadow: 0 0 0 2px var(--blue) inset; }
-.ch.lk-b .ch-hero-shot img { box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .55); }
-.ch.lk-b .ch-top:not(.solid) .ch-mark { color: #fff; }
-.ch.lk-b .ch-top:not(.solid) .ch-mark span { color: #8b95a1; }
-.ch.lk-b .ch-top:not(.solid) nav a { color: #c5cdd8; }
-.ch.lk-b .ch-top:not(.solid) nav a:hover { color: #fff; }
