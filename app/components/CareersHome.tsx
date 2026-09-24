@@ -6,6 +6,7 @@ import { dueLabel, dueSoon, type CareerPost } from '../lib/careers'
 import type { Story } from '../(site)/careers/content'
 import { CareersTop, CareersFoot } from './CareersChrome'
 import BrandMark from './BrandMark'
+import { WordReel, JobStream } from './CareersMotion'
 import './careers-home.css'
 
 /* =========================================================
@@ -82,7 +83,11 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
             <MetalMark still={still} />
           </div>
           <p className="ch-eye">{co} 채용</p>
-          <h1>일하는 방식을 만드는 일</h1>
+          <h1>
+            <WordReel words={depts.length ? depts.map(([d]) => d) : [co]} still={still} />
+            <span className="ch-sr">{depts.length ? depts.map(([d]) => d).join(', ') : co}</span>에서<br />
+            함께할 분을 찾습니다
+          </h1>
           <p className="ch-sub">사람을 뽑고, 맞이하고, 함께 일하는 과정을 다시 설계합니다.</p>
 
           <label className="ch-search">
@@ -231,6 +236,9 @@ export default function CareersHome({ posts, co, steps, ways, stories, faq, toda
       <section className="ch-end">
         <div className="ch-in">
           <h2>함께 일할 준비가 되셨나요</h2>
+        </div>
+        <JobStream posts={posts} still={still} />
+        <div className="ch-in">
           <a className="ch-cta big" href="#jobs">
             공고 {posts.length}건 보기{soon ? ` · 이번 주 마감 ${soon}건` : ''}
           </a>

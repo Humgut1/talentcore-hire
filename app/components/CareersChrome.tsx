@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import BrandMark, { BrandLockup } from './BrandMark'
+import BrandMark from './BrandMark'
+import { FlipWord } from './CareersMotion'
 import './careers-home.css'
 
 /* =========================================================
@@ -63,7 +64,7 @@ export function CareersFoot({ co }: { co: string }) {
       <div className="ch-in">
         <span>© {new Date().getFullYear()} {co}</span>
         <a className="ch-by" href="https://talentcore-hire.vercel.app/careers" aria-label="talentcore 로 만든 채용 사이트">
-          <BrandLockup />
+          <span className="tc-lock"><BrandMark /><FlipWord text="talentcore" /></span>
         </a>
         <p>지원 과정에서 받은 개인정보는 채용 목적으로만 쓰이며, 채용 종료 후 파기합니다.</p>
       </div>

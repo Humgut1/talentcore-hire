@@ -65,6 +65,11 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .tc-lock { display: inline-flex; align-items: center; gap: 7px; }
 .tc-lock svg { width: 18px; height: 18px; flex: none; }
 .tc-word { font-family: 'Unbounded', var(--sans); font-weight: 700; letter-spacing: -.03em; font-size: 14px; }
+/* 바닥글 talentcore — 한 글자씩 돈다(FlipWord) */
+.tc-flip { display: inline-flex; perspective: 400px; }
+.tc-flip > span { display: inline-block; transform-origin: 50% 50% -.35em; }
+.tc-flip.go > span { animation: tc-flip .7s cubic-bezier(.3, .7, .2, 1) both; animation-delay: calc(var(--i) * 45ms); }
+@keyframes tc-flip { from { transform: rotateX(0); } to { transform: rotateX(360deg); } }
 .ch .ch-by { display: inline-flex; margin-top: 14px; color: var(--ink3); text-decoration: none; }
 .ch .ch-by:hover { color: var(--ink); }
 .ch .ch-eye {
@@ -74,6 +79,12 @@ html:has(.ch) { scroll-behavior: smooth; scroll-padding-top: 76px; }
 .site .ch h1 { margin-top: 14px; font-size: 64px; line-height: 1.2; font-weight: 800; }
 .site .ch .ch-hero h1 { color: #fff; }
 .ch .ch-sub { margin-top: 18px; font-size: 18px; line-height: 1.7; color: #a9b4c4; }
+
+/* 제목 속 부서 이름 — 한 단어씩 위로 바뀐다(CareersMotion WordReel) */
+.ch-reel { display: inline-flex; vertical-align: top; height: 1.2em; overflow: hidden; color: #9cc6ff; transition: width .5s cubic-bezier(.2, .8, .2, 1); }
+.ch-reel-list { display: flex; flex-direction: column; align-items: flex-start; transition: transform .6s cubic-bezier(.2, .8, .2, 1); }
+.ch-reel-list > span { display: block; height: 1.2em; white-space: nowrap; }
+.ch-reel-list.jump { transition: none; }
 
 .ch-search { position: relative; display: block; margin: 38px auto 0; max-width: 580px; }
 .ch-search svg {
@@ -193,12 +204,25 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
 
 /* 끝 */
 .ch-end { padding: 110px 0; text-align: center; }
-.ch .ch-end h2 { font-size: 40px; font-weight: 800; margin-bottom: 28px; }
+.ch .ch-end h2 { font-size: 40px; font-weight: 800; margin-bottom: 32px; }
+/* 공고 흐름 — 옆으로 흐르고 스크롤하면 빨라진다(JobStream) */
+.ch-stream { overflow: hidden; margin-bottom: 40px; padding: 4px 0; text-align: left; }
+.ch-stream-row { display: flex; width: max-content; will-change: transform; }
+.ch-stream-row + .ch-stream-row { margin-top: 12px; }
+.ch-stream.still .ch-stream-row { width: auto; flex-wrap: wrap; justify-content: center; gap: 12px 0; }
+.ch .ch-chip {
+  display: inline-flex; align-items: baseline; gap: 10px; margin-right: 12px; padding: 14px 20px; border-radius: 14px;
+  background: #fff; border: 1px solid var(--line); white-space: nowrap; text-decoration: none;
+  font-size: 18px; font-weight: 700; color: var(--ink); transition: border-color .2s, color .2s;
+}
+.ch .ch-chip small { font-size: 13px; font-weight: 500; color: var(--ink3); }
+.ch .ch-chip:hover, .ch .ch-chip:focus-visible { border-color: var(--blue); color: var(--blue); outline: none; }
 .ch-foot { border-top: 1px solid var(--line); padding: 28px 0 60px; font-size: 13px; color: var(--ink3); }
 .ch-foot p { margin-top: 6px; }
 
 @media (prefers-reduced-motion: reduce) {
   .ch * { transition: none !important; }
+  .tc-flip.go > span { animation: none; }
 }
 
 /* 좁은 화면 ----------------------------------------------------- */
@@ -234,6 +258,8 @@ a.ch-story:hover .ch-shot img { transform: scale(1.04); }
   .ch-faq summary { font-size: 16px; }
   .ch-end { padding: 72px 0; }
   .ch .ch-end h2 { font-size: 26px; }
+  .ch .ch-chip { font-size: 15.5px; padding: 12px 16px; }
+  .ch-stream { margin-bottom: 28px; }
 
   /* 이야기 카드는 옆으로 넘겨 본다 */
   .ch-stories {
