@@ -133,12 +133,13 @@ export function JobStream({ posts, still }: { posts: CareerPost[]; still: boolea
   }
 
   /* 한 줄이 화면보다 짧으면 끊겨 보이므로 8칸 이상이 되게 되풀이하고,
-     그 한 벌을 두 번 이어 붙여 끝과 처음이 맞물리게 흐른다. */
+     그 한 벌을 두 번 이어 붙여 끝과 처음이 맞물리게 흐른다.
+     키보드·화면 읽기는 첫 줄의 첫 한 벌만 — 같은 공고를 두 번 읽지 않게. */
   const lineOf = (k: number) => {
     const base = k ? [...posts.slice(Math.ceil(posts.length / 2)), ...posts.slice(0, Math.ceil(posts.length / 2))] : posts
     const set: CareerPost[] = []
     while (set.length < 8) set.push(...base)
-    return [...set, ...set].map((p, n) => chip(p, `${k}-${n}`, n >= base.length))
+    return [...set, ...set].map((p, n) => chip(p, `${k}-${n}`, k > 0 || n >= base.length))
   }
 
   return (
