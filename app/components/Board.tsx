@@ -28,14 +28,16 @@ interface Toast { id: number; html: string; undo?: () => void }
    props가 없으면(예: 미연결) 정적 샘플 데이터로 동작한다. */
 export default function Board(
   { pid = 'p1', initialCands, mtgs: mtgsProp, initialStages, pos, staff = true,
-    today = '2026-08-12', sample = true }:
+    today = '2026-08-12', sample = true, org = '' }:
   { pid?: string; initialCands?: Candidate[]; mtgs?: MtgView[]; initialStages?: Stage[]; pos?: Position
     /* false = 하이어링 매니저 — 공고 설정·후보자 추가·미팅 세팅은 채용 담당자 몫이라 숨긴다 */
     staff?: boolean
     /* 서버의 기준일(연습 배포는 실제 날짜) — 옮기거나 추가한 카드에 바로 찍는 값 */
     today?: string
     /* false = 연습 배포. 샘플이 아니므로 '예시 데이터' 안내를 떼어 낸다 */
-    sample?: boolean },
+    sample?: boolean
+    /* 후보자 메일 초안에 적는 회사 이름(TalentCore 설정) */
+    org?: string },
 ) {
   const PID = pid
   const [list, setList] = useState<Candidate[]>(initialCands ?? staticCands)
@@ -53,6 +55,10 @@ export default function Board(
      서버가 계산해 넘겨주고, 여기서 지정·확정한 결과만 그 자리에서 덮어쓴다. */
   const [mtgs, setMtgs] = useState<MtgView[]>(mtgsProp ?? mtgViews(PID))
   const cols = stages.filter(sg => !sg.rail) // 후보자가 놓일 수 있는 단계(레일 제외)
+  /* 서랍에서 판정·단계 이동을 하면 서버가 새 목록을 내려준다(router.refresh).
+     useState 는 첫 값만 쓰므로, 새 목록이 오면 받아 적어야 보드가 새로고침 없이 맞는다. */
+  useEffect(() => { if (initialCands) setList(initialCands) }, [initialCands])
+  useEffect(() => { if (mtgsProp) setMtgs(mtgsProp) }, [mtgsProp])
 
   /* ---- 후보자 추가 모달 ---- */
   const [addStage, setAddStage] = useState<string | null>(null) // null=닫힘
@@ -199,7 +205,7 @@ export default function Board(
     if (!t) return null
     return t.make({
       cand: pv.nm, pos: p.title, stage: pvNext?.nm ?? stageById(PID, pv.st).nm,
-      rc: p.rec, company: 'TalentCore',
+      rc: p.rec, company: org,
     })
   })()
   const rjDraft = (() => {
@@ -208,7 +214,7 @@ export default function Board(
       const t = tplByCode(rjMail)
       return t ? t.make({
         cand: pv.nm, pos: p.title, stage: stageById(PID, pv.st).nm,
-        rc: p.rec, company: 'TalentCore',
+        rc: p.rec, company: org,
       }) : null
     }
     return rejectMailDraft({

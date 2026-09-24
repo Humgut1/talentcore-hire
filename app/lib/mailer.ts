@@ -23,6 +23,7 @@
    ========================================================= */
 
 import { gmailReady, gmailAddress, gmailSend } from './google'
+import { orgName } from './core'
 
 export type MailerState = 'unconfigured' | 'configured'
 export interface MailerStatus {
@@ -77,7 +78,7 @@ export async function sendEmail(
   /* Gmail 이 연결돼 있으면 그쪽이 먼저다. 실패하면 Resend 로 다시 시도하지 않는다 —
      같은 메일이 두 번 나가는 것보다 한 번 실패하고 기록에 남는 편이 낫다. */
   if (gmail) {
-    const r = await gmailSend(addr, subject, text, process.env.REMINDER_FROM_NAME || 'TalentCore 채용팀')
+    const r = await gmailSend(addr, subject, text, process.env.REMINDER_FROM_NAME || `${(await orgName()) || 'TalentCore'} 채용팀`)
     return r.ok
       ? { ok: true, channel: 'email', to: addr }
       : { ok: false, channel: 'email', to: addr, reason: r.reason }

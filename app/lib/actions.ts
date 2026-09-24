@@ -46,7 +46,7 @@ import { rejectMailDraft, type StageLite } from './decision'
 import { syncDirectory, lastSyncedAt, type SyncReport } from './directory'
 import {
   coreState, coreLabel, fetchSeats, fetchStartRule, pushHire,
-  pushOfferApproval, fetchOfferApproval, cancelOfferApproval,
+  pushOfferApproval, fetchOfferApproval, cancelOfferApproval, orgName,
   type CoreSeat, type StartRule, type CoreOffer,
 } from './core'
 
@@ -1881,7 +1881,7 @@ async function mailAdvance(c: Candidate, toNm: string, tplCode: string) {
   const t = tplByCode(tplCode)
   if (!t) return { ok: false, reason: 'no-template' }
   const pos = posById(c.p)
-  const m = t.make({ cand: c.nm, pos: pos.title, stage: toNm, rc: pos.rec, company: 'TalentCore' })
+  const m = t.make({ cand: c.nm, pos: pos.title, stage: toNm, rc: pos.rec, company: await orgName() })
   return sendCandMail({
     cid: c.id, kind: t.v,
     ...(c.email ? { to: c.email } : {}),
@@ -1899,7 +1899,7 @@ async function mailReject(
   const t = notify === 'auto' ? null : tplByCode(notify)
   if (notify !== 'auto' && !t) return { ok: false, reason: 'no-template' }
   const m = t
-    ? t.make({ cand: c.nm, pos: pos.title, stage: at.nm, rc: pos.rec, company: 'TalentCore' })
+    ? t.make({ cand: c.nm, pos: pos.title, stage: at.nm, rc: pos.rec, company: await orgName() })
     : rejectMailDraft({ cand: c.nm, pos: pos.title, stage: at, code, sender: pos.rec })
   return sendCandMail({
     cid: c.id, kind: t ? t.v : 'reject-notice',
@@ -2015,7 +2015,7 @@ export async function bulkMail(cids: string[], code: string): Promise<BulkReport
     const pos = posById(c.p)
     const m = t.make({
       cand: c.nm, pos: pos.title, stage: stageById(c.p, c.st).nm,
-      rc: pos.rec, company: 'TalentCore',
+      rc: pos.rec, company: await orgName(),
     })
     const r = await sendCandMail({
       cid, kind: code,

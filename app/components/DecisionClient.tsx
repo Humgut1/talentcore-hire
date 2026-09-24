@@ -84,9 +84,9 @@ const hint: React.CSSProperties = { fontSize: 11.5, color: 'var(--t3)', marginTo
 const line: React.CSSProperties = { fontSize: 12.5, color: 'var(--t2)', lineHeight: 1.6 }
 
 export default function DecisionClient({
-  view, cid, cand, pos, sender, rj, comment, lock,
+  view, cid, cand, pos, sender, rj, comment, lock, company = '',
 }: {
-  view: DecisionView; cid: string; cand: string; pos: string; sender: string
+  view: DecisionView; cid: string; cand: string; pos: string; sender: string; company?: string
   /* 이 단계의 마지막 판정 코멘트. 없으면 넘기기·보류·불합격(우리 판단)을 막는다. */
   comment?: string
   /* 이미 종료된 카드의 사유 — 종료 문구를 '우리가 거절'과 '후보자 이탈'로 갈라 쓴다. */
@@ -140,14 +140,14 @@ export default function DecisionClient({
      본문을 짓는 함수가 순수 함수라, 서버에 묻지 않고 고르는 즉시 바뀐다. */
   const mk = (v: string) => {
     const t = tplByCode(v)
-    return t ? t.make({ cand, pos, stage: view.cur.nm, rc: sender, company: 'TalentCore' }) : null
+    return t ? t.make({ cand, pos, stage: view.cur.nm, rc: sender, company }) : null
   }
   const draft = !code || !rjMail ? null
     : rjMail === 'auto' ? rejectMailDraft({ cand, pos, stage: view.cur, code, sender })
       : mk(rjMail)
   const passDraft = !passMail || !view.next ? null : (() => {
     const t = tplByCode(passMail)
-    return t ? t.make({ cand, pos, stage: view.next.nm, rc: sender, company: 'TalentCore' }) : null
+    return t ? t.make({ cand, pos, stage: view.next.nm, rc: sender, company }) : null
   })()
 
   /* 판정과 통보는 따로 말한다 — 메일이 못 나가도 판정은 이미 저장됐다. */

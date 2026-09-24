@@ -419,7 +419,7 @@ function EvalTab({ d }: { d: DrawerData }) {
       <StageComments cid={d.cid} actor={d.actor} stageNm={d.stage.nm}
         cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       <DecisionClient
-        view={d.decision} cid={d.cid} cand={d.nm} pos={d.pos.title} sender={d.sender}
+        view={d.decision} cid={d.cid} cand={d.nm} pos={d.pos.title} sender={d.sender} company={d.company}
         lock={d.lock}
         {...(d.rj ? { rj: d.rj.code } : {})}
         {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
@@ -530,7 +530,7 @@ function MailTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void }) 
     const t = tplByCode(v)
     if (!t) { setSub(''); setBody(''); return }
     const m = t.make({
-      cand: d.nm, pos: d.pos.title, stage: d.stage.nm, rc: d.sender, company: 'TalentCore',
+      cand: d.nm, pos: d.pos.title, stage: d.stage.nm, rc: d.sender, company: d.company,
       ...(fx ? { when: fx.fixed, dur: fx.totalMin } : {}),
     })
     setSub(m.subject); setBody(m.body)

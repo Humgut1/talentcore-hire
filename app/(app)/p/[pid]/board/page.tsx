@@ -5,6 +5,7 @@ import { cands, stagesOf, posById, TODAY_ISO, REAL_CLOCK } from '../../../../lib
 import { mtgViews } from '../../../../lib/meetings'
 import { ivBoardOpen } from '../../../../lib/iv-actions'
 import { drawerData } from '../../../../lib/drawer'
+import { orgName } from '../../../../lib/core'
 import { currentSession, evalViewer } from '../../../../lib/session'
 import NoAccess from '../../../../components/NoAccess'
 import { viewerScope, seePos, seeCand, isAll } from '../../../../lib/access'
@@ -48,6 +49,7 @@ export default async function Page({
         staff={isAll(sc)}
         today={TODAY_ISO}
         sample={!REAL_CLOCK}
+        org={await orgName()}
       />
       {d ? <CandDrawer d={d} /> : null}
     </>

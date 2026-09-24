@@ -92,6 +92,9 @@ export default function StageEditor(
      TalentCore 직원 전원이 명부에 들어와 있지만 기본값은 '면접 안 함'이다. */
   const interviewers = people.filter(p =>
     p.active !== false && p.roles.some(r => r === '인터뷰어' || r === '하이어링 매니저'))
+  /* 부문 선택지 = 명부(TalentCore 에서 당겨 온 사람)의 부서. 지금 값은 늘 남긴다. */
+  const deptOptions = [...new Set([pos.dept, ...people.filter(p => p.active !== false).map(p => p.dept)]
+    .filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'))
 
   /* ---- 저장 표시 ----
      이 화면에는 '수정' 버튼도 '저장' 버튼도 없다. 칸을 고치고 다른 데를 누르면
@@ -590,7 +593,7 @@ export default function StageEditor(
                     className="sel" value={pos.dept}
                     onChange={e => { setField('dept', e.target.value); saveField('dept', e.target.value) }}
                   >
-                    {['플랫폼본부', '프로덕트본부', '사업본부'].map(x => <option key={x}>{x}</option>)}
+                    {deptOptions.map(x => <option key={x}>{x}</option>)}
                   </select>
                 </div>
                 <div className="field">

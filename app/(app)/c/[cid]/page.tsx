@@ -10,6 +10,7 @@ import { evalGate } from '../../../lib/evalgate'
 import { finalGate } from '../../../lib/meetings'
 import { currentSession, evalViewer } from '../../../lib/session'
 import { hydrateData } from '../../../lib/db'
+import { orgName } from '../../../lib/core'
 import { candidateHeadHTML, candidateFootHTML } from '../../../lib/render'
 import { cands, evals, me, personById, posById, stageById, stagesOf, commentsFor } from '../../../lib/data'
 import { decisionFor } from '../../../lib/decision'
@@ -61,7 +62,7 @@ export default async function Page({ params }: { params: Promise<{ cid: string }
         cur={cm.cur} prior={cm.prior} closed={!!cur.rail} />
       {run && <DecisionClient
         view={view} cid={c.id} cand={c.nm} rj={c.rj}
-        pos={posById(c.p).title} sender={actor}
+        pos={posById(c.p).title} sender={actor} company={await orgName()}
         lock={lock}
         {...(cm.cur[0] ? { comment: cm.cur[0].body } : {})}
       />}
