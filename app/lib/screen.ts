@@ -123,7 +123,7 @@ export async function screenCreate(cid: string, pid: string): Promise<ScreenCrea
 
 /** 처리 안 된 후보자 요청 전부 — 내 할 일 화면이 쓴다. Screen 이 느리면 기다리지 않고 빈 목록. */
 export async function screenRequests(): Promise<ScreenOpenReq[]> {
-  const r = await call('/api/hire/requests', undefined, 3000)
+  const r = await call('/api/hire/requests', undefined, 5000)
   if (!(r instanceof Response) || !r.ok) return []
   try {
     const j = await r.json() as { ok?: boolean; requests?: ScreenOpenReq[] }
