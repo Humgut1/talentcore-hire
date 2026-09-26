@@ -23,6 +23,7 @@ import IvPanel from './IvPanel'
 import DecisionClient from './DecisionClient'
 import StageComments from './StageComments'
 import EvalPanel from './EvalPanel'
+import ScreenBox from './ScreenBox'
 import OfferClient from './OfferClient'
 import { removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
 import { sendDoc } from '../lib/doc-upload'
@@ -425,6 +426,7 @@ function EvalTab({ d }: { d: DrawerData }) {
         {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
       />
       {d.evalGate ? <div style={{ marginTop: 14 }}><EvalPanel gate={d.evalGate} /></div> : null}
+      <ScreenBox cid={d.cid} />
       <Sec t="평가" n={d.evals.length} right={
         d.evals.length ? <Link className="btn quiet" href={`/e/${d.cid}`}>나란히 비교</Link> : null
       } />
