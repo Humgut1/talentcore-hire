@@ -27,8 +27,44 @@ export interface ScreenIv {
   aiScore: number | null
   finalScore: number | null
   reviewer: string | null
-  link: string
+  /** 기록이 지워졌거나 후보자가 담당자 면접을 요청했으면 null */
+  link: string | null
   reportUrl: string | null
+  optedOutAt?: string | null
+  purgedAt?: string | null
+  purgeReason?: string | null
+  requests?: ScreenReq[]
+}
+
+export type ScreenReqKind = 'human' | 'explain' | 'delete'
+export const SCREEN_REQ_LABEL: Record<ScreenReqKind, string> = {
+  human: '담당자 면접 요청',
+  explain: '설명 요청',
+  delete: '기록 삭제 요청',
+}
+
+/** 후보자가 Screen 에서 남긴 요청 (SC4.5) */
+export interface ScreenReq {
+  id: string
+  kind: ScreenReqKind
+  note: string
+  status: 'open' | 'done'
+  createdAt: string
+  handledAt: string | null
+  handledBy: string | null
+}
+
+/** 내 할 일에 올릴 처리 안 된 요청 — Hire 후보자에 붙은 것만 */
+export interface ScreenOpenReq {
+  id: string
+  kind: ScreenReqKind
+  note: string
+  createdAt: string
+  cid: string
+  pid: string | null
+  jobTitle: string
+  submitted: boolean
+  purged: boolean
 }
 
 export interface ScreenSummary {
@@ -39,14 +75,14 @@ export interface ScreenSummary {
 
 export type ScreenFail = { ok: false; reason: 'off' | 'unreachable' | 'token' | 'error' }
 
-async function call(path: string, init?: RequestInit): Promise<Response | ScreenFail> {
+async function call(path: string, init?: RequestInit, ms = 8000): Promise<Response | ScreenFail> {
   if (!screenReady()) return { ok: false, reason: 'off' }
   try {
     const r = await fetch(`${BASE}${path}`, {
       ...init,
       headers: { 'X-Screen-Token': TOKEN, 'Content-Type': 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(ms),
     })
     if (r.status === 401) return { ok: false, reason: 'token' }
     return r
@@ -69,6 +105,7 @@ export type ScreenCreate =
   | { ok: true; reused: boolean; id: string; link: string; expiresAt: string | null }
   | { ok: false; reason: 'no-job'; createUrl: string }
   | { ok: false; reason: 'closed' }
+  | { ok: false; reason: 'opted-out' }
   | ScreenFail
 
 export async function screenCreate(cid: string, pid: string): Promise<ScreenCreate> {
@@ -79,6 +116,24 @@ export async function screenCreate(cid: string, pid: string): Promise<ScreenCrea
     if (r.ok && j.ok && j.id && j.link) return { ok: true, reused: !!j.reused, id: j.id, link: j.link, expiresAt: j.expiresAt ?? null }
     if (j.error === 'no-job' && j.createUrl) return { ok: false, reason: 'no-job', createUrl: j.createUrl }
     if (j.error === 'closed') return { ok: false, reason: 'closed' }
+    if (j.error === 'opted-out') return { ok: false, reason: 'opted-out' }
     return { ok: false, reason: 'error' }
   } catch { return { ok: false, reason: 'error' } }
+}
+
+/** 처리 안 된 후보자 요청 전부 — 내 할 일 화면이 쓴다. Screen 이 느리면 기다리지 않고 빈 목록. */
+export async function screenRequests(): Promise<ScreenOpenReq[]> {
+  const r = await call('/api/hire/requests', undefined, 3000)
+  if (!(r instanceof Response) || !r.ok) return []
+  try {
+    const j = await r.json() as { ok?: boolean; requests?: ScreenOpenReq[] }
+    return j.ok && Array.isArray(j.requests) ? j.requests : []
+  } catch { return [] }
+}
+
+/** 요청 처리 — done = 처리 완료, delete = 그 면접 기록을 지우고 처리 완료 */
+export async function screenHandle(id: string, action: 'done' | 'delete', by: string): Promise<{ ok: true } | ScreenFail> {
+  const r = await call('/api/hire/requests', { method: 'POST', body: JSON.stringify({ id, action, by }) })
+  if (!(r instanceof Response)) return r
+  return r.ok ? { ok: true } : { ok: false, reason: 'error' }
 }

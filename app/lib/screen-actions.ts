@@ -10,7 +10,7 @@ import { cands, posById, personById } from './data'
 import { currentSession } from './session'
 import { orgName } from './core'
 import { sendCandMail } from './maillog'
-import { screenCreate, screenReady, screenSummary, type ScreenSummary } from './screen'
+import { screenCreate, screenHandle, screenReady, screenSummary, type ScreenSummary } from './screen'
 
 export type ScreenView =
   | ({ ok: true } & ScreenSummary)
@@ -59,7 +59,19 @@ export async function sendScreen(cid: string): Promise<{
       '',
       until ? `링크는 ${until}까지 열려 있습니다.` : '',
       '답변은 채용 담당자가 직접 읽고 판단합니다. AI 가 합격·불합격을 정하지 않습니다.',
+      'AI 면접 대신 담당자 면접을 원하시거나, 평가에 대한 설명·기록 삭제를 원하시면 같은 링크에서 요청하실 수 있습니다. 요청해도 불이익은 없습니다.',
     ].filter((l, i, a) => l !== '' || a[i - 1] !== '').join('\n'),
   })
   return { ok: true, link: r.link, reused: r.reused, mailed: m.ok, ...(m.reason ? { mailReason: m.reason } : {}) }
+}
+
+/** 후보자 요청 처리 — 서랍에서 [처리 완료] / [기록 삭제]. 기록자는 로그인한 사람. */
+export async function handleScreenRequest(cid: string, reqId: string, action: 'done' | 'delete'): Promise<{ ok: boolean; reason?: string }> {
+  await need(['cand', cid])
+  if (!/^rq_[0-9a-f]{12}$/.test(reqId)) return { ok: false, reason: 'error' }
+  if (action !== 'done' && action !== 'delete') return { ok: false, reason: 'error' }
+  const s = await currentSession()
+  const by = (s?.pid ? personById(s.pid)?.nm : undefined) || s?.nm || '채용 담당자'
+  const r = await screenHandle(reqId, action, by)
+  return r.ok ? { ok: true } : { ok: false, reason: r.reason }
 }

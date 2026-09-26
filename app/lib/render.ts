@@ -28,6 +28,7 @@ import type { MailerStatus } from './mailer'
 import { reviewQueue } from './review'
 import { otherApps } from './pool'
 import { docKindLabel, sizeLabel, type CandDoc } from './docs'
+import { SCREEN_REQ_LABEL, type ScreenOpenReq } from './screen'
 import { mailKindLabel } from './cand-mail'
 import { appOrigin } from './origin'
 import type { MailRow } from './maillog'
@@ -647,7 +648,7 @@ interface Todo {
   tone: 'esc' | 'late'; href: string; cta: string; ord: number
 }
 
-export function todoFor(p: Person): Todo[] {
+export function todoFor(p: Person, sreq: ScreenOpenReq[] = []): Todo[] {
   const out: Todo[] = []
   const isRec = p.roles.indexOf('리크루터') >= 0
   const mine = (pid: string) => {
@@ -749,6 +750,28 @@ export function todoFor(p: Person): Todo[] {
     }
   }
 
+  /* 5. AI 면접(Screen)에서 후보자가 남긴 요청 — 공고 리크루터에게.
+        공고에 리크루터가 없으면 리크루터 역할 전원에게 뜬다. */
+  for (const q of sreq) {
+    const c = cands.find(x => x.id === q.cid)
+    if (!c) continue
+    const pos = posById(c.p)
+    if (pos.rec ? pos.rec !== p.nm : !isRec) continue
+    const at = new Date(q.createdAt)
+    const age = Math.max(0, daysSince(`${at.getFullYear()}-${at.getMonth() + 1}-${at.getDate()}`))
+    const left = 10 - age
+    out.push({
+      ico: q.kind === 'delete' ? 'i-trash' : 'i-msg', t: SCREEN_REQ_LABEL[q.kind] ?? '후보자 요청',
+      sub: `${c.nm} · ${pos.title}`,
+      d: q.kind === 'delete'
+        ? (left > 0 ? `${left}일 안에 처리하지 않으면 자동으로 지웁니다` : '오늘 자동으로 지웁니다')
+        : q.kind === 'human' ? 'AI 면접 대신 담당자 면접을 원합니다 · 면접을 직접 잡아 주세요'
+        : (q.note ? q.note.slice(0, 60) : 'AI 면접 평가에 대한 설명을 원합니다'),
+      tone: age >= 3 ? 'esc' : 'late',
+      href: `/p/${c.p}/board?c=${c.id}`, cta: '후보자 열기', ord: age,
+    })
+  }
+
   const rank = (x: Todo) => (x.tone === 'esc' ? 0 : 1)
   return out.sort((a, b) => rank(a) - rank(b) || b.ord - a.ord)
 }
@@ -765,18 +788,18 @@ export function unlinkedScreen(h: string, i: string) {
 }
 
 /** fixed = 로그인한 사람으로 고정(남의 화면 고르기 없음). uid 가 명부에 없으면 안내만. */
-export function todoHTML(uid?: string | null, fixed = false) {
+export function todoHTML(uid?: string | null, fixed = false, sreq: ScreenOpenReq[] = []) {
   if (fixed && !people.some(x => x.id === uid)) return unlinkedScreen('내 할 일', 'i-check-sq')
   const who = people.find(x => x.id === uid)
     ?? people.find(x => x.nm === me.name)
     ?? people[0]
-  const list = todoFor(who)
+  const list = todoFor(who, sreq)
   const esced = list.filter(x => x.tone === 'esc').length
 
   /* 로그인이 없는 프로토타입이라, '누구 화면인지'를 직접 고르게 한다.
      할 일이 있는 사람만 칩으로 띄운다 — 빈 사람을 늘어놓을 이유가 없다. */
   const others = people
-    .map(p => ({ p, n: todoFor(p).length }))
+    .map(p => ({ p, n: todoFor(p, sreq).length }))
     .filter(x => x.n > 0 || x.p.id === who.id)
   const picker = fixed ? '' : '<div class="chips" style="margin:0 0 14px;gap:6px">' +
     others.map(x =>

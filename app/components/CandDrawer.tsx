@@ -23,7 +23,8 @@ import IvPanel from './IvPanel'
 import DecisionClient from './DecisionClient'
 import StageComments from './StageComments'
 import EvalPanel from './EvalPanel'
-import ScreenBox from './ScreenBox'
+import ScreenBox, { ScreenWarn } from './ScreenBox'
+import type { ScreenView } from '../lib/screen-actions'
 import OfferClient from './OfferClient'
 import { removeDoc, openDoc, sendMail } from '../lib/drawer-actions'
 import { sendDoc } from '../lib/doc-upload'
@@ -415,8 +416,10 @@ function OverviewTab({ d, setMsg }: { d: DrawerData; setMsg: (s: string) => void
 
 /* ---------- 평가·판정 ---------- */
 function EvalTab({ d }: { d: DrawerData }) {
+  const [sv, setSv] = useState<ScreenView | null>(null)
   return (
     <>
+      <ScreenWarn view={sv} />
       <StageComments cid={d.cid} actor={d.actor} stageNm={d.stage.nm}
         cur={d.comments.cur} prior={d.comments.prior} closed={d.decision.closed} />
       <DecisionClient
@@ -426,7 +429,7 @@ function EvalTab({ d }: { d: DrawerData }) {
         {...(d.comments.cur[0] ? { comment: d.comments.cur[0].body } : {})}
       />
       {d.evalGate ? <div style={{ marginTop: 14 }}><EvalPanel gate={d.evalGate} /></div> : null}
-      <ScreenBox cid={d.cid} />
+      <ScreenBox cid={d.cid} onView={setSv} />
       <Sec t="평가" n={d.evals.length} right={
         d.evals.length ? <Link className="btn quiet" href={`/e/${d.cid}`}>나란히 비교</Link> : null
       } />
