@@ -137,3 +137,31 @@ export async function screenHandle(id: string, action: 'done' | 'delete', by: st
   if (!(r instanceof Response)) return r
   return r.ok ? { ok: true } : { ok: false, reason: 'error' }
 }
+
+/** [영상 보기] 한 문항 — 질문 · 되물은 질문 · 답변(영상 주소는 잠깐만 열림 · 받아 적은 글). 평가 기준·점수 없음 (SC8) */
+export interface ScreenAnswerItem {
+  id: string
+  role: 'ai' | 'candidate'
+  kind: 'intro' | 'question' | 'followUp' | 'answer' | 'closing'
+  text: string
+  media?: { url: string | null; seconds: number; take: number }
+  stt?: 'pending' | 'done' | 'failed'
+  segments?: { s: number; e: number; t: string }[]
+}
+export interface ScreenAnswers {
+  jobTitle: string
+  completedAt: string
+  expiresInSec: number
+  questions: { id: string; text: string; items: ScreenAnswerItem[] }[]
+}
+
+export async function screenAnswers(cid: string, iv: string): Promise<({ ok: true } & ScreenAnswers) | ScreenFail | { ok: false; reason: 'missing' }> {
+  const r = await call(`/api/hire/answers?cid=${encodeURIComponent(cid)}&iv=${encodeURIComponent(iv)}`)
+  if (!(r instanceof Response)) return r
+  if (r.status === 404) return { ok: false, reason: 'missing' }
+  if (!r.ok) return { ok: false, reason: 'error' }
+  try {
+    const j = await r.json() as { ok?: boolean } & ScreenAnswers
+    return j.ok ? { ok: true, jobTitle: j.jobTitle, completedAt: j.completedAt, expiresInSec: j.expiresInSec, questions: j.questions || [] } : { ok: false, reason: 'error' }
+  } catch { return { ok: false, reason: 'error' } }
+}

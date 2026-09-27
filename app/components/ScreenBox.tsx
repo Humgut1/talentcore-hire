@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 import { handleScreenRequest, sendScreen } from '../lib/screen-actions'
 import type { ScreenView } from '../lib/screen-actions'
 import { SCREEN_REQ_LABEL, type ScreenIv, type ScreenReq } from '../lib/screen'
+import ScreenVideos from './ScreenVideos'
 
 const FAIL: Record<string, string> = {
   off: 'Screen 이 아직 연결되지 않았습니다.',
@@ -64,6 +65,7 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
   const [tick, setTick] = useState(0)
   const [msg, setMsg] = useState('')
   const [ask, setAsk] = useState<{ id: string; action: 'done' | 'delete' } | null>(null)
+  const [watch, setWatch] = useState<string | null>(null)
   const [pending, start] = useTransition()
   const busy = useRef(false)
 
@@ -77,7 +79,7 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
   }, [cid, tick])
 
   useEffect(() => { onView?.(view) }, [view, onView])
-  useEffect(() => { setAsk(null); setMsg('') }, [cid])
+  useEffect(() => { setAsk(null); setMsg(''); setWatch(null) }, [cid])
 
   function send() {
     start(async () => {
@@ -192,10 +194,17 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
                     <b className="sb-score">{score != null ? `${score}점` : '채점 대기'}</b>
                   ) : null}
                   <span className="sb-go">
+                    {iv.stage === '제출완료' && !iv.purgedAt ? (
+                      <button className="btn quiet" aria-expanded={watch === iv.id}
+                        onClick={() => setWatch(w => (w === iv.id ? null : iv.id))}>
+                        {watch === iv.id ? '영상 닫기' : '영상 보기'}
+                      </button>
+                    ) : null}
                     {iv.reportUrl ? <a className="btn quiet" href={iv.reportUrl} target="_blank" rel="noreferrer">리포트</a>
                       : !iv.expired && iv.link ? <button className="btn quiet" onClick={() => copy(iv.link as string)}>링크 복사</button> : null}
                   </span>
                 </div>
+                {watch === iv.id ? <ScreenVideos cid={cid} iv={iv.id} /> : null}
                 {(iv.requests ?? []).map(q => reqRow(iv, q))}
               </div>
             )

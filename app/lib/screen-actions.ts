@@ -10,7 +10,7 @@ import { cands, posById, personById } from './data'
 import { currentSession } from './session'
 import { orgName } from './core'
 import { sendCandMail } from './maillog'
-import { screenCreate, screenHandle, screenReady, screenSummary, type ScreenSummary } from './screen'
+import { screenAnswers, screenCreate, screenHandle, screenReady, screenSummary, type ScreenAnswers, type ScreenSummary } from './screen'
 
 export type ScreenView =
   | ({ ok: true } & ScreenSummary)
@@ -23,6 +23,16 @@ export async function screenView(cid: string): Promise<ScreenView> {
   if (!c) return { ok: false, reason: 'no-candidate' }
   if (!screenReady()) return { ok: false, reason: 'off' }
   return screenSummary(cid, c.p)
+}
+
+export type ScreenAnswersView = ({ ok: true } & ScreenAnswers) | { ok: false; reason: string }
+
+/** [영상 보기] — 그 후보자를 볼 수 있는 사람만. 영상 주소는 Screen 이 잠깐만 열리게 만들어 준다 (SC8) */
+export async function screenAnswersView(cid: string, iv: string): Promise<ScreenAnswersView> {
+  await need(['see', cid])
+  if (!/^iv_[0-9a-f]{12}$/.test(iv)) return { ok: false, reason: 'error' }
+  if (!screenReady()) return { ok: false, reason: 'off' }
+  return screenAnswers(cid, iv)
 }
 
 const kdate = (iso: string | null) => {
@@ -53,7 +63,7 @@ export async function sendScreen(cid: string): Promise<{
       `${c.nm}님, 안녕하세요. ${org} 채용 담당자입니다.`,
       '',
       `${pos?.title ?? ''} 전형의 다음 단계로 AI 1차 면접을 안내드립니다.`,
-      '편한 시간에 아래 링크로 들어가 질문에 글로 답하시면 됩니다. 중간에 멈췄다가 같은 링크로 이어서 할 수 있습니다.',
+      '편한 시간에 아래 링크로 들어가 화면 안내에 따라 질문에 답하시면 됩니다. 영상으로 답하는 면접이면 카메라와 마이크가 있는 기기로 들어와 주세요. 중간에 멈췄다가 같은 링크로 이어서 할 수 있습니다.',
       '',
       r.link,
       '',
