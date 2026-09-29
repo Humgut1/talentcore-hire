@@ -231,10 +231,10 @@ button.ivp-cal-h, button.ivp-cal-t{
   background:none; border:0; cursor:pointer; font:inherit; line-height:1.25;
 }
 button.ivp-cal-h:hover, button.ivp-cal-t:hover{ color:var(--t1, #17171c); }
-button.ivp-cal-t{ font-family:var(--mono, ui-monospace, monospace); font-size:10.5px; line-height:22px; }
+button.ivp-cal-t{ font-family:var(--mono, ui-monospace, 'Pretendard Variable', monospace); font-size:10.5px; line-height:22px; }
 .ivp-cal-t{
   font-size:10.5px; color:var(--t4, #a8a8b2); text-align:right; padding-right:6px;
-  font-family:var(--mono, ui-monospace, monospace); white-space:nowrap; line-height:22px;
+  font-family:var(--mono, ui-monospace, 'Pretendard Variable', monospace); white-space:nowrap; line-height:22px;
 }
 .ivp-cell{
   height:22px; border-radius:5px; background:var(--sunken, #f6f6f8);
