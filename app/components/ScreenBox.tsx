@@ -32,12 +32,12 @@ const md = (iso: string | null | undefined) => {
 }
 
 function state(iv: ScreenIv): { l: string; c: string } {
-  if (iv.withdrawnAt) return { l: '지원 그만둠', c: 'bad' }
+  if (iv.withdrawnAt) return { l: '지원 그만둠', c: '' }
   if (iv.purgedAt) return { l: '기록 삭제됨', c: '' }
   if (iv.optedOutAt) return { l: '담당자 면접 요청', c: 'warn' }
-  if (iv.stage === '제출완료') return iv.reviewStatus === '검토완료' ? { l: '검토 완료', c: 'ok' } : { l: '제출', c: 'ok' }
-  if (iv.expired) return { l: '마감 지남', c: 'bad' }
-  return iv.stage === '진행중' ? { l: '진행 중', c: 'warn' } : { l: '보냄 · 시작 전', c: '' }
+  if (iv.stage === '제출완료') return iv.reviewStatus === '검토완료' ? { l: '검토 끝', c: 'ok' } : { l: '검토 대기', c: 'warn' }
+  if (iv.expired) return { l: '링크 만료', c: '' }
+  return iv.stage === '진행중' ? { l: '진행 중', c: 'warn' } : { l: '안 열어 봄', c: '' }
 }
 
 const openReqs = (v: ScreenView | null) =>
@@ -196,6 +196,7 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
                     {iv.reviewer && !iv.purgedAt ? ` · 검토 ${iv.reviewer}` : ''}
                     {iv.leaveCount ? ` · 나갔다 들어옴 ${iv.leaveCount}회` : ''}
                   </span>
+                  {st.l === '검토 대기' ? <p className="sb-hint" style={{ order: 9 }}>아직 아무도 검토하지 않았습니다. 판정 전에 답변을 봐 주세요.</p> : null}
                   {iv.stage === '제출완료' && !iv.purgedAt ? (
                     <b className="sb-score">{score != null ? `${score}점` : '채점 대기'}</b>
                   ) : null}
