@@ -33,14 +33,20 @@ export interface ScreenIv {
   optedOutAt?: string | null
   purgedAt?: string | null
   purgeReason?: string | null
+  /** 후보자가 면접 중 지원을 그만둔 시각 · 이유 (SC11) — 영상은 그때 지워진다 */
+  withdrawnAt?: string | null
+  withdrawReason?: string | null
+  /** 잠시 나갔다 들어온 횟수 */
+  leaveCount?: number
   requests?: ScreenReq[]
 }
 
-export type ScreenReqKind = 'human' | 'explain' | 'delete'
+export type ScreenReqKind = 'human' | 'explain' | 'delete' | 'withdraw'
 export const SCREEN_REQ_LABEL: Record<ScreenReqKind, string> = {
   human: '담당자 면접 요청',
   explain: '설명 요청',
   delete: '기록 삭제 요청',
+  withdraw: '지원 그만둠',
 }
 
 /** 후보자가 Screen 에서 남긴 요청 (SC4.5) */
@@ -106,6 +112,7 @@ export type ScreenCreate =
   | { ok: false; reason: 'no-job'; createUrl: string }
   | { ok: false; reason: 'closed' }
   | { ok: false; reason: 'opted-out' }
+  | { ok: false; reason: 'withdrawn' }
   | ScreenFail
 
 export async function screenCreate(cid: string, pid: string): Promise<ScreenCreate> {
@@ -117,6 +124,7 @@ export async function screenCreate(cid: string, pid: string): Promise<ScreenCrea
     if (j.error === 'no-job' && j.createUrl) return { ok: false, reason: 'no-job', createUrl: j.createUrl }
     if (j.error === 'closed') return { ok: false, reason: 'closed' }
     if (j.error === 'opted-out') return { ok: false, reason: 'opted-out' }
+    if (j.error === 'withdrawn') return { ok: false, reason: 'withdrawn' }
     return { ok: false, reason: 'error' }
   } catch { return { ok: false, reason: 'error' } }
 }

@@ -761,11 +761,12 @@ export function todoFor(p: Person, sreq: ScreenOpenReq[] = []): Todo[] {
     const age = Math.max(0, daysSince(`${at.getFullYear()}-${at.getMonth() + 1}-${at.getDate()}`))
     const left = 10 - age
     out.push({
-      ico: q.kind === 'delete' ? 'i-trash' : 'i-msg', t: SCREEN_REQ_LABEL[q.kind] ?? '후보자 요청',
+      ico: q.kind === 'delete' || q.kind === 'withdraw' ? 'i-trash' : 'i-msg', t: SCREEN_REQ_LABEL[q.kind] ?? '후보자 요청',
       sub: `${c.nm} · ${pos.title}`,
       d: q.kind === 'delete'
         ? (left > 0 ? `${left}일 안에 처리하지 않으면 자동으로 지웁니다` : '오늘 자동으로 지웁니다')
         : q.kind === 'human' ? 'AI 면접 대신 담당자 면접을 원합니다 · 면접을 직접 잡아 주세요'
+        : q.kind === 'withdraw' ? `AI 면접 중 지원을 그만뒀습니다${q.note ? ` · ${q.note}` : ''} · 영상은 지워짐`
         : (q.note ? q.note.slice(0, 60) : 'AI 면접 평가에 대한 설명을 원합니다'),
       tone: age >= 3 ? 'esc' : 'late',
       href: `/p/${c.p}/board?c=${c.id}`, cta: '후보자 열기', ord: age,

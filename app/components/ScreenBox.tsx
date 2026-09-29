@@ -19,6 +19,7 @@ const FAIL: Record<string, string> = {
   error: 'Screen 이 요청을 처리하지 못했습니다.',
   closed: '이 공고의 AI 면접 질문 묶음이 마감되어 보낼 수 없습니다.',
   'opted-out': '후보자가 AI 대신 담당자 면접을 요청해서 AI 면접을 보내지 않습니다.',
+  withdrawn: '후보자가 AI 면접 중 지원을 그만둬서 다시 보내지 않습니다.',
   forbidden: '이 후보자에게 AI 면접을 보낼 권한이 없습니다.',
   demo: '데모에서는 할 수 없습니다.',
   'no-candidate': '후보자를 찾지 못했습니다.',
@@ -31,6 +32,7 @@ const md = (iso: string | null | undefined) => {
 }
 
 function state(iv: ScreenIv): { l: string; c: string } {
+  if (iv.withdrawnAt) return { l: '지원 그만둠', c: 'bad' }
   if (iv.purgedAt) return { l: '기록 삭제됨', c: '' }
   if (iv.optedOutAt) return { l: '담당자 면접 요청', c: 'warn' }
   if (iv.stage === '제출완료') return iv.reviewStatus === '검토완료' ? { l: '검토 완료', c: 'ok' } : { l: '제출', c: 'ok' }
@@ -125,6 +127,7 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
   const cur = view.interviews[0]
   const open = cur && cur.stage !== '제출완료' && !cur.expired && !cur.purgedAt
   const optedOut = view.interviews.some(iv => iv.optedOutAt)
+  const withdrawn = view.interviews.find(iv => iv.withdrawnAt)
 
   const reqRow = (iv: ScreenIv, q: ScreenReq) => {
     const confirming = ask?.id === q.id
@@ -153,6 +156,7 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
         ) : null}
         {q.note ? <p className="sb-note-q">{q.note}</p> : null}
         {q.status === 'open' && q.kind === 'human' ? <p className="sb-hint">면접 일정을 직접 잡은 뒤 처리 완료를 누르세요.</p> : null}
+        {q.status === 'open' && q.kind === 'withdraw' ? <p className="sb-hint">후보자가 면접 중 지원을 그만뒀습니다. 올린 영상은 이미 지워졌습니다. 불합격·이탈로 정리한 뒤 처리 완료를 누르세요.</p> : null}
         {q.status === 'open' && q.kind === 'delete' ? <p className="sb-hint">처리하지 않으면 요청일로부터 10일 뒤 자동으로 지웁니다.</p> : null}
       </div>
     )
@@ -186,9 +190,11 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
                   <span className={'pill ' + st.c}>{st.l}</span>
                   <span className="sb-m">
                     보냄 {md(iv.invitedAt)}
-                    {iv.purgedAt ? ` · 삭제 ${md(iv.purgedAt)}`
+                    {iv.withdrawnAt ? ` · 그만둠 ${md(iv.withdrawnAt)}${iv.withdrawReason ? ` · ${iv.withdrawReason}` : ''} · 영상 삭제됨`
+                      : iv.purgedAt ? ` · 삭제 ${md(iv.purgedAt)}`
                       : iv.stage === '제출완료' ? ` · 제출 ${md(iv.completedAt)}` : ` · 마감 ${md(iv.expiresAt)}`}
                     {iv.reviewer && !iv.purgedAt ? ` · 검토 ${iv.reviewer}` : ''}
+                    {iv.leaveCount ? ` · 나갔다 들어옴 ${iv.leaveCount}회` : ''}
                   </span>
                   {iv.stage === '제출완료' && !iv.purgedAt ? (
                     <b className="sb-score">{score != null ? `${score}점` : '채점 대기'}</b>
@@ -212,7 +218,11 @@ export default function ScreenBox({ cid, onView }: { cid: string; onView?: (v: S
         </div>
       ) : null}
 
-      {optedOut ? (
+      {withdrawn ? (
+        <div className="sb-act">
+          <span className="sb-note">후보자가 AI 면접 중 지원을 그만뒀습니다. 이 공고에서는 AI 면접을 다시 보내지 않습니다.</span>
+        </div>
+      ) : optedOut ? (
         <div className="sb-act">
           <span className="sb-note">후보자가 AI 대신 담당자 면접을 요청했습니다. 이 공고에서는 AI 면접을 다시 보내지 않습니다.</span>
         </div>
