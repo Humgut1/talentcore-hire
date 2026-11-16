@@ -17,6 +17,7 @@ export default function GateLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
+        <script src="https://humgut1.github.io/home.js" defer />
       </head>
       <body>{children}</body>
     </html>

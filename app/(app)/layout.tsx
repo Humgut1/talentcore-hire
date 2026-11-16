@@ -67,6 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Unbounded:wght@700&display=swap"
         />
+        <script src="https://humgut1.github.io/home.js" defer />
       </head>
       <body>
         <IconSprite />

